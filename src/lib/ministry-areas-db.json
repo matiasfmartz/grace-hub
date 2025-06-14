@@ -3,10 +3,13 @@
     "id": "ma1",
     "name": "Youth Ministry",
     "description": "Engaging young people with faith and community activities.",
-    "leaderId": "6",
+    "leaderId": "5",
     "memberIds": [
       "1",
-      "4"
+      "4",
+      "8",
+      "7",
+      "1749877175613-ls6oqv6"
     ],
     "imageUrl": "https://placehold.co/600x400"
   },
@@ -17,8 +20,7 @@
     "leaderId": "7",
     "memberIds": [
       "2",
-      "5",
-      "1749877175613-ls6oqv6"
+      "5"
     ],
     "imageUrl": "https://placehold.co/600x400"
   },

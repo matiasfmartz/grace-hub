@@ -20,7 +20,7 @@ async function readMinistryAreasFromDb(): Promise<MinistryArea[]> {
     return JSON.parse(fileContent);
   } catch (error) {
     console.error("Failed to read ministry-areas-db.json for manage page:", error);
-    return []; // Return empty if error, notFound will handle if area isn't found
+    return [];
   }
 }
 
@@ -39,23 +39,67 @@ export async function updateMinistryAreaDetailsAction(
   updatedData: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description' | 'imageUrl'>>
 ): Promise<{ success: boolean; message: string; updatedArea?: MinistryArea }> {
   try {
-    let currentAreas = await readMinistryAreasFromDb();
-    const areaIndex = currentAreas.findIndex(area => area.id === areaId);
+    let allCurrentAreas = await readMinistryAreasFromDb();
+    const areaIndex = allCurrentAreas.findIndex(area => area.id === areaId);
 
     if (areaIndex === -1) {
       return { success: false, message: `Ministry Area with ID ${areaId} not found.` };
     }
 
-    const updatedArea = { ...currentAreas[areaIndex], ...updatedData };
-    currentAreas[areaIndex] = updatedArea;
+    const currentAreaBeforeUpdate = { ...allCurrentAreas[areaIndex] }; // Deep copy for comparison
 
-    await fs.writeFile(MINISTRY_AREAS_DB_PATH, JSON.stringify(currentAreas, null, 2), 'utf-8');
+    // Apply updates to the area
+    const areaAfterClientUpdate = { ...currentAreaBeforeUpdate, ...updatedData };
+    allCurrentAreas[areaIndex] = areaAfterClientUpdate;
+
+    await fs.writeFile(MINISTRY_AREAS_DB_PATH, JSON.stringify(allCurrentAreas, null, 2), 'utf-8');
+    
+    // Now, synchronize member assignments in members-db.json
+    let allMembers = await readMembersFromDb();
+    
+    const oldMemberSet = new Set([currentAreaBeforeUpdate.leaderId, ...(currentAreaBeforeUpdate.memberIds || [])].filter(Boolean));
+    const newMemberSet = new Set([areaAfterClientUpdate.leaderId, ...(areaAfterClientUpdate.memberIds || [])].filter(Boolean));
+
+    const membersAddedToArea = Array.from(newMemberSet).filter(id => !oldMemberSet.has(id));
+    const membersRemovedFromArea = Array.from(oldMemberSet).filter(id => !newMemberSet.has(id));
+
+    let membersDbChanged = false;
+
+    membersAddedToArea.forEach(memberId => {
+      const memberIndex = allMembers.findIndex(m => m.id === memberId);
+      if (memberIndex !== -1) {
+        if (!allMembers[memberIndex].assignedAreaIds) {
+          allMembers[memberIndex].assignedAreaIds = [];
+        }
+        if (!allMembers[memberIndex].assignedAreaIds!.includes(areaId)) {
+          allMembers[memberIndex].assignedAreaIds!.push(areaId);
+          membersDbChanged = true;
+        }
+      }
+    });
+
+    membersRemovedFromArea.forEach(memberId => {
+      const memberIndex = allMembers.findIndex(m => m.id === memberId);
+      if (memberIndex !== -1 && allMembers[memberIndex].assignedAreaIds) {
+        const initialLength = allMembers[memberIndex].assignedAreaIds!.length;
+        allMembers[memberIndex].assignedAreaIds = allMembers[memberIndex].assignedAreaIds!.filter(id => id !== areaId);
+        if (allMembers[memberIndex].assignedAreaIds!.length !== initialLength) {
+          membersDbChanged = true;
+        }
+      }
+    });
+
+    if (membersDbChanged) {
+      await fs.writeFile(MEMBERS_DB_PATH, JSON.stringify(allMembers, null, 2), 'utf-8');
+    }
+
     revalidatePath(`/groups/ministry-areas/${areaId}/manage`);
-    revalidatePath('/groups'); // Also revalidate the main groups page
+    revalidatePath('/groups');
+    revalidatePath('/members'); // Revalidate member directory
 
-    return { success: true, message: `Ministry Area "${updatedArea.name}" updated successfully.`, updatedArea };
+    return { success: true, message: `Ministry Area "${areaAfterClientUpdate.name}" updated successfully. Member assignments synchronized.`, updatedArea: areaAfterClientUpdate };
   } catch (error: any) {
-    console.error("Error updating ministry area:", error);
+    console.error("Error updating ministry area and member assignments:", error);
     return { success: false, message: `Error updating ministry area: ${error.message}` };
   }
 }
@@ -76,7 +120,7 @@ export default async function ManageMinistryAreaPage({ params }: ManageMinistryA
   const { ministryArea, allMembers } = await getData(params.areaId);
 
   if (!ministryArea) {
-    notFound(); // Or a custom "Area not found" component
+    notFound();
   }
   
   const activeMembers = allMembers.filter(m => m.status === 'Active');
@@ -99,8 +143,8 @@ export default async function ManageMinistryAreaPage({ params }: ManageMinistryA
       </div>
       <ManageSingleMinistryAreaView
         ministryArea={ministryArea}
-        allMembers={allMembers} // Full list for display
-        activeMembers={activeMembers} // Active list for selection
+        allMembers={allMembers} 
+        activeMembers={activeMembers}
         updateMinistryAreaAction={updateMinistryAreaDetailsAction}
       />
     </div>
