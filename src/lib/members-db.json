@@ -157,11 +157,7 @@
     "status": "Active",
     "avatarUrl": "https://placehold.co/100x100",
     "assignedGDIId": "gdi2",
-    "assignedAreaIds": [
-      "ma1",
-      "ma3",
-      "ma2"
-    ],
+    "assignedAreaIds": [],
     "id": "1749877175613-ls6oqv6"
   },
   {
