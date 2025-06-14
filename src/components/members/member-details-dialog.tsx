@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+// DialogDescription import is removed as it's no longer used to wrap the Badge.
+// If a text description is needed elsewhere, DialogDescription can be used, but not to wrap block elements like Badge.
 
 interface MemberDetailsDialogProps {
   member: Member | null;
@@ -49,6 +51,7 @@ export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMi
             </Avatar>
             <div>
               <DialogTitle className="text-2xl">{member.firstName} {member.lastName}</DialogTitle>
+              {/* Badge is now placed in a div, sibling to DialogTitle, to avoid nesting in a <p> tag. */}
               <div className="mt-1">
                 <Badge variant={
                     member.status === 'Active' ? 'default' :
