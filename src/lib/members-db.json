@@ -140,7 +140,7 @@
     "attendsLifeSchool": false,
     "attendsBibleInstitute": true,
     "fromAnotherChurch": false,
-    "assignedGDIId": null,
+    "assignedGDIId": "gdi2",
     "assignedAreaIds": []
   },
   {
@@ -156,8 +156,12 @@
     "fromAnotherChurch": true,
     "status": "Active",
     "avatarUrl": "https://placehold.co/100x100",
-    "assignedGDIId": "gdi2",
-    "assignedAreaIds": [],
+    "assignedGDIId": "gdi1",
+    "assignedAreaIds": [
+      "ma1",
+      "ma3",
+      "1749880199537-cvuyxy3"
+    ],
     "id": "1749877175613-ls6oqv6"
   },
   {
@@ -176,5 +180,23 @@
     "assignedGDIId": null,
     "assignedAreaIds": [],
     "id": "1749877205345-hd6yhu7"
+  },
+  {
+    "firstName": "Maximo",
+    "lastName": "Martinez",
+    "email": "maximo@maximo.com",
+    "phone": "13213123123",
+    "baptismDate": "",
+    "attendsLifeSchool": true,
+    "attendsBibleInstitute": false,
+    "fromAnotherChurch": true,
+    "status": "Active",
+    "avatarUrl": "https://placehold.co/100x100",
+    "assignedGDIId": "gdi2",
+    "assignedAreaIds": [
+      "ma3",
+      "1749880199537-cvuyxy3"
+    ],
+    "id": "1749880160940-30020fm"
   }
 ]

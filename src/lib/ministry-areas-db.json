@@ -8,7 +8,8 @@
       "1",
       "4",
       "8",
-      "7"
+      "7",
+      "1749877175613-ls6oqv6"
     ],
     "imageUrl": "https://placehold.co/600x400"
   },
@@ -29,8 +30,21 @@
     "description": "Serving the local community and sharing our faith.",
     "leaderId": "8",
     "memberIds": [
-      "4"
+      "4",
+      "1749880160940-30020fm",
+      "1749877175613-ls6oqv6"
     ],
     "imageUrl": "https://placehold.co/600x400"
+  },
+  {
+    "name": "Buen Samaritano",
+    "description": "Caridad en las calles.",
+    "imageUrl": "https://placehold.co/600x400",
+    "leaderId": "1749877175613-ls6oqv6",
+    "id": "1749880199537-cvuyxy3",
+    "memberIds": [
+      "1749880160940-30020fm",
+      "1749877175613-ls6oqv6"
+    ]
   }
 ]

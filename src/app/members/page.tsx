@@ -65,6 +65,28 @@ export async function addSingleMemberAction(newMemberData: MemberWriteData): Pro
       avatarUrl: newMemberData.avatarUrl || 'https://placehold.co/100x100',
     };
 
+    // If assigned to a GDI, ensure they are not also guide of that GDI via this flow
+    // GDI guide assignment is primarily managed from GDI management.
+    // Here, if assignedGDIId is set, they are a member.
+    if (newMemberWithId.assignedGDIId) {
+        let allGdis = await readGdisFromDb();
+        const gdiIndex = allGdis.findIndex(gdi => gdi.id === newMemberWithId.assignedGDIId);
+        if (gdiIndex !== -1) {
+            if (allGdis[gdiIndex].guideId === newMemberWithId.id) {
+                // This scenario should ideally be prevented by UI, but as a safeguard:
+                // A member cannot be added as a regular member if they are already the guide.
+                // Or, if UI allows assigning GDI and member becomes guide simultaneously (not current flow for this action)
+                // For now, this action assumes assignedGDIId makes them a *member*.
+                // If this conflict happens, perhaps clear assignedGDIId or flag.
+                // For simplicity, let's assume the new member is not simultaneously being made a guide here.
+            } else if (!allGdis[gdiIndex].memberIds.includes(newMemberWithId.id)) {
+                allGdis[gdiIndex].memberIds.push(newMemberWithId.id);
+                await fs.writeFile(GDIS_DB_PATH, JSON.stringify(allGdis, null, 2), 'utf-8');
+            }
+        }
+    }
+
+
     const updatedMembers = [...currentMembers, newMemberWithId];
     await fs.writeFile(MEMBERS_DB_PATH, JSON.stringify(updatedMembers, null, 2), 'utf-8');
 
@@ -86,23 +108,7 @@ export async function addSingleMemberAction(newMemberData: MemberWriteData): Pro
         await fs.writeFile(MINISTRY_AREAS_DB_PATH, JSON.stringify(allMinistryAreas, null, 2), 'utf-8');
       }
     }
-
-    // Synchronize with GDIs
-    const assignedGDIId = newMemberWithId.assignedGDIId;
-    if (assignedGDIId) {
-      let allGdis = await readGdisFromDb();
-      const gdiIndex = allGdis.findIndex(gdi => gdi.id === assignedGDIId);
-      if (gdiIndex !== -1) {
-        // A member can only be in one GDI. Ensure they are not in other GDI member lists.
-        // (This specific action assumes the member is NEW, so no need to remove from old GDI lists here,
-        // but if they were somehow assigned to multiple by mistake in form, this logic would be more complex).
-        if (!allGdis[gdiIndex].memberIds.includes(newMemberWithId.id) && allGdis[gdiIndex].guideId !== newMemberWithId.id) {
-          allGdis[gdiIndex].memberIds.push(newMemberWithId.id);
-          await fs.writeFile(GDIS_DB_PATH, JSON.stringify(allGdis, null, 2), 'utf-8');
-        }
-      }
-    }
-
+    
     revalidatePath('/members');
     revalidatePath('/groups');
     if (newMemberWithId.assignedAreaIds) {
@@ -110,8 +116,8 @@ export async function addSingleMemberAction(newMemberData: MemberWriteData): Pro
         revalidatePath(`/groups/ministry-areas/${areaId}/manage`);
       });
     }
-    if (assignedGDIId) {
-        revalidatePath(`/groups/gdis/${assignedGDIId}/manage`);
+    if (newMemberWithId.assignedGDIId) {
+        revalidatePath(`/groups/gdis/${newMemberWithId.assignedGDIId}/manage`);
     }
     
     return { success: true, message: `Miembro ${newMemberWithId.firstName} ${newMemberWithId.lastName} agregado exitosamente.`, newMember: newMemberWithId };
@@ -143,7 +149,7 @@ export async function updateMemberAction(updatedMemberData: Member): Promise<{ s
     currentMembers[memberIndex] = memberToUpdate;
     await fs.writeFile(MEMBERS_DB_PATH, JSON.stringify(currentMembers, null, 2), 'utf-8');
 
-    // Synchronize with Ministry Areas
+    // Synchronize with Ministry Areas (as before)
     const originalAreaIds = new Set(originalMemberData.assignedAreaIds || []);
     const updatedAreaIds = new Set(memberToUpdate.assignedAreaIds || []);
     const areasAddedTo = Array.from(updatedAreaIds).filter(id => !originalAreaIds.has(id));
@@ -163,6 +169,8 @@ export async function updateMemberAction(updatedMemberData: Member): Promise<{ s
         const areaIndex = allMinistryAreas.findIndex(area => area.id === areaId);
         if (areaIndex !== -1) {
           allMinistryAreas[areaIndex].memberIds = allMinistryAreas[areaIndex].memberIds.filter(id => id !== memberToUpdate.id);
+           // If member was leader of this area, this is more complex. Area mgmt should handle leader changes.
+           // For now, just remove as member. If they were leader, area management needs to update it.
           ministryAreasDbChanged = true;
         }
       });
@@ -178,31 +186,32 @@ export async function updateMemberAction(updatedMemberData: Member): Promise<{ s
     if (oldGdiId !== newGdiId) {
       let allGdis = await readGdisFromDb();
       let gdisDbChanged = false;
+      
       // Remove from old GDI if exists
       if (oldGdiId) {
         const oldGdiIndex = allGdis.findIndex(gdi => gdi.id === oldGdiId);
         if (oldGdiIndex !== -1) {
+          // If member was the guide of the old GDI
+          if (allGdis[oldGdiIndex].guideId === memberToUpdate.id) {
+            allGdis[oldGdiIndex].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${oldGdiId}`; // Placeholder for admin
+          }
+          // Remove from member list of old GDI
           allGdis[oldGdiIndex].memberIds = allGdis[oldGdiIndex].memberIds.filter(id => id !== memberToUpdate.id);
-          // If member was the guide of the old GDI, that GDI now has no guide or needs a new one.
-          // This logic should ideally be handled from GDI management. For now, we just remove as member.
-          // if (allGdis[oldGdiIndex].guideId === memberToUpdate.id) {
-          //   allGdis[oldGdiIndex].guideId = // some default or null. This is complex.
-          // }
           gdisDbChanged = true;
         }
       }
-      // Add to new GDI if exists
+      
+      // Add to new GDI if exists (as a member, not guide)
       if (newGdiId) {
         const newGdiIndex = allGdis.findIndex(gdi => gdi.id === newGdiId);
         if (newGdiIndex !== -1) {
-          // Ensure member is not already in the new GDI's member list (could happen if they are also the guide)
-          if (!allGdis[newGdiIndex].memberIds.includes(memberToUpdate.id) && allGdis[newGdiIndex].guideId !== memberToUpdate.id) {
+          // Ensure member is not the guide of the new GDI (guide changes handled by GDI management)
+          // And ensure not already in memberIds (though this update implies a change)
+          if (allGdis[newGdiIndex].guideId !== memberToUpdate.id && 
+              !allGdis[newGdiIndex].memberIds.includes(memberToUpdate.id)) {
             allGdis[newGdiIndex].memberIds.push(memberToUpdate.id);
+            gdisDbChanged = true;
           }
-          // If this member is now the guide of the new GDI, it's handled by GDI management.
-          // Here, we are just concerned about their membership if assignedGDIId implies general membership.
-          // The form ensures a guide isn't also in memberIds of the same GDI.
-          gdisDbChanged = true;
         }
       }
       if (gdisDbChanged) {

@@ -11,13 +11,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { Loader2, Save, Users, UserCheck, ArrowLeft, Edit3, Search, UserPlus, UserMinus, Badge } from 'lucide-react';
+import { Loader2, Save, Users, UserCheck, ArrowLeft, Edit3, Search, UserPlus, UserMinus, Badge as UIBadge } from 'lucide-react'; // Renamed Badge to UIBadge
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ManageSingleGdiViewProps {
   gdi: GDI;
-  allMembers: Member[]; // All members for assignment (any status)
-  activeMembers: Member[]; // Active members for guide selection
+  allMembers: Member[]; 
+  activeMembers: Member[]; 
+  allGdis: GDI[]; // All GDIs to check for existing guides/members
   updateGdiAction: (
     gdiId: string,
     updatedData: Partial<Pick<GDI, 'name' | 'guideId' | 'memberIds'>>
@@ -28,6 +29,7 @@ export default function ManageSingleGdiView({
   gdi: initialGdi,
   allMembers,
   activeMembers,
+  allGdis, // Receive all GDIs
   updateGdiAction,
 }: ManageSingleGdiViewProps) {
   const [editableGdi, setEditableGdi] = useState<GDI>(initialGdi);
@@ -49,11 +51,11 @@ export default function ManageSingleGdiView({
     setEditableGdi(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleGuideChange = (guideId: string) => {
+  const handleGuideChange = (newGuideId: string) => {
     setEditableGdi(prev => {
-      // Ensure new guide is not in the memberIds list for this GDI
-      const newMemberIds = (prev.memberIds || []).filter(id => id !== guideId);
-      return { ...prev, guideId, memberIds: newMemberIds };
+      // If the new guide was in memberIds, remove them
+      const updatedMemberIds = (prev.memberIds || []).filter(id => id !== newGuideId);
+      return { ...prev, guideId: newGuideId, memberIds: updatedMemberIds };
     });
   };
 
@@ -71,38 +73,38 @@ export default function ManageSingleGdiView({
 
   const handleAddSelectedMembersToGdi = () => {
     if (selectedAvailableMembers.length === 0) return;
-    setEditableGdi(prevGdi => ({
-      ...prevGdi,
-      memberIds: Array.from(new Set([...(prevGdi.memberIds || []), ...selectedAvailableMembers]))
-                       .filter(id => id !== prevGdi.guideId) // Ensure guide is not in memberIds
-    }));
+    setEditableGdi(prevGdi => {
+      const newFullMemberList = Array.from(new Set([...(prevGdi.memberIds || []), ...selectedAvailableMembers]));
+      // Ensure the current guide is not in the memberIds list
+      const finalMemberIds = newFullMemberList.filter(id => id !== prevGdi.guideId);
+      return { ...prevGdi, memberIds: finalMemberIds };
+    });
     setSelectedAvailableMembers([]); 
   };
 
   const handleRemoveSelectedMembersFromGdi = () => {
     if (selectedAssignedMembers.length === 0) return;
-    // Prevent removing the guide via this method is not strictly necessary as guide is handled separately,
-    // but it's good practice to keep memberIds distinct from guideId for clarity if that's the model.
-    // However, current logic allows guide to be in memberIds, then filters out.
     setEditableGdi(prevGdi => ({
       ...prevGdi,
-      memberIds: (prevGdi.memberIds || []).filter(id => !selectedAssignedMembers.includes(id))
+      memberIds: (prevGdi.memberIds || []).filter(id => !selectedAssignedMembers.includes(id) && id !== prevGdi.guideId)
     }));
     setSelectedAssignedMembers([]); 
   };
 
   const handleSubmit = () => {
     startTransition(async () => {
+      // Ensure memberIds does not contain the guideId before sending to server
+      const finalMemberIds = (editableGdi.memberIds || []).filter(id => id !== editableGdi.guideId);
       const finalDataToUpdate = {
         name: editableGdi.name,
         guideId: editableGdi.guideId,
-        memberIds: (editableGdi.memberIds || []).filter(mId => mId !== editableGdi.guideId), // Ensure guide is not double-counted
+        memberIds: finalMemberIds,
       };
 
       const result = await updateGdiAction(initialGdi.id, finalDataToUpdate);
       if (result.success && result.updatedGdi) {
         toast({ title: "Éxito", description: "GDI actualizado correctamente." });
-        setEditableGdi(result.updatedGdi); // Reflect server-side changes, e.g., if server modified memberIds
+        setEditableGdi(result.updatedGdi); 
         setSelectedAvailableMembers([]); 
         setSelectedAssignedMembers([]); 
         if (typeof window !== "undefined" && result.updatedGdi.name !== initialGdi.name) {
@@ -119,18 +121,33 @@ export default function ManageSingleGdiView({
   }, [editableGdi.guideId, allMembers]);
 
   const availableMembersForAssignment = useMemo(() => {
-    // Members of any status can be assigned to a GDI
-    return allMembers.filter(member =>
-      member.id !== editableGdi.guideId && // Cannot assign current guide as a regular member here
-      !(editableGdi.memberIds || []).includes(member.id) && // Not already in this GDI's member list
-      (`${member.firstName} ${member.lastName}`.toLowerCase().includes(addMemberSearchTerm.toLowerCase()) ||
-       member.email.toLowerCase().includes(addMemberSearchTerm.toLowerCase()))
-    );
-  }, [allMembers, editableGdi.guideId, editableGdi.memberIds, addMemberSearchTerm]);
+    return allMembers.filter(member => {
+      // Rule 1: Not the guide of THIS GDI
+      if (member.id === editableGdi.guideId) return false;
+      
+      // Rule 2: Not already a member of THIS GDI
+      if ((editableGdi.memberIds || []).includes(member.id)) return false;
+      
+      // Rule 3: Member's assignedGDIId in members-db.json must be null or empty
+      // (Indicates they are not part of any GDI)
+      if (member.assignedGDIId && member.assignedGDIId !== "") return false;
+      
+      // Rule 4: Member is NOT a guide of ANY OTHER GDI
+      const isGuideOfAnotherGdi = allGdis.some(gdi => gdi.id !== initialGdi.id && gdi.guideId === member.id);
+      if (isGuideOfAnotherGdi) return false;
+
+      // Pass search term
+      return (`${member.firstName} ${member.lastName}`.toLowerCase().includes(addMemberSearchTerm.toLowerCase()) ||
+              member.email.toLowerCase().includes(addMemberSearchTerm.toLowerCase()));
+    });
+  }, [allMembers, editableGdi.guideId, editableGdi.memberIds, addMemberSearchTerm, allGdis, initialGdi.id]);
 
   const currentlyAssignedDisplayMembers = useMemo(() => {
-    return (editableGdi.memberIds || []).map(id => allMembers.find(m => m.id === id)).filter(Boolean) as Member[];
-  }, [editableGdi.memberIds, allMembers]);
+    return (editableGdi.memberIds || [])
+      .filter(id => id !== editableGdi.guideId) // Ensure guide is not in this list for display
+      .map(id => allMembers.find(m => m.id === id))
+      .filter(Boolean) as Member[];
+  }, [editableGdi.memberIds, editableGdi.guideId, allMembers]);
 
 
   return (
@@ -148,7 +165,6 @@ export default function ManageSingleGdiView({
             </div>
         </CardHeader>
         <CardContent className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            {/* Left Pane: Guide and Name */}
             <div className="lg:col-span-2 space-y-6">
                 <div className="p-4 border rounded-lg shadow-sm bg-card">
                     <h3 className="text-lg font-semibold mb-3 flex items-center"><UserCheck className="mr-2 h-5 w-5 text-muted-foreground" />Guía del GDI</h3>
@@ -159,12 +175,21 @@ export default function ManageSingleGdiView({
                         </SelectTrigger>
                         <SelectContent>
                             {activeMembers.map((member) => (
-                            <SelectItem key={member.id} value={member.id} disabled={member.id === editableGdi.guideId}>
+                            <SelectItem 
+                                key={member.id} 
+                                value={member.id} 
+                                // Disable if member is already a guide of another GDI (unless it's the current GDI's original guide)
+                                disabled={member.id === editableGdi.guideId || allGdis.some(g => g.guideId === member.id && g.id !== initialGdi.id)}
+                            >
                                 {member.firstName} {member.lastName} ({member.email})
+                                {allGdis.some(g => g.guideId === member.id && g.id !== initialGdi.id) && " (Guía de otro GDI)"}
                             </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
+                     {editableGdi.guideId && !activeMembers.find(m=>m.id === editableGdi.guideId) && (
+                        <p className="text-xs text-destructive mt-1">El guía actual no está activo o no se encuentra. Por favor, seleccione un guía activo.</p>
+                    )}
                 </div>
 
                 <div className="p-4 border rounded-lg shadow-sm bg-card">
@@ -174,13 +199,12 @@ export default function ManageSingleGdiView({
                 </div>
             </div>
 
-            {/* Right Pane: Member Management */}
             <div className="lg:col-span-3 space-y-6">
                  <div className="p-4 border rounded-lg shadow-sm bg-card">
                     <h3 className="text-lg font-semibold mb-3 flex items-center"><UserPlus className="mr-2 h-5 w-5 text-muted-foreground" />Agregar Miembros al GDI</h3>
                     <Input
                         type="search"
-                        placeholder="Buscar miembros para agregar..."
+                        placeholder="Buscar miembros disponibles para agregar..."
                         value={addMemberSearchTerm}
                         onChange={(e) => setAddMemberSearchTerm(e.target.value)}
                         className="mb-3"
@@ -201,7 +225,7 @@ export default function ManageSingleGdiView({
                         </div>
                         )) : (
                         <p className="text-sm text-muted-foreground text-center py-4">
-                            {addMemberSearchTerm ? "No hay miembros que coincidan con su búsqueda." : "Todos los miembros disponibles ya están asignados o seleccionados como guía."}
+                            {addMemberSearchTerm ? "No hay miembros que coincidan." : "No hay miembros disponibles para agregar (verifique que no estén asignados a otro GDI o sean guías)."}
                         </p>
                         )}
                     </ScrollArea>
@@ -217,38 +241,28 @@ export default function ManageSingleGdiView({
                 
                 <div className="p-4 border rounded-lg shadow-sm bg-card">
                     <h3 className="text-lg font-semibold mb-3 flex items-center"><Users className="mr-2 h-5 w-5 text-muted-foreground" />Miembros Actualmente Asignados</h3>
-                     <p className="text-sm text-muted-foreground mb-3">
-                        Total de miembros en GDI (incluyendo guía): {
-                            new Set([editableGdi.guideId, ...(editableGdi.memberIds || [])].filter(Boolean)).size
-                        }
+                     <p className="text-sm text-muted-foreground mb-1">
+                        Guía: {guideDetails ? `${guideDetails.firstName} ${guideDetails.lastName}` : 'Ninguno seleccionado'}
+                    </p>
+                    <p className="text-sm text-muted-foreground mb-3">
+                        Total de miembros (excluyendo guía): {currentlyAssignedDisplayMembers.length}
                     </p>
                     <ScrollArea className="h-48 w-full rounded-md border p-2">
-                        {guideDetails && (
-                             <div className="flex items-center justify-between p-2 rounded-md bg-primary/10">
-                                <span className="font-medium text-sm text-primary">{guideDetails.firstName} {guideDetails.lastName}</span>
-                                <Badge variant="default" className="text-xs">Guía</Badge>
-                            </div>
-                        )}
                         {currentlyAssignedDisplayMembers.map((member) => (
-                            member.id !== editableGdi.guideId && ( 
-                                <div key={`assigned-${member.id}`} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-md">
-                                    <Checkbox
-                                        id={`remove-member-${member.id}`}
-                                        checked={selectedAssignedMembers.includes(member.id)}
-                                        disabled={isPending}
-                                        onCheckedChange={(checked) => handleAssignedMemberSelection(member.id, Boolean(checked))}
-                                    />
-                                    <Label htmlFor={`remove-member-${member.id}`} className="font-normal text-sm cursor-pointer flex-grow">
-                                        {member.firstName} {member.lastName} ({member.status})
-                                    </Label>
-                                </div>
-                            )
+                            <div key={`assigned-${member.id}`} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-md">
+                                <Checkbox
+                                    id={`remove-member-${member.id}`}
+                                    checked={selectedAssignedMembers.includes(member.id)}
+                                    disabled={isPending}
+                                    onCheckedChange={(checked) => handleAssignedMemberSelection(member.id, Boolean(checked))}
+                                />
+                                <Label htmlFor={`remove-member-${member.id}`} className="font-normal text-sm cursor-pointer flex-grow">
+                                    {member.firstName} {member.lastName} ({member.status})
+                                </Label>
+                            </div>
                         ))}
-                        {(!guideDetails && currentlyAssignedDisplayMembers.length === 0) && (
-                             <p className="text-sm text-muted-foreground text-center py-4">Ningún miembro asignado (excluyendo guía).</p>
-                        )}
-                         {(guideDetails && currentlyAssignedDisplayMembers.length === 0) && (
-                             <p className="text-sm text-muted-foreground text-center py-4 mt-2">Ningún miembro adicional asignado.</p>
+                        {currentlyAssignedDisplayMembers.length === 0 && (
+                             <p className="text-sm text-muted-foreground text-center py-4">Ningún miembro adicional asignado.</p>
                         )}
                     </ScrollArea>
                     <Button 
