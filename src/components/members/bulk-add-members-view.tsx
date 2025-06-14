@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 interface BulkAddMembersViewProps {
   allGDIs: GDI[];
   allMinistryAreas: MinistryArea[];
-  allMembers: Member[]; // Used by AddMemberForm for GDI guide/Area leader names
+  allMembers: Member[];
 }
 
 export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembers }: BulkAddMembersViewProps) {
@@ -52,23 +52,22 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
       return;
     }
 
-    // Simulate saving to backend
     console.log("Simulando guardado de los siguientes miembros:", stagedMembers.map(m => ({...m, id: `final-${m.id.replace('staged-','')}`})));
-    
-    setRecentlyProcessedMembers([...stagedMembers]);
+
+    setRecentlyProcessedMembers(prev => [...prev, ...stagedMembers]); // Append to recently processed
     setStagedMembers([]);
-    
+
     toast({
       title: "Éxito",
       description: `${stagedMembers.length} miembro(s) han sido procesados. Revísalos en la sección 'Miembros Recientemente Procesados'.`,
     });
-    // No redirect here, user stays on page
   };
-  
+
   const getGdiGuideNameFromList = (member: Member): string => {
     if (!member.assignedGDIId) return "No asignado";
     const gdi = allGDIs.find(g => g.id === member.assignedGDIId);
     if (!gdi) return "GDI no encontrado";
+    // Use initial allMembers prop for guide lookup as the members state on this page might not have all guides.
     const guide = allMembers.find(m => m.id === gdi.guideId);
     return guide ? `${guide.firstName} ${guide.lastName}` : "Guía no encontrado";
   };
@@ -83,11 +82,11 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
   };
 
   const handleStartNewBatch = () => {
-    setRecentlyProcessedMembers([]);
-    setStagedMembers([]); // Also clear staged members if any
+    // Clear only recently processed for a new "reporting" batch, staged members remain if user wants to continue adding to current staging list
+    setRecentlyProcessedMembers([]); 
     toast({
-      title: "Nuevo Lote Iniciado",
-      description: "Puedes comenzar a agregar nuevos miembros.",
+      title: "Visor de Lote Limpio",
+      description: "La lista de miembros recientemente procesados ha sido limpiada. Puede continuar agregando miembros o guardar un nuevo lote.",
     });
   };
 
@@ -96,7 +95,7 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
   };
 
   const renderMembersTable = (membersToList: Member[], isStagedTable: boolean) => (
-    <div className="overflow-x-auto max-h-[calc(100vh-300px)]"> {/* Adjusted max-height */}
+    <div className="overflow-x-auto max-h-[calc(100vh-350px)]"> {/* Adjusted max-height for better fit */}
       <Table>
         <TableHeader>
           <TableRow>
@@ -153,7 +152,7 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
     <div className="space-y-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
-          <Card className="sticky top-4"> {/* Make form sticky */}
+          <Card className="sticky top-4">
             <CardHeader>
               <CardTitle>Formulario de Nuevo Miembro</CardTitle>
             </CardHeader>
@@ -161,10 +160,11 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
               <div className="max-h-[calc(100vh-250px)] overflow-y-auto pr-2">
                   <AddMemberForm
                       onAddMember={handleStageMember}
-                      onOpenChange={() => {}}
                       allGDIs={allGDIs}
                       allMinistryAreas={allMinistryAreas}
-                      allMembers={allMembers}
+                      allMembers={allMembers} // Pass all members for form select options
+                      submitButtonText="Preparar Miembro"
+                      clearButtonText="Limpiar Formulario"
                   />
               </div>
             </CardContent>
@@ -176,13 +176,13 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle className="flex items-center"><Users className="mr-2 h-6 w-6" /> Miembros Preparados ({stagedMembers.length})</CardTitle>
-                <Button 
-                  onClick={handleSaveAllStagedMembers} 
+                <Button
+                  onClick={handleSaveAllStagedMembers}
                   disabled={stagedMembers.length === 0}
                   size="lg"
                 >
                   <Save className="mr-2 h-5 w-5" />
-                  Guardar Todos los Preparados
+                  Guardar Lote Actual
                 </Button>
               </div>
             </CardHeader>
@@ -208,15 +208,12 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
                     </CardTitle>
                      <div className="flex gap-2">
                         <Button onClick={handleStartNewBatch} variant="outline">
-                            <Undo2 className="mr-2 h-4 w-4" /> Iniciar Nuevo Lote
-                        </Button>
-                        <Button onClick={handleReturnToDirectory}>
-                            <Home className="mr-2 h-4 w-4" /> Volver al Directorio
+                            <Undo2 className="mr-2 h-4 w-4" /> Limpiar Lista de Procesados
                         </Button>
                     </div>
                  </div>
                  <p className="text-sm text-muted-foreground pt-2">
-                    Estos miembros han sido "guardados" en esta sesión. Para persistencia real, se requiere integración con base de datos.
+                    Estos miembros han sido "procesados" en esta sesión. Para persistencia real en el directorio general, se requiere integración con base de datos.
                  </p>
               </CardHeader>
               <CardContent>
@@ -226,22 +223,11 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
           )}
         </div>
       </div>
-      {recentlyProcessedMembers.length === 0 && stagedMembers.length > 0 && (
-         <div className="text-center mt-8 lg:col-span-3">
+      <div className="text-center mt-8 lg:col-span-3 pb-8">
             <Button onClick={handleReturnToDirectory} variant="outline" size="lg">
-                <Home className="mr-2 h-4 w-4" /> Volver al Directorio sin guardar
+                <Home className="mr-2 h-4 w-4" /> Volver al Directorio de Miembros
             </Button>
-        </div>
-      )}
-       {recentlyProcessedMembers.length === 0 && stagedMembers.length === 0 && (
-         <div className="text-center mt-8 lg:col-span-3">
-            <Button onClick={handleReturnToDirectory} variant="outline" size="lg">
-                <Home className="mr-2 h-4 w-4" /> Volver al Directorio
-            </Button>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
-
-    

@@ -36,7 +36,7 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
     if (!member.assignedGDIId) return "No asignado";
     const gdi = allGDIs.find(g => g.id === member.assignedGDIId);
     if (!gdi) return "GDI no encontrado";
-    const guide = members.find(m => m.id === gdi.guideId);
+    const guide = members.find(m => m.id === gdi.guideId); // Use 'members' state which can be updated
     return guide ? `${guide.firstName} ${guide.lastName}` : "Guía no encontrado";
   }, [allGDIs, members]);
 
@@ -54,7 +54,8 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
     if (searchTerm) {
       membersToSort = membersToSort.filter(member =>
         `${member.firstName} ${member.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.status.toLowerCase().includes(searchTerm.toLowerCase())
+        member.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        getGdiGuideName(member).toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -70,14 +71,14 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
 
       if (valA === undefined || valA === null) valA = '';
       if (valB === undefined || valB === null) valB = '';
-      
+
       if (typeof valA === 'string' && typeof valB === 'string') {
         return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
       }
       if (typeof valA === 'number' && typeof valB === 'number') {
         return sortOrder === 'asc' ? valA - valB : valB - valA;
       }
-      
+
       if (sortKey === 'birthDate' || sortKey === 'churchJoinDate') {
           const dateA = valA ? new Date(valA as string).getTime() : 0;
           const dateB = valB ? new Date(valB as string).getTime() : 0;
@@ -86,7 +87,7 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
       return 0;
     });
     return membersToSort;
-  }, [members, searchTerm, sortKey, sortOrder]);
+  }, [members, searchTerm, sortKey, sortOrder, getGdiGuideName]);
 
   const handleOpenDetailsDialog = (member: Member) => {
     setSelectedMember(member);
@@ -100,9 +101,9 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
 
   const handleAddMember = useCallback((newMember: Member) => {
     setMembers(prevMembers => [newMember, ...prevMembers]);
-    // In a real app, you'd likely call an API to save the member here
+    setIsAddMemberDialogOpen(false); // Close dialog after adding
   }, []);
-  
+
   const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
     if (sortKey !== columnKey) return null;
     return sortOrder === 'asc' ? <ArrowUpNarrowWide size={16} /> : <ArrowDownNarrowWide size={16} />;
@@ -124,8 +125,8 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Buscar miembros por nombre o estado..."
-            className="w-full md:w-1/2 lg:w-1/3 pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-primary focus:border-primary"
+            placeholder="Buscar por nombre, estado o guía GDI..."
+            className="w-full md:w-1/2 lg:w-2/3 xl:w-1/3 pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-primary focus:border-primary"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -149,7 +150,7 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
               <TableHead className="w-[80px]">Avatar</TableHead>
               <TableHead onClick={() => handleSort('fullName')} className="cursor-pointer">
                 <div className="flex items-center gap-1 hover:text-primary">
-                  Nombre <SortIcon columnKey="fullName" />
+                  Nombre Completo <SortIcon columnKey="fullName" />
                 </div>
               </TableHead>
               <TableHead>Teléfono</TableHead>
@@ -204,7 +205,7 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
       )}
       <MemberDetailsDialog
         member={selectedMember}
-        allMembers={members} 
+        allMembers={members}
         allGDIs={allGDIs}
         allMinistryAreas={allMinistryAreas}
         isOpen={isDetailsDialogOpen}
@@ -215,16 +216,18 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
           <DialogHeader className="p-6 border-b sticky top-0 bg-background z-10">
             <DialogTitle>Agregar Nuevo Miembro</DialogTitle>
             <DialogDescription>
-              Complete los detalles del nuevo miembro de la iglesia. Haga clic en guardar cuando haya terminado.
+              Complete los detalles del nuevo miembro de la iglesia. Haga clic en "Agregar Miembro" cuando haya terminado.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto">
-            <AddMemberForm 
-              onOpenChange={setIsAddMemberDialogOpen} 
+            <AddMemberForm
+              onOpenChange={setIsAddMemberDialogOpen}
               onAddMember={handleAddMember}
               allGDIs={allGDIs}
               allMinistryAreas={allMinistryAreas}
               allMembers={members}
+              submitButtonText="Agregar Miembro"
+              clearButtonText="Cancelar"
             />
           </div>
         </DialogContent>

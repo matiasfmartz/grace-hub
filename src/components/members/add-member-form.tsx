@@ -28,11 +28,13 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 
 interface AddMemberFormProps {
-  onOpenChange: (open: boolean) => void; // For dialog control in single add mode
-  onAddMember: (newMember: Member) => void; // Callback to add member (to list or state)
+  onOpenChange?: (open: boolean) => void; // For dialog control
+  onAddMember: (newMember: Member) => void;
   allGDIs: GDI[];
   allMinistryAreas: MinistryArea[];
-  allMembers: Member[]; // For GDI guide/Area leader name lookup
+  allMembers: Member[];
+  submitButtonText: string;
+  clearButtonText: string;
 }
 
 export default function AddMemberForm({
@@ -41,6 +43,8 @@ export default function AddMemberForm({
   allGDIs,
   allMinistryAreas,
   allMembers,
+  submitButtonText,
+  clearButtonText,
 }: AddMemberFormProps) {
   const form = useForm<AddMemberFormValues>({
     resolver: zodResolver(AddMemberFormSchema),
@@ -64,17 +68,13 @@ export default function AddMemberForm({
 
   function onSubmit(values: AddMemberFormValues) {
     const newMember: Member = {
-      id: Date.now().toString(), // Temporary ID, real ID would come from backend
+      id: Date.now().toString(),
       ...values,
       birthDate: values.birthDate ? values.birthDate.toISOString().split('T')[0] : undefined,
       churchJoinDate: values.churchJoinDate ? values.churchJoinDate.toISOString().split('T')[0] : undefined,
       assignedGDIId: values.assignedGDIId === NONE_GDI_OPTION_VALUE ? null : values.assignedGDIId,
     };
-    onAddMember(newMember); // This adds to staged list (bulk) or main list (single)
-    
-    // Reset form for next entry (useful in bulk mode)
-    // For single add mode, onOpenChange(false) is called by the Dialog's logic if this form is inside a Dialog.
-    // However, to ensure form is clean for next use *if* it's reused in bulk mode:
+    onAddMember(newMember);
     form.reset({
       firstName: "",
       lastName: "",
@@ -93,6 +93,13 @@ export default function AddMemberForm({
     });
   }
 
+  const handleClearOrCancel = () => {
+    form.reset();
+    if (onOpenChange && clearButtonText === "Cancelar") { // Specific check for dialog context
+        onOpenChange(false);
+    }
+  };
+
   const getMemberName = (memberId: string | undefined | null) => {
     if (!memberId) return "N/A";
     const member = allMembers.find(m => m.id === memberId);
@@ -101,7 +108,7 @@ export default function AddMemberForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-1 sm:p-6"> {/* Adjusted padding for smaller screens */}
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-1 sm:p-6">
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
@@ -198,8 +205,8 @@ export default function AddMemberForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Estado</FormLabel>
-                    <Select 
-                        onValueChange={field.onChange} 
+                    <Select
+                        onValueChange={field.onChange}
                         defaultValue={field.value}
                     >
                       <FormControl>
@@ -279,17 +286,16 @@ export default function AddMemberForm({
                   )}
                 />
             </div>
-            
+
             <FormField
                 control={form.control}
                 name="assignedGDIId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Asignar a GDI</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value || NONE_GDI_OPTION_VALUE}
-                      value={field.value || NONE_GDI_OPTION_VALUE} // Ensure value is controlled
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value || NONE_GDI_OPTION_VALUE}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -309,7 +315,7 @@ export default function AddMemberForm({
                   </FormItem>
                 )}
               />
-              
+
               <div className="space-y-2">
                 <Label>Asignar a Áreas de Ministerio</Label>
                 <FormField
@@ -357,13 +363,10 @@ export default function AddMemberForm({
               </div>
           </div>
         <div className="flex justify-end space-x-2 pt-6 border-t mt-6">
-          <Button type="button" variant="outline" onClick={() => {
-            // onOpenChange(false); // This is for dialogs, not directly used in bulk mode's primary action
-            form.reset(); // Reset form on cancel/clear
-            }}>
-            Limpiar Formulario
+          <Button type="button" variant="outline" onClick={handleClearOrCancel}>
+            {clearButtonText}
           </Button>
-          <Button type="submit">Preparar Miembro</Button>
+          <Button type="submit">{submitButtonText}</Button>
         </div>
       </form>
     </Form>
