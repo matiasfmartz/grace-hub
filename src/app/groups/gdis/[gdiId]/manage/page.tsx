@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { getGdiById, getAllGdis, updateGdiAndSyncMembers } from '@/services/gdiService';
-import { getAllMembers } from '@/services/memberService';
+import { getAllMembersNonPaginated, placeholderMembers } from '@/services/memberService';
 
 
 export async function updateGdiDetailsAction(
@@ -16,7 +16,15 @@ export async function updateGdiDetailsAction(
   updatedData: Partial<Pick<GDI, 'name' | 'guideId' | 'memberIds'>>
 ): Promise<{ success: boolean; message: string; updatedGdi?: GDI }> {
   try {
-    const updatedGdi = await updateGdiAndSyncMembers(gdiIdToUpdate, updatedData);
+    // Ensure memberIds does not contain the guideId before sending to server
+    const finalMemberIds = (updatedData.memberIds || []).filter(id => id !== updatedData.guideId);
+    const finalDataToUpdate = {
+      name: updatedData.name,
+      guideId: updatedData.guideId,
+      memberIds: finalMemberIds,
+    };
+    
+    const updatedGdi = await updateGdiAndSyncMembers(gdiIdToUpdate, finalDataToUpdate);
 
     revalidatePath(`/groups/gdis/${gdiIdToUpdate}/manage`);
     revalidatePath('/groups');
@@ -35,10 +43,10 @@ interface ManageGdiPageProps {
 
 async function getData(gdiId: string): Promise<{ gdi: GDI | null; allMembers: Member[]; activeMembers: Member[]; allGdis: GDI[] }> {
   const gdi = await getGdiById(gdiId);
-  const allGdisData = await getAllGdis(); // Fetch all GDIs
-  const allMembers = await getAllMembers();
-  const activeMembers = allMembers.filter(m => m.status === 'Active');
-  return { gdi, allMembers, activeMembers, allGdis: allGdisData };
+  const allGdisData = await getAllGdis(); 
+  const allMembersData = await getAllMembersNonPaginated();
+  const activeMembers = allMembersData.filter(m => m.status === 'Active');
+  return { gdi, allMembers: allMembersData, activeMembers, allGdis: allGdisData };
 }
 
 export default async function ManageGdiPage({ params }: ManageGdiPageProps) {
@@ -68,7 +76,7 @@ export default async function ManageGdiPage({ params }: ManageGdiPageProps) {
         gdi={gdi}
         allMembers={allMembers} 
         activeMembers={activeMembers}
-        allGdis={allGdis} // Pass allGdis to the view component
+        allGdis={allGdis} 
         updateGdiAction={updateGdiDetailsAction}
       />
     </div>

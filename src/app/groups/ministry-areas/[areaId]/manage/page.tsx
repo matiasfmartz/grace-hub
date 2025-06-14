@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { getMinistryAreaById, updateMinistryAreaAndSyncMembers } from '@/services/ministryAreaService';
-import { getAllMembers } from '@/services/memberService';
+import { getAllMembersNonPaginated } from '@/services/memberService';
 
 export async function updateMinistryAreaDetailsAction(
   areaId: string,
@@ -34,8 +34,8 @@ interface ManageMinistryAreaPageProps {
 
 async function getData(areaId: string): Promise<{ ministryArea: MinistryArea | null; allMembers: Member[] }> {
   const ministryArea = await getMinistryAreaById(areaId);
-  const allMembers = await getAllMembers();
-  return { ministryArea, allMembers };
+  const allMembersData = await getAllMembersNonPaginated();
+  return { ministryArea, allMembers: allMembersData };
 }
 
 export default async function ManageMinistryAreaPage({ params }: ManageMinistryAreaPageProps) {

@@ -3,7 +3,7 @@
 import type { Member, GDI, MinistryArea, MemberWriteData } from '@/lib/types';
 import BulkAddMembersView from '@/components/members/bulk-add-members-view';
 import { revalidatePath } from 'next/cache';
-import { getAllMembers, addMember, addMemberToAssignments } from '@/services/memberService';
+import { addMember, addMemberToAssignments, getAllMembersNonPaginated } from '@/services/memberService';
 import { getAllGdis } from '@/services/gdiService';
 import { getAllMinistryAreas } from '@/services/ministryAreaService';
 
@@ -31,10 +31,10 @@ export async function addBulkMembersAction(stagedMembersData: MemberWriteData[])
 }
 
 async function getData(): Promise<{ members: Member[], gdis: GDI[], ministryAreas: MinistryArea[] }> {
-  const members = await getAllMembers();
+  const membersData = await getAllMembersNonPaginated();
   const gdis = await getAllGdis();
   const ministryAreas = await getAllMinistryAreas();
-  return { members, gdis, ministryAreas };
+  return { members: membersData, gdis, ministryAreas };
 }
 
 export default async function BulkAddMembersPage() {
@@ -51,7 +51,7 @@ export default async function BulkAddMembersPage() {
       <BulkAddMembersView 
         allGDIs={gdis}
         allMinistryAreas={ministryAreas}
-        allMembers={members}
+        allMembers={members} // This will now be an array
         addBulkMembersAction={addBulkMembersAction}
       />
     </div>
