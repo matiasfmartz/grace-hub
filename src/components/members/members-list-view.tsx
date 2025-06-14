@@ -8,10 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus } from 'lucide-react';
+import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus } from 'lucide-react';
 import MemberDetailsDialog from './member-details-dialog';
 import AddMemberForm from './add-member-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import Link from 'next/link';
 
 interface MembersListViewProps {
   initialMembers: Member[];
@@ -118,7 +119,7 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
 
   return (
     <>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
         <div className="relative flex-grow">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
@@ -129,9 +130,16 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button onClick={() => setIsAddMemberDialogOpen(true)}>
-          <UserPlus className="mr-2 h-4 w-4" /> Agregar Nuevo Miembro
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setIsAddMemberDialogOpen(true)}>
+            <UserPlus className="mr-2 h-4 w-4" /> Agregar Nuevo Miembro
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/members/bulk-add">
+              <ListPlus className="mr-2 h-4 w-4" /> Agregar Múltiples Miembros
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="overflow-x-auto bg-card rounded-lg shadow-md">
@@ -224,4 +232,3 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
     </>
   );
 }
-

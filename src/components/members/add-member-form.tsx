@@ -28,11 +28,11 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 
 interface AddMemberFormProps {
-  onOpenChange: (open: boolean) => void;
-  onAddMember: (newMember: Member) => void;
+  onOpenChange: (open: boolean) => void; // For dialog control in single add mode
+  onAddMember: (newMember: Member) => void; // Callback to add member (to list or state)
   allGDIs: GDI[];
   allMinistryAreas: MinistryArea[];
-  allMembers: Member[];
+  allMembers: Member[]; // For GDI guide/Area leader name lookup
 }
 
 export default function AddMemberForm({
@@ -64,15 +64,33 @@ export default function AddMemberForm({
 
   function onSubmit(values: AddMemberFormValues) {
     const newMember: Member = {
-      id: Date.now().toString(), 
+      id: Date.now().toString(), // Temporary ID, real ID would come from backend
       ...values,
       birthDate: values.birthDate ? values.birthDate.toISOString().split('T')[0] : undefined,
       churchJoinDate: values.churchJoinDate ? values.churchJoinDate.toISOString().split('T')[0] : undefined,
       assignedGDIId: values.assignedGDIId === NONE_GDI_OPTION_VALUE ? null : values.assignedGDIId,
     };
-    onAddMember(newMember);
-    onOpenChange(false); 
-    form.reset();
+    onAddMember(newMember); // This adds to staged list (bulk) or main list (single)
+    
+    // Reset form for next entry (useful in bulk mode)
+    // For single add mode, onOpenChange(false) is called by the Dialog's logic if this form is inside a Dialog.
+    // However, to ensure form is clean for next use *if* it's reused in bulk mode:
+    form.reset({
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      birthDate: undefined,
+      churchJoinDate: undefined,
+      baptismDate: "",
+      attendsLifeSchool: false,
+      attendsBibleInstitute: false,
+      fromAnotherChurch: false,
+      status: "New",
+      avatarUrl: "",
+      assignedGDIId: NONE_GDI_OPTION_VALUE,
+      assignedAreaIds: [],
+    });
   }
 
   const getMemberName = (memberId: string | undefined | null) => {
@@ -83,8 +101,7 @@ export default function AddMemberForm({
 
   return (
     <Form {...form}>
-      {/* The parent div in members-list-view.tsx will handle scrolling */}
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-1 sm:p-6"> {/* Adjusted padding for smaller screens */}
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
@@ -207,7 +224,7 @@ export default function AddMemberForm({
                   <FormItem className="md:col-span-2">
                     <FormLabel>URL del Avatar (Opcional)</FormLabel>
                     <FormControl>
-                      <Input type="url" placeholder="https://example.com/avatar.png" {...field} />
+                      <Input type="url" placeholder="https://placehold.co/100x100" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -242,7 +259,7 @@ export default function AddMemberForm({
                           onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                      <FormLabel className="font-normal mb-0!">¿Asiste al Instituto Bíblico Externo (IBE)?</FormLabel>
+                      <FormLabel className="font-normal mb-0!">¿Asiste al Instituto Bíblico (IBE)?</FormLabel>
                     </FormItem>
                   )}
                 />
@@ -272,6 +289,7 @@ export default function AddMemberForm({
                     <Select 
                       onValueChange={field.onChange} 
                       defaultValue={field.value || NONE_GDI_OPTION_VALUE}
+                      value={field.value || NONE_GDI_OPTION_VALUE} // Ensure value is controlled
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -298,8 +316,6 @@ export default function AddMemberForm({
                   control={form.control}
                   name="assignedAreaIds"
                   render={() => (
-                    // This div might need a max-height and overflow-y-auto if the list of areas is very long
-                    // For now, relying on the parent scroll for the whole form.
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2 border rounded-md max-h-48 overflow-y-auto">
                       {allMinistryAreas.map((area) => (
                         <FormField
@@ -342,12 +358,12 @@ export default function AddMemberForm({
           </div>
         <div className="flex justify-end space-x-2 pt-6 border-t mt-6">
           <Button type="button" variant="outline" onClick={() => {
-            onOpenChange(false);
-            form.reset();
+            // onOpenChange(false); // This is for dialogs, not directly used in bulk mode's primary action
+            form.reset(); // Reset form on cancel/clear
             }}>
-            Cancelar
+            Limpiar Formulario
           </Button>
-          <Button type="submit">Agregar Miembro</Button>
+          <Button type="submit">Preparar Miembro</Button>
         </div>
       </form>
     </Form>
