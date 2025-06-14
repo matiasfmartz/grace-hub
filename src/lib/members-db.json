@@ -32,7 +32,7 @@
     "attendsLifeSchool": false,
     "attendsBibleInstitute": true,
     "fromAnotherChurch": true,
-    "assignedGDIId": "gdi1",
+    "assignedGDIId": null,
     "assignedAreaIds": [
       "ma2"
     ]
@@ -156,7 +156,7 @@
     "fromAnotherChurch": true,
     "status": "Active",
     "avatarUrl": "https://placehold.co/100x100",
-    "assignedGDIId": "gdi1",
+    "assignedGDIId": null,
     "assignedAreaIds": [
       "ma1",
       "ma3",
@@ -177,7 +177,7 @@
     "fromAnotherChurch": false,
     "status": "New",
     "avatarUrl": "https://placehold.co/100x100",
-    "assignedGDIId": null,
+    "assignedGDIId": "gdi2",
     "assignedAreaIds": [],
     "id": "1749877205345-hd6yhu7"
   },

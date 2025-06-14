@@ -35,138 +35,125 @@ async function readMembersFromDb(): Promise<Member[]> {
 }
 
 export async function updateGdiDetailsAction(
-  gdiId: string,
+  gdiIdToUpdate: string,
   updatedData: Partial<Pick<GDI, 'name' | 'guideId' | 'memberIds'>>
 ): Promise<{ success: boolean; message: string; updatedGdi?: GDI }> {
   try {
-    let allCurrentGdis = await readGdisFromDb();
+    let allGdis = await readGdisFromDb();
     let allMembers = await readMembersFromDb();
     
-    const gdiIndex = allCurrentGdis.findIndex(gdi => gdi.id === gdiId);
-    if (gdiIndex === -1) {
-      return { success: false, message: `GDI con ID ${gdiId} no encontrado.` };
+    const gdiIndexToUpdate = allGdis.findIndex(gdi => gdi.id === gdiIdToUpdate);
+    if (gdiIndexToUpdate === -1) {
+      return { success: false, message: `GDI con ID ${gdiIdToUpdate} no encontrado.` };
     }
 
-    const originalGdi = { ...allCurrentGdis[gdiIndex] };
-    let membersDbChanged = false;
-    let gdisDbChanged = false; // To track if other GDIs were modified
+    const originalGdi = { ...allGdis[gdiIndexToUpdate] }; // Deep copy
 
+    // --- Prepare new GDI state ---
     const newName = updatedData.name ?? originalGdi.name;
-    const newGuideId = updatedData.guideId ?? originalGdi.guideId;
-    // Ensure client sends memberIds that DO NOT include the newGuideId
-    const newMemberIdsFromClient = (updatedData.memberIds ?? originalGdi.memberIds).filter(id => id !== newGuideId);
+    const newGuideId = updatedData.guideId ?? originalGdi.guideId; // This must be a valid member ID
+    const newMemberIdsFromClient = updatedData.memberIds ?? originalGdi.memberIds;
+    // Ensure the new guide is not in the member list for THIS GDI
+    const finalMemberIdsForThisGDI = newMemberIdsFromClient.filter(id => id !== newGuideId);
 
 
-    // 1. Handle Guide Change
+    // --- Handle Guide Change ---
     if (newGuideId && newGuideId !== originalGdi.guideId) {
-      // Demote old guide (if one existed for this GDI)
+      // 1. Demote Old Guide (of this GDI)
       if (originalGdi.guideId) {
         const oldGuideMemberIndex = allMembers.findIndex(m => m.id === originalGdi.guideId);
-        if (oldGuideMemberIndex !== -1 && allMembers[oldGuideMemberIndex].assignedGDIId === gdiId) {
+        if (oldGuideMemberIndex !== -1 && allMembers[oldGuideMemberIndex].assignedGDIId === gdiIdToUpdate) {
           allMembers[oldGuideMemberIndex].assignedGDIId = null;
-          membersDbChanged = true;
         }
       }
 
-      // Promote new guide
-      const newGuideMemberIndex = allMembers.findIndex(m => m.id === newGuideId);
-      if (newGuideMemberIndex !== -1) {
-        const previousGdiIdOfNewGuide = allMembers[newGuideMemberIndex].assignedGDIId;
+      // 2. Promote New Guide (for this GDI)
+      const newGuideMemberIndexInAllMembers = allMembers.findIndex(m => m.id === newGuideId);
+      if (newGuideMemberIndexInAllMembers !== -1) {
+        const newGuideObject = allMembers[newGuideMemberIndexInAllMembers];
+        const previousGDIIdOfNewGuide = newGuideObject.assignedGDIId;
 
-        // If new guide was guiding another GDI, that GDI needs a new (placeholder) guide
-        const otherGdiGuidedByNewGuideIndex = allCurrentGdis.findIndex(g => g.guideId === newGuideId && g.id !== gdiId);
+        // 2a. If new guide was guiding another GDI:
+        const otherGdiGuidedByNewGuideIndex = allGdis.findIndex(g => g.guideId === newGuideId && g.id !== gdiIdToUpdate);
         if (otherGdiGuidedByNewGuideIndex !== -1) {
-          allCurrentGdis[otherGdiGuidedByNewGuideIndex].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${allCurrentGdis[otherGdiGuidedByNewGuideIndex].id}`;
+          allGdis[otherGdiGuidedByNewGuideIndex].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${allGdis[otherGdiGuidedByNewGuideIndex].id}`;
           // Also remove the new guide from the member list of the GDI they previously guided
-          allCurrentGdis[otherGdiGuidedByNewGuideIndex].memberIds = allCurrentGdis[otherGdiGuidedByNewGuideIndex].memberIds.filter(id => id !== newGuideId);
-          gdisDbChanged = true;
+          allGdis[otherGdiGuidedByNewGuideIndex].memberIds = allGdis[otherGdiGuidedByNewGuideIndex].memberIds.filter(id => id !== newGuideId);
         }
         
-        // If new guide was a member of another GDI (and not its guide), remove them from that GDI's member list
-        if (previousGdiIdOfNewGuide && previousGdiIdOfNewGuide !== gdiId) {
-           const previousGdiDataIndex = allCurrentGdis.findIndex(g => g.id === previousGdiIdOfNewGuide);
-           if (previousGdiDataIndex !== -1 && allCurrentGdis[previousGdiDataIndex].guideId !== newGuideId) { // was not guide, just member
-             allCurrentGdis[previousGdiDataIndex].memberIds = allCurrentGdis[previousGdiDataIndex].memberIds.filter(id => id !== newGuideId);
-             gdisDbChanged = true;
+        // 2b. If new guide was a member of another GDI (and not its guide):
+        if (previousGDIIdOfNewGuide && previousGDIIdOfNewGuide !== gdiIdToUpdate) {
+           const previousGdiDataIndex = allGdis.findIndex(g => g.id === previousGDIIdOfNewGuide);
+           if (previousGdiDataIndex !== -1 && allGdis[previousGdiDataIndex].guideId !== newGuideId) { // was not guide, just member
+             allGdis[previousGdiDataIndex].memberIds = allGdis[previousGdiDataIndex].memberIds.filter(id => id !== newGuideId);
            }
         }
         
-        allMembers[newGuideMemberIndex].assignedGDIId = gdiId;
-        membersDbChanged = true;
+        // 2c. Update new guide's assignment in members DB
+        allMembers[newGuideMemberIndexInAllMembers].assignedGDIId = gdiIdToUpdate;
       }
-    } else if (!newGuideId && originalGdi.guideId) {
-        // Guide was removed without replacement (should be handled by client validation, but as a safeguard)
-        // Demote old guide if their assignedGDIId was this gdiId
+    } else if (!newGuideId && originalGdi.guideId) { // Guide was removed without replacement
         const oldGuideMemberIndex = allMembers.findIndex(m => m.id === originalGdi.guideId);
-        if (oldGuideMemberIndex !== -1 && allMembers[oldGuideMemberIndex].assignedGDIId === gdiId) {
+        if (oldGuideMemberIndex !== -1 && allMembers[oldGuideMemberIndex].assignedGDIId === gdiIdToUpdate) {
             allMembers[oldGuideMemberIndex].assignedGDIId = null;
-            membersDbChanged = true;
         }
     }
 
 
-    // 2. Handle Member List Changes (ensure newGuideId is not in this list)
-    const finalEffectiveMemberIds = newMemberIdsFromClient.filter(id => id !== newGuideId);
+    // --- Handle Member List Changes for this GDI ---
     const originalEffectiveMemberIds = originalGdi.memberIds.filter(id => id !== originalGdi.guideId);
 
-    const membersAddedToGdi = finalEffectiveMemberIds.filter(id => !originalEffectiveMemberIds.includes(id));
-    const membersRemovedFromGdi = originalEffectiveMemberIds.filter(id => !finalEffectiveMemberIds.includes(id));
+    const membersAddedToThisGdi = finalMemberIdsForThisGDI.filter(id => !originalEffectiveMemberIds.includes(id));
+    const membersRemovedFromThisGdi = originalEffectiveMemberIds.filter(id => !finalMemberIdsForThisGDI.includes(id));
 
-    membersAddedToGdi.forEach(memberId => {
-      const memberIndex = allMembers.findIndex(m => m.id === memberId);
-      if (memberIndex !== -1) {
-        const previousGdiIdOfMember = allMembers[memberIndex].assignedGDIId;
+    // Process newly added members to this GDI
+    membersAddedToThisGdi.forEach(memberId => {
+      const memberIndexInAllMembers = allMembers.findIndex(m => m.id === memberId);
+      if (memberIndexInAllMembers !== -1) {
+        const memberObject = allMembers[memberIndexInAllMembers];
+        const previousGDIIdOfMember = memberObject.assignedGDIId;
         
-        // If member was guide of another GDI, that GDI needs placeholder guide
-        const otherGdiGuidedByThisMemberIndex = allCurrentGdis.findIndex(g => g.guideId === memberId && g.id !== gdiId);
+        // If member was guiding another GDI:
+        const otherGdiGuidedByThisMemberIndex = allGdis.findIndex(g => g.guideId === memberId && g.id !== gdiIdToUpdate);
         if (otherGdiGuidedByThisMemberIndex !== -1) {
-            allCurrentGdis[otherGdiGuidedByThisMemberIndex].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${allCurrentGdis[otherGdiGuidedByThisMemberIndex].id}`;
-            allCurrentGdis[otherGdiGuidedByThisMemberIndex].memberIds = allCurrentGdis[otherGdiGuidedByThisMemberIndex].memberIds.filter(id => id !== memberId);
-            gdisDbChanged = true;
+            allGdis[otherGdiGuidedByThisMemberIndex].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${allGdis[otherGdiGuidedByThisMemberIndex].id}`;
+            allGdis[otherGdiGuidedByThisMemberIndex].memberIds = allGdis[otherGdiGuidedByThisMemberIndex].memberIds.filter(id => id !== memberId);
         }
 
-        // If member was in another GDI's member list (and not its guide)
-        if (previousGdiIdOfMember && previousGdiIdOfMember !== gdiId) {
-             const previousGdiDataIndex = allCurrentGdis.findIndex(g => g.id === previousGdiIdOfMember);
-             if (previousGdiDataIndex !== -1 && allCurrentGdis[previousGdiDataIndex].guideId !== memberId) {
-                allCurrentGdis[previousGdiDataIndex].memberIds = allCurrentGdis[previousGdiDataIndex].memberIds.filter(id => id !== memberId);
-                gdisDbChanged = true;
+        // If member was a member of another GDI (and not its guide):
+        if (previousGDIIdOfMember && previousGDIIdOfMember !== gdiIdToUpdate) {
+             const previousGdiDataIndex = allGdis.findIndex(g => g.id === previousGDIIdOfMember);
+             if (previousGdiDataIndex !== -1 && allGdis[previousGdiDataIndex].guideId !== memberId) {
+                allGdis[previousGdiDataIndex].memberIds = allGdis[previousGdiDataIndex].memberIds.filter(id => id !== memberId);
              }
         }
-        allMembers[memberIndex].assignedGDIId = gdiId;
-        membersDbChanged = true;
+        // Update member's assignment in members DB
+        allMembers[memberIndexInAllMembers].assignedGDIId = gdiIdToUpdate;
       }
     });
 
-    membersRemovedFromGdi.forEach(memberId => {
-      const memberIndex = allMembers.findIndex(m => m.id === memberId);
-      if (memberIndex !== -1 && allMembers[memberIndex].assignedGDIId === gdiId) {
-        allMembers[memberIndex].assignedGDIId = null;
-        membersDbChanged = true;
+    // Process members removed from this GDI
+    membersRemovedFromThisGdi.forEach(memberId => {
+      const memberIndexInAllMembers = allMembers.findIndex(m => m.id === memberId);
+      if (memberIndexInAllMembers !== -1 && allMembers[memberIndexInAllMembers].assignedGDIId === gdiIdToUpdate) {
+        allMembers[memberIndexInAllMembers].assignedGDIId = null;
       }
     });
 
-    // Update the current GDI being edited
+    // --- Update the GDI being edited ---
     const gdiAfterServerUpdate: GDI = {
-      id: gdiId,
+      id: gdiIdToUpdate,
       name: newName,
-      guideId: newGuideId, // This must be a valid ID
-      memberIds: finalEffectiveMemberIds,
+      guideId: newGuideId, // This must be a valid ID or ""/null if no guide
+      memberIds: finalMemberIdsForThisGDI,
     };
-    allCurrentGdis[gdiIndex] = gdiAfterServerUpdate;
-    gdisDbChanged = true; // The current GDI itself changed
+    allGdis[gdiIndexToUpdate] = gdiAfterServerUpdate;
+    
+    // --- Save data ---
+    await fs.writeFile(GDIS_DB_PATH, JSON.stringify(allGdis, null, 2), 'utf-8');
+    await fs.writeFile(MEMBERS_DB_PATH, JSON.stringify(allMembers, null, 2), 'utf-8');
 
-    // --- Save GDI data if any GDI changed ---
-    if (gdisDbChanged) {
-        await fs.writeFile(GDIS_DB_PATH, JSON.stringify(allCurrentGdis, null, 2), 'utf-8');
-    }
-
-    // --- Save members data if changed ---
-    if (membersDbChanged) {
-      await fs.writeFile(MEMBERS_DB_PATH, JSON.stringify(allMembers, null, 2), 'utf-8');
-    }
-
-    revalidatePath(`/groups/gdis/${gdiId}/manage`);
+    revalidatePath(`/groups/gdis/${gdiIdToUpdate}/manage`);
     revalidatePath('/groups');
     revalidatePath('/members');
 
@@ -223,3 +210,4 @@ export default async function ManageGdiPage({ params }: ManageGdiPageProps) {
     </div>
   );
 }
+
