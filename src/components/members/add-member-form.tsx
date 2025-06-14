@@ -60,7 +60,7 @@ export default function AddMemberForm({
       fromAnotherChurch: false,
       status: "New",
       avatarUrl: "",
-      assignedGDIId: null,
+      assignedGDIId: NONE_GDI_OPTION_VALUE, // Default to "None" visually
       assignedAreaIds: [],
     },
   });
@@ -88,264 +88,256 @@ export default function AddMemberForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <ScrollArea className="max-h-[calc(80vh-220px)] pr-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-1">
-          <FormField
-            control={form.control}
-            name="firstName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>First Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="John" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="lastName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Last Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Doe" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input type="email" placeholder="john.doe@example.com" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="phone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Phone</FormLabel>
-                <FormControl>
-                  <Input type="tel" placeholder="555-1234" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="birthDate"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Birth Date</FormLabel>
-                <DatePicker date={field.value} setDate={field.onChange} placeholder="Select birth date" />
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="churchJoinDate"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Church Join Date</FormLabel>
-                <DatePicker date={field.value} setDate={field.onChange} placeholder="Select join date" />
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="baptismDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Baptism Date (Month Year)</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g., June 2023 or 2023-06-15" {...field} />
-                </FormControl>
-                <FormDescription>Enter month and year, or full date.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Status</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select member status" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="New">New</SelectItem>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="avatarUrl"
-            render={({ field }) => (
-              <FormItem className="md:col-span-2">
-                <FormLabel>Avatar URL</FormLabel>
-                <FormControl>
-                  <Input type="url" placeholder="https://example.com/avatar.png" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="flex items-center space-x-2 md:col-span-1">
+        <div className="space-y-4 p-1"> {/* Encapsulating div for all form fields within ScrollArea */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
-              name="attendsLifeSchool"
+              name="firstName"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
+                <FormItem>
+                  <FormLabel>First Name</FormLabel>
                   <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
+                    <Input placeholder="John" {...field} />
                   </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Attends Life School?</FormLabel>
-                  </div>
+                  <FormMessage />
                 </FormItem>
               )}
             />
-          </div>
-           <div className="flex items-center space-x-2 md:col-span-1">
             <FormField
               control={form.control}
-              name="attendsBibleInstitute"
+              name="lastName"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
+                <FormItem>
+                  <FormLabel>Last Name</FormLabel>
                   <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
+                    <Input placeholder="Doe" {...field} />
                   </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Attends Bible Institute?</FormLabel>
-                  </div>
+                  <FormMessage />
                 </FormItem>
               )}
             />
-          </div>
-           <div className="flex items-center space-x-2 md:col-span-2">
             <FormField
               control={form.control}
-              name="fromAnotherChurch"
+              name="email"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
+                    <Input type="email" placeholder="john.doe@example.com" {...field} />
                   </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Came from another church?</FormLabel>
-                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone</FormLabel>
+                  <FormControl>
+                    <Input type="tel" placeholder="555-1234" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="birthDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Birth Date</FormLabel>
+                  <DatePicker date={field.value} setDate={field.onChange} placeholder="Select birth date" />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="churchJoinDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Church Join Date</FormLabel>
+                  <DatePicker date={field.value} setDate={field.onChange} placeholder="Select join date" />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="baptismDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Baptism Date (Month Year)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., June 2023 or 2023-06-15" {...field} />
+                  </FormControl>
+                  <FormDescription>Enter month and year, or full date.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select member status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="New">New</SelectItem>
+                      <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="Inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="avatarUrl"
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Avatar URL</FormLabel>
+                  <FormControl>
+                    <Input type="url" placeholder="https://example.com/avatar.png" {...field} />
+                  </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
           </div>
 
-          <FormField
-            control={form.control}
-            name="assignedGDIId"
-            render={({ field }) => (
-              <FormItem className="md:col-span-2">
-                <FormLabel>Assign to GDI</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  defaultValue={field.value === null ? NONE_GDI_OPTION_VALUE : field.value || undefined}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a GDI" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value={NONE_GDI_OPTION_VALUE}>None</SelectItem>
-                    {allGDIs.map((gdi) => (
-                      <SelectItem key={gdi.id} value={gdi.id}>
-                        {gdi.name} (Guide: {getMemberName(gdi.guideId)})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
+            <FormField
+                control={form.control}
+                name="attendsLifeSchool"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormLabel className="font-normal mb-0!">Attends Life School?</FormLabel>
+                  </FormItem>
+                )}
+              />
+            <FormField
+                control={form.control}
+                name="attendsBibleInstitute"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormLabel className="font-normal mb-0!">Attends Bible Institute?</FormLabel>
+                  </FormItem>
+                )}
+              />
+            <FormField
+                control={form.control}
+                name="fromAnotherChurch"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm md:col-span-2">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormLabel className="font-normal mb-0!">Came from another church?</FormLabel>
+                  </FormItem>
+                )}
+              />
+          </div>
           
-          <div className="md:col-span-2 space-y-2">
-            <Label>Assign to Ministry Areas</Label>
-            <FormField
+          <FormField
               control={form.control}
-              name="assignedAreaIds"
-              render={() => (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2 border rounded-md max-h-48 overflow-y-auto">
-                  {allMinistryAreas.map((area) => (
-                    <FormField
-                      key={area.id}
-                      control={form.control}
-                      name="assignedAreaIds"
-                      render={({ field }) => {
-                        return (
-                          <FormItem
-                            key={area.id}
-                            className="flex flex-row items-start space-x-3 space-y-0"
-                          >
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(area.id)}
-                                onCheckedChange={(checked) => {
-                                  return checked
-                                    ? field.onChange([...(field.value || []), area.id])
-                                    : field.onChange(
-                                        field.value?.filter(
-                                          (value) => value !== area.id
-                                        )
-                                      )
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              {area.name} (Leader: {getMemberName(area.leaderId)})
-                            </FormLabel>
-                          </FormItem>
-                        )
-                      }}
-                    />
-                  ))}
-                </div>
+              name="assignedGDIId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Assign to GDI</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value || NONE_GDI_OPTION_VALUE}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a GDI" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={NONE_GDI_OPTION_VALUE}>None</SelectItem>
+                      {allGDIs.map((gdi) => (
+                        <SelectItem key={gdi.id} value={gdi.id}>
+                          {gdi.name} (Guide: {getMemberName(gdi.guideId)})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )}
             />
-            <FormMessage>{form.formState.errors.assignedAreaIds?.message}</FormMessage>
+            
+            <div className="space-y-2">
+              <Label>Assign to Ministry Areas</Label>
+              <FormField
+                control={form.control}
+                name="assignedAreaIds"
+                render={() => (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2 border rounded-md max-h-48 overflow-y-auto">
+                    {allMinistryAreas.map((area) => (
+                      <FormField
+                        key={area.id}
+                        control={form.control}
+                        name="assignedAreaIds"
+                        render={({ field }) => {
+                          return (
+                            <FormItem
+                              key={area.id}
+                              className="flex flex-row items-start space-x-3 space-y-0"
+                            >
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(area.id)}
+                                  onCheckedChange={(checked) => {
+                                    return checked
+                                      ? field.onChange([...(field.value || []), area.id])
+                                      : field.onChange(
+                                          field.value?.filter(
+                                            (value) => value !== area.id
+                                          )
+                                        )
+                                  }}
+                                />
+                              </FormControl>
+                              <FormLabel className="font-normal">
+                                {area.name} (Leader: {getMemberName(area.leaderId)})
+                              </FormLabel>
+                            </FormItem>
+                          )
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              />
+              <FormMessage>{form.formState.errors.assignedAreaIds?.message}</FormMessage>
+            </div>
           </div>
-        </div>
         </ScrollArea>
         <div className="flex justify-end space-x-2 pt-4 border-t">
           <Button type="button" variant="outline" onClick={() => {
