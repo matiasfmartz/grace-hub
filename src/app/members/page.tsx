@@ -3,18 +3,26 @@
 import type { Member, GDI, MinistryArea, MemberWriteData } from '@/lib/types';
 import MembersListView from '@/components/members/members-list-view';
 import { revalidatePath } from 'next/cache';
-import { getAllMembers, getMemberById, addMember, updateMember, updateMemberAssignments, addMemberToAssignments } from '@/services/memberService';
+import { 
+    getAllMembers, 
+    getMemberById, 
+    addMember, 
+    updateMember, 
+    updateMemberAssignments, 
+    addMemberToAssignments,
+    getAllMembersNonPaginated // Added for dropdowns needing all members
+} from '@/services/memberService';
 import { getAllGdis } from '@/services/gdiService';
 import { getAllMinistryAreas } from '@/services/ministryAreaService';
 
-const GDIS_DB_FILE_PATH = 'gdis-db.json'; // Relative to src/lib
-const MINISTRY_AREAS_DB_FILE_PATH = 'ministry-areas-db.json'; // Relative to src/lib
+const GDIS_DB_FILE_PATH = 'gdis-db.json';
+const MINISTRY_AREAS_DB_FILE_PATH = 'ministry-areas-db.json';
 
 
 export async function addSingleMemberAction(newMemberData: MemberWriteData): Promise<{ success: boolean; message: string; newMember?: Member }> {
   try {
     const newMember = await addMember(newMemberData);
-    await addMemberToAssignments(newMember, GDIS_DB_FILE_PATH, MINISTRY_AREAS_DB_FILE_PATH);
+    await addMemberToAssignments(newMember);
     
     revalidatePath('/members');
     revalidatePath('/groups');
@@ -46,14 +54,11 @@ export async function updateMemberAction(updatedMemberData: Member): Promise<{ s
 
     const memberToUpdate = await updateMember(updatedMemberData.id, updatedMemberData);
     
+    // Pass full original and updated member data for comprehensive sync
     await updateMemberAssignments(
       memberToUpdate.id,
-      originalMemberData.assignedGDIId,
-      memberToUpdate.assignedGDIId,
-      originalMemberData.assignedAreaIds,
-      memberToUpdate.assignedAreaIds,
-      GDIS_DB_FILE_PATH,
-      MINISTRY_AREAS_DB_FILE_PATH
+      originalMemberData, 
+      memberToUpdate
     );
 
     revalidatePath('/members');
@@ -70,15 +75,33 @@ export async function updateMemberAction(updatedMemberData: Member): Promise<{ s
   }
 }
 
-async function getMembersPageData(): Promise<{ members: Member[], gdis: GDI[], ministryAreas: MinistryArea[] }> {
-  const members = await getAllMembers();
-  const gdis = await getAllGdis();
-  const ministryAreas = await getAllMinistryAreas();
-  return { members, gdis, ministryAreas };
+interface MembersPageProps {
+  searchParams?: {
+    page?: string;
+    pageSize?: string;
+  };
 }
 
-export default async function MembersPage() {
-  const { members, gdis, ministryAreas } = await getMembersPageData();
+async function getMembersPageData(page: number, pageSize: number): Promise<{ 
+  membersForPage: Member[], 
+  allMembersForDropdowns: Member[],
+  gdis: GDI[], 
+  ministryAreas: MinistryArea[],
+  currentPage: number,
+  totalPages: number
+}> {
+  const { members, totalMembers, totalPages } = await getAllMembers(page, pageSize);
+  const allMembersForDropdowns = await getAllMembersNonPaginated(); // For dropdowns in forms
+  const gdis = await getAllGdis();
+  const ministryAreas = await getAllMinistryAreas();
+  return { membersForPage: members, allMembersForDropdowns, gdis, ministryAreas, currentPage: page, totalPages };
+}
+
+export default async function MembersPage({ searchParams }: MembersPageProps) {
+  const currentPage = Number(searchParams?.page) || 1;
+  const pageSize = Number(searchParams?.pageSize) || 10; // Default page size
+  
+  const { membersForPage, allMembersForDropdowns, gdis, ministryAreas, totalPages } = await getMembersPageData(currentPage, pageSize);
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -87,11 +110,15 @@ export default async function MembersPage() {
         <p className="text-muted-foreground mt-2">Manage and connect with members of our church community.</p>
       </div>
       <MembersListView 
-        initialMembers={members} 
+        initialMembers={membersForPage} 
+        allMembersForDropdowns={allMembersForDropdowns}
         allGDIs={gdis}
         allMinistryAreas={ministryAreas}
         addSingleMemberAction={addSingleMemberAction}
         updateMemberAction={updateMemberAction}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        pageSize={pageSize}
       />
     </div>
   );

@@ -181,8 +181,11 @@
     "fromAnotherChurch": false,
     "status": "New",
     "avatarUrl": "https://placehold.co/100x100",
-    "assignedGDIId": "gdi2",
-    "assignedAreaIds": [],
+    "assignedGDIId": null,
+    "assignedAreaIds": [
+      "1749880199537-cvuyxy3",
+      "ma3"
+    ],
     "id": "1749877205345-hd6yhu7"
   },
   {

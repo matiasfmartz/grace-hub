@@ -8,20 +8,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2 } from 'lucide-react';
+import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import MemberDetailsDialog from './member-details-dialog';
 import AddMemberForm from './add-member-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 
 
 interface MembersListViewProps {
-  initialMembers: Member[];
+  initialMembers: Member[]; // Members for the current page
+  allMembersForDropdowns: Member[]; // All members for dropdowns in forms
   allGDIs: GDI[];
   allMinistryAreas: MinistryArea[];
   addSingleMemberAction: (newMemberData: MemberWriteData) => Promise<{ success: boolean; message: string; newMember?: Member }>;
   updateMemberAction: (memberData: Member) => Promise<{ success: boolean; message: string; updatedMember?: Member }>;
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
 }
 
 type SortKey = Exclude<keyof Member, 'email' | 'assignedGDIId' | 'assignedAreaIds' | 'avatarUrl' | 'attendsLifeSchool' | 'attendsBibleInstitute' | 'fromAnotherChurch' | 'baptismDate'> | 'fullName';
@@ -29,10 +34,14 @@ type SortOrder = 'asc' | 'desc';
 
 export default function MembersListView({ 
   initialMembers, 
+  allMembersForDropdowns,
   allGDIs, 
   allMinistryAreas,
   addSingleMemberAction,
-  updateMemberAction 
+  updateMemberAction,
+  currentPage,
+  totalPages,
+  pageSize
 }: MembersListViewProps) {
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,15 +53,23 @@ export default function MembersListView({
   const [isProcessingMember, startMemberTransition] = useTransition();
   const { toast } = useToast();
 
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Update local members state if initialMembers (current page data) changes
+  React.useEffect(() => {
+    setMembers(initialMembers);
+  }, [initialMembers]);
+
 
   const getGdiGuideName = useCallback((member: Member): string => {
     if (!member.assignedGDIId) return "No asignado";
     const gdi = allGDIs.find(g => g.id === member.assignedGDIId);
     if (!gdi) return "GDI no encontrado";
-    // Use allMembers (passed as prop, potentially from a broader DB context in future) for guide lookup
-    const guide = initialMembers.find(m => m.id === gdi.guideId); 
+    const guide = allMembersForDropdowns.find(m => m.id === gdi.guideId); 
     return guide ? `${guide.firstName} ${guide.lastName}` : "Guía no encontrado";
-  }, [allGDIs, initialMembers]);
+  }, [allGDIs, allMembersForDropdowns]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -63,17 +80,21 @@ export default function MembersListView({
     }
   };
 
-  const sortedMembers = useMemo(() => {
-    let membersToSort = [...members]; // Use current state of members for sorting/filtering
+  // Client-side sorting and filtering are applied to the current page's data.
+  // For full dataset sorting/filtering with pagination, this logic would need to
+  // be server-side or involve fetching all data (which we want to avoid for 50k members).
+  // For now, this provides UI responsiveness for the current page.
+  const processedMembers = useMemo(() => {
+    let membersToProcess = [...members]; 
     if (searchTerm) {
-      membersToSort = membersToSort.filter(member =>
+      membersToProcess = membersToProcess.filter(member =>
         `${member.firstName} ${member.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
         member.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
         getGdiGuideName(member).toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    membersToSort.sort((a, b) => {
+    membersToProcess.sort((a, b) => {
       let valA, valB;
       if (sortKey === 'fullName') {
         valA = `${a.firstName} ${a.lastName}`;
@@ -92,7 +113,6 @@ export default function MembersListView({
       if (typeof valA === 'number' && typeof valB === 'number') {
         return sortOrder === 'asc' ? valA - valB : valB - valA;
       }
-
       if (sortKey === 'birthDate' || sortKey === 'churchJoinDate') {
           const dateA = valA ? new Date(valA as string).getTime() : 0;
           const dateB = valB ? new Date(valB as string).getTime() : 0;
@@ -100,7 +120,7 @@ export default function MembersListView({
       }
       return 0;
     });
-    return membersToSort;
+    return membersToProcess;
   }, [members, searchTerm, sortKey, sortOrder, getGdiGuideName]);
 
   const handleOpenDetailsDialog = (member: Member) => {
@@ -123,18 +143,13 @@ export default function MembersListView({
     startMemberTransition(async () => {
       const result = await addSingleMemberAction(newMemberWriteData);
       if (result.success && result.newMember) {
-        setMembers(prev => [result.newMember!, ...prev]);
-        toast({
-          title: "Éxito",
-          description: result.message,
-        });
+        // Instead of adding directly, revalidate to fetch the correct page
+        // This is simpler than trying to insert into the correct page client-side
+        toast({ title: "Éxito", description: result.message });
         setIsAddMemberDialogOpen(false);
+        router.refresh(); // Re-fetches data for the current route
       } else {
-        toast({
-          title: "Error al Agregar",
-          description: result.message,
-          variant: "destructive",
-        });
+        toast({ title: "Error al Agregar", description: result.message, variant: "destructive" });
       }
     });
   };
@@ -143,7 +158,8 @@ export default function MembersListView({
     setMembers(prevMembers => 
       prevMembers.map(m => m.id === updatedMember.id ? updatedMember : m)
     );
-    // Details dialog will close itself after successful update
+    // Optionally, could refresh router if update affects sort order significantly on current page
+    // router.refresh();
   };
 
   const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
@@ -160,6 +176,13 @@ export default function MembersListView({
     }
   };
 
+  const createPageURL = (pageNumber: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', pageNumber.toString());
+    return `${pathname}?${params.toString()}`;
+  };
+
+
   return (
     <>
       <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
@@ -167,7 +190,7 @@ export default function MembersListView({
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Buscar por nombre, estado o guía GDI..."
+            placeholder="Buscar en la página actual..."
             className="w-full md:w-1/2 lg:w-2/3 xl:w-1/3 pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-primary focus:border-primary"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -206,7 +229,7 @@ export default function MembersListView({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedMembers.map((member) => (
+            {processedMembers.map((member) => (
               <TableRow key={member.id} className="hover:bg-muted/50 transition-colors">
                 <TableCell>
                   <Avatar>
@@ -242,13 +265,43 @@ export default function MembersListView({
           </TableBody>
         </Table>
       </div>
-      {sortedMembers.length === 0 && (
-        <p className="text-center text-muted-foreground mt-8">No se encontraron miembros.</p>
+      {processedMembers.length === 0 && searchTerm && (
+        <p className="text-center text-muted-foreground mt-8">No se encontraron miembros en la página actual con el término de búsqueda.</p>
       )}
+      {initialMembers.length === 0 && !searchTerm && (
+         <p className="text-center text-muted-foreground mt-8">No hay miembros para mostrar en esta página.</p>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-end space-x-2 py-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push(createPageURL(currentPage - 1))}
+            disabled={currentPage <= 1 || isProcessingMember}
+          >
+            <ChevronLeft className="mr-2 h-4 w-4" />
+            Anterior
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Página {currentPage} de {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push(createPageURL(currentPage + 1))}
+            disabled={currentPage >= totalPages || isProcessingMember}
+          >
+            Siguiente
+            <ChevronRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
       {selectedMember && (
         <MemberDetailsDialog
           member={selectedMember}
-          allMembers={members} // Pass current members list for GDI/Area lookups
+          allMembers={allMembersForDropdowns} 
           allGDIs={allGDIs}
           allMinistryAreas={allMinistryAreas}
           isOpen={isDetailsDialogOpen}
@@ -270,7 +323,7 @@ export default function MembersListView({
               onSubmitMember={handleAddSingleMemberSubmit}
               allGDIs={allGDIs}
               allMinistryAreas={allMinistryAreas}
-              allMembers={initialMembers} // For dropdowns, use initial complete list
+              allMembers={allMembersForDropdowns}
               submitButtonText="Agregar Miembro"
               cancelButtonText="Cancelar"
               onDialogClose={() => setIsAddMemberDialogOpen(false)}
