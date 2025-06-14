@@ -211,7 +211,7 @@ export default function MemberDetailsDialog({
         )}
 
         {!isEditing && (
-          <DialogFooter className="p-6 border-t sticky bottom-0 bg-background z-10">
+          <DialogFooter className="p-6 border-t bg-background">
             <Button onClick={handleEditToggle} variant="default">
               <Pencil className="mr-2 h-4 w-4" />
               Editar Miembro
