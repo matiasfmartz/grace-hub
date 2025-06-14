@@ -36,6 +36,8 @@ interface AddMemberFormProps {
   allMembers: Member[]; // For populating leader/guide names
 }
 
+const NONE_GDI_OPTION_VALUE = "__NONE_GDI__";
+
 export default function AddMemberForm({
   onOpenChange,
   onAddMember,
@@ -69,7 +71,7 @@ export default function AddMemberForm({
       ...values,
       birthDate: values.birthDate ? values.birthDate.toISOString().split('T')[0] : undefined,
       churchJoinDate: values.churchJoinDate ? values.churchJoinDate.toISOString().split('T')[0] : undefined,
-      assignedGDIId: values.assignedGDIId || null,
+      assignedGDIId: values.assignedGDIId === NONE_GDI_OPTION_VALUE ? null : values.assignedGDIId,
     };
     onAddMember(newMember);
     onOpenChange(false); // Close dialog on submit
@@ -275,14 +277,17 @@ export default function AddMemberForm({
             render={({ field }) => (
               <FormItem className="md:col-span-2">
                 <FormLabel>Assign to GDI</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                <Select 
+                  onValueChange={field.onChange} 
+                  defaultValue={field.value === null ? NONE_GDI_OPTION_VALUE : field.value || undefined}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a GDI" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value={NONE_GDI_OPTION_VALUE}>None</SelectItem>
                     {allGDIs.map((gdi) => (
                       <SelectItem key={gdi.id} value={gdi.id}>
                         {gdi.name} (Guide: {getMemberName(gdi.guideId)})
