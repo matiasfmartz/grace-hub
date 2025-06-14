@@ -2,7 +2,8 @@
 "use client";
 
 import { useState, useCallback, useTransition } from 'react';
-import type { Member, GDI, MinistryArea, MemberWriteData } from '@/lib/types';
+import type { Member, GDI, MinistryArea, MemberWriteData, AddMemberFormValues } from '@/lib/types'; // Added AddMemberFormValues
+import { NONE_GDI_OPTION_VALUE } from '@/lib/types'; // Added NONE_GDI_OPTION_VALUE
 import AddMemberForm from './add-member-form';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -27,13 +28,28 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const handleStageMember = useCallback((newMember: Member) => {
-    // Ensure client-side ID for staging purposes
-    const memberWithStagingId = { ...newMember, id: `staged-${Date.now()}-${stagedMembers.length}` };
+  const handleStageMember = useCallback((newMemberData: AddMemberFormValues) => {
+    const memberWithStagingId: Member = {
+      id: `staged-${Date.now()}-${stagedMembers.length}`,
+      firstName: newMemberData.firstName,
+      lastName: newMemberData.lastName,
+      email: newMemberData.email,
+      phone: newMemberData.phone,
+      birthDate: newMemberData.birthDate ? newMemberData.birthDate.toISOString().split('T')[0] : undefined,
+      churchJoinDate: newMemberData.churchJoinDate ? newMemberData.churchJoinDate.toISOString().split('T')[0] : undefined,
+      baptismDate: newMemberData.baptismDate || "",
+      attendsLifeSchool: newMemberData.attendsLifeSchool,
+      attendsBibleInstitute: newMemberData.attendsBibleInstitute,
+      fromAnotherChurch: newMemberData.fromAnotherChurch,
+      status: newMemberData.status,
+      avatarUrl: newMemberData.avatarUrl || 'https://placehold.co/100x100',
+      assignedGDIId: newMemberData.assignedGDIId === NONE_GDI_OPTION_VALUE ? null : newMemberData.assignedGDIId,
+      assignedAreaIds: newMemberData.assignedAreaIds || [],
+    };
     setStagedMembers(prev => [...prev, memberWithStagingId]);
     toast({
       title: "Miembro Preparado",
-      description: `${newMember.firstName} ${newMember.lastName} ha sido agregado a la lista de preparación.`,
+      description: `${newMemberData.firstName} ${newMemberData.lastName} ha sido agregado a la lista de preparación.`,
     });
   }, [toast, stagedMembers.length]);
 
@@ -61,7 +77,7 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
     startTransition(async () => {
       const result = await addBulkMembersAction(membersToSave);
       if (result.success) {
-        setRecentlyProcessedMembers(prev => [...prev, ...stagedMembers.map(m => ({...m, id: `processed-${m.id}`}))]); // Use original staged members for display
+        setRecentlyProcessedMembers(prev => [...prev, ...stagedMembers.map(m => ({...m, id: `processed-${m.id}`}))]);
         setStagedMembers([]);
         toast({
           title: "Éxito",
@@ -171,12 +187,12 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
             <CardContent>
               <div className="max-h-[calc(100vh-250px)] overflow-y-auto pr-2">
                   <AddMemberForm
-                      onAddMember={handleStageMember}
+                      onSubmitMember={handleStageMember}
                       allGDIs={allGDIs}
                       allMinistryAreas={allMinistryAreas}
                       allMembers={allMembers} 
                       submitButtonText="Preparar Miembro"
-                      clearButtonText="Limpiar Formulario"
+                      cancelButtonText="Limpiar Formulario"
                   />
               </div>
             </CardContent>
@@ -243,3 +259,5 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
     </div>
   );
 }
+
+    

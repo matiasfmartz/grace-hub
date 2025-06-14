@@ -26,7 +26,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react"; // Added useMemo
 
 interface AddMemberFormProps {
   onDialogClose?: () => void; // For dialog control
@@ -75,7 +75,6 @@ export default function AddMemberForm({
   });
 
   useEffect(() => {
-    // Reset form if initialMemberData changes (e.g., when switching from add to edit or vice-versa)
      form.reset({
         firstName: initialMemberData?.firstName || "",
         lastName: initialMemberData?.lastName || "",
@@ -92,7 +91,7 @@ export default function AddMemberForm({
         assignedGDIId: initialMemberData?.assignedGDIId === null ? NONE_GDI_OPTION_VALUE : initialMemberData?.assignedGDIId || NONE_GDI_OPTION_VALUE,
         assignedAreaIds: initialMemberData?.assignedAreaIds || [],
     });
-  }, [initialMemberData, form.reset, form]);
+  }, [initialMemberData, form]); // Removed form.reset from dependencies as it's stable
 
 
   function processSubmit(values: AddMemberFormValues) {
@@ -102,11 +101,8 @@ export default function AddMemberForm({
     };
     onSubmitMember(submissionValues, initialMemberData?.id);
     
-    // Only reset form if not in edit mode OR if dialog is meant to close after submit.
-    // In bulk add, we don't call onDialogClose, so form resets there.
-    // In single add/edit dialog, onDialogClose will handle closing.
     if (!initialMemberData && !onDialogClose) {
-      form.reset({ // Reset to blank for next entry in bulk add
+      form.reset({ 
         firstName: "", lastName: "", email: "", phone: "",
         birthDate: undefined, churchJoinDate: undefined, baptismDate: "",
         attendsLifeSchool: false, attendsBibleInstitute: false, fromAnotherChurch: false,
@@ -116,16 +112,25 @@ export default function AddMemberForm({
   }
 
   const handleCancel = () => {
-    form.reset(defaultValues); // Reset to initial/default values on cancel
+    form.reset(defaultValues); 
     if (onDialogClose) {
         onDialogClose();
     }
   };
 
-  const getMemberName = (memberId: string | undefined | null) => {
+  const memberNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (allMembers && Array.isArray(allMembers)) {
+        for (const member of allMembers) {
+            map.set(member.id, `${member.firstName} ${member.lastName}`);
+        }
+    }
+    return map;
+  }, [allMembers]);
+
+  const getMemberName = (memberId: string | undefined | null): string => {
     if (!memberId) return "N/A";
-    const member = allMembers.find(m => m.id === memberId);
-    return member ? `${member.firstName} ${member.lastName}` : "N/A";
+    return memberNameMap.get(memberId) || "Nombre no encontrado";
   }
 
   return (
@@ -229,7 +234,7 @@ export default function AddMemberForm({
                     <FormLabel>Estado</FormLabel>
                     <Select
                         onValueChange={field.onChange}
-                        value={field.value} // Relies on defaultValues to be set correctly
+                        value={field.value} 
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -396,3 +401,5 @@ export default function AddMemberForm({
     </Form>
   );
 }
+
+    

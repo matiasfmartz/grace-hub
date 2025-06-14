@@ -72,7 +72,6 @@
     "fromAnotherChurch": false,
     "assignedGDIId": "gdi2",
     "assignedAreaIds": [
-      "ma1",
       "ma3"
     ]
   },
@@ -143,7 +142,7 @@
     "attendsLifeSchool": false,
     "attendsBibleInstitute": true,
     "fromAnotherChurch": false,
-    "assignedGDIId": "gdi2",
+    "assignedGDIId": null,
     "assignedAreaIds": []
   },
   {
