@@ -1,13 +1,10 @@
 
 'use server';
-import type { Meeting, AddMeetingFormValues, MeetingType } from '@/lib/types';
-import { placeholderMeetings } from '@/lib/placeholder-data';
+import type { Meeting, AddMeetingFormValues, MeetingType, MeetingWriteData } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from 'next/image';
 import { CalendarDays, Clock, MapPin, Users, Briefcase, Award, PlusCircle, CheckSquare } from 'lucide-react';
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import { revalidatePath } from 'next/cache';
 import {
   Dialog,
@@ -21,44 +18,24 @@ import AddMeetingForm from '@/components/events/add-meeting-form';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-
-
-const MEETINGS_DB_PATH = path.join(process.cwd(), 'src/lib/meetings-db.json');
-
-async function getMeetings(): Promise<Meeting[]> {
-  try {
-    const fileContent = await fs.readFile(MEETINGS_DB_PATH, 'utf-8');
-    return JSON.parse(fileContent);
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
-      await fs.writeFile(MEETINGS_DB_PATH, JSON.stringify(placeholderMeetings, null, 2), 'utf-8');
-      return placeholderMeetings;
-    }
-    console.error("Failed to read meetings-db.json:", error);
-    return placeholderMeetings;
-  }
-}
+import { getAllMeetings, addMeeting as addMeetingSvc } from '@/services/meetingService';
 
 export async function addMeetingAction(
   newMeetingData: AddMeetingFormValues
 ): Promise<{ success: boolean; message: string; newMeeting?: Meeting }> {
   try {
-    let currentMeetings = await getMeetings();
-    
-    // Convert date object to YYYY-MM-DD string
-    const formattedDate = format(newMeetingData.date, 'yyyy-MM-dd');
-
-    const newMeeting: Meeting = {
+    // Convert AddMeetingFormValues to MeetingWriteData
+    const meetingToWrite: MeetingWriteData = {
       ...newMeetingData,
-      id: `${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}`,
-      date: formattedDate, // Use formatted date string
+      // The service will handle date formatting if it's a Date object
+      // For now, assuming AddMeetingFormValues `date` is already a Date object
+      date: newMeetingData.date, // The service will format this to string
       imageUrl: newMeetingData.imageUrl || 'https://placehold.co/600x400',
       description: newMeetingData.description || '',
       relatedAreaId: newMeetingData.type === "AreaSpecific" ? newMeetingData.relatedAreaId : null,
     };
-    
-    const updatedMeetings = [...currentMeetings, newMeeting];
-    await fs.writeFile(MEETINGS_DB_PATH, JSON.stringify(updatedMeetings, null, 2), 'utf-8');
+
+    const newMeeting = await addMeetingSvc(meetingToWrite);
     revalidatePath('/events');
     return { success: true, message: `Reunión "${newMeeting.name}" agregada exitosamente.`, newMeeting };
   } catch (error: any) {
@@ -72,13 +49,13 @@ const MeetingTypeIcon = ({ type }: { type: MeetingType }) => {
     case 'General':
       return <Users className="mr-2 h-5 w-5 text-primary" />;
     case 'GDI Focus':
-      return <Users className="mr-2 h-5 w-5 text-blue-500" />; // Different color for GDI
+      return <Users className="mr-2 h-5 w-5 text-blue-500" />;
     case 'Obreros':
       return <Briefcase className="mr-2 h-5 w-5 text-green-500" />;
     case 'Lideres':
       return <Award className="mr-2 h-5 w-5 text-yellow-500" />;
     case 'AreaSpecific':
-      return <Users className="mr-2 h-5 w-5 text-purple-500" />; // Placeholder, might need specific icon
+      return <Users className="mr-2 h-5 w-5 text-purple-500" />;
     default:
       return <CalendarDays className="mr-2 h-5 w-5 text-primary" />;
   }
@@ -88,16 +65,12 @@ const formatDateDisplay = (dateString: string) => {
   try {
     return format(parseISO(dateString), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es });
   } catch (error) {
-    return dateString; // Fallback for invalid dates
+    return dateString; 
   }
 };
 
-
 export default async function EventsPage() {
-  const meetings = await getMeetings();
-  // Sort meetings by date, most recent first
-  const sortedMeetings = meetings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
+  const meetings = await getAllMeetings(); // Already sorted by service
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -124,9 +97,9 @@ export default async function EventsPage() {
         </Dialog>
       </div>
 
-      {sortedMeetings.length > 0 ? (
+      {meetings.length > 0 ? (
         <div className="space-y-8">
-          {sortedMeetings.map((meeting) => (
+          {meetings.map((meeting) => (
             <Card key={meeting.id} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 md:flex">
               {meeting.imageUrl && (
                 <div className="md:w-1/3 relative h-48 md:h-auto">

@@ -15,12 +15,12 @@
   },
   {
     "id": "ma2",
-    "name": "Worship Team",
+    "name": "Alabanza y Adoracion",
     "description": "Leading the congregation in worship through music and song.",
     "leaderId": "1749877175613-ls6oqv6",
     "memberIds": [
       "2",
-      "5"
+      "1749880160940-30020fm"
     ],
     "imageUrl": "https://placehold.co/600x400"
   },
@@ -44,7 +44,8 @@
     "id": "1749880199537-cvuyxy3",
     "memberIds": [
       "2",
-      "5"
+      "5",
+      "1"
     ]
   }
 ]

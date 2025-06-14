@@ -1,67 +1,27 @@
 
 'use server';
-import type { MinistryArea, Member, GDI, AddMinistryAreaFormValues, AddGdiFormValues } from '@/lib/types';
-import { placeholderMinistryAreas, placeholderMembers, placeholderGDIs } from '@/lib/placeholder-data';
+import type { MinistryArea, Member, GDI, AddMinistryAreaFormValues, AddGdiFormValues, MinistryAreaWriteData, GdiWriteData } from '@/lib/types';
 import ManageGroupsTabs from '@/components/groups/manage-groups-tabs';
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import { revalidatePath } from 'next/cache';
+import { getAllMinistryAreas, addMinistryArea } from '@/services/ministryAreaService';
+import { getAllGdis, addGdi } from '@/services/gdiService';
+import { getAllMembers } from '@/services/memberService';
 
-const MINISTRY_AREAS_DB_PATH = path.join(process.cwd(), 'src/lib/ministry-areas-db.json');
-const GDIS_DB_PATH = path.join(process.cwd(), 'src/lib/gdis-db.json');
-const MEMBERS_DB_PATH = path.join(process.cwd(), 'src/lib/members-db.json'); // For member names
-
-async function readMinistryAreasFromDb(): Promise<MinistryArea[]> {
+export async function addMinistryAreaActionSvc(newAreaData: AddMinistryAreaFormValues): Promise<{ success: boolean; message: string; newArea?: MinistryArea }> {
   try {
-    const fileContent = await fs.readFile(MINISTRY_AREAS_DB_PATH, 'utf-8');
-    return JSON.parse(fileContent);
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
-      await fs.writeFile(MINISTRY_AREAS_DB_PATH, JSON.stringify(placeholderMinistryAreas, null, 2), 'utf-8');
-      return placeholderMinistryAreas;
-    }
-    console.error("Failed to read ministry-areas-db.json:", error);
-    return placeholderMinistryAreas;
-  }
-}
-
-async function readGdisFromDb(): Promise<GDI[]> {
-  try {
-    const fileContent = await fs.readFile(GDIS_DB_PATH, 'utf-8');
-    return JSON.parse(fileContent);
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
-      await fs.writeFile(GDIS_DB_PATH, JSON.stringify(placeholderGDIs, null, 2), 'utf-8');
-      return placeholderGDIs;
-    }
-    console.error("Failed to read gdis-db.json:", error);
-    return placeholderGDIs;
-  }
-}
-
-async function readMembersFromDb(): Promise<Member[]> {
-  try {
-    const fileContent = await fs.readFile(MEMBERS_DB_PATH, 'utf-8');
-    return JSON.parse(fileContent);
-  } catch (error: any) {
-    // Assuming members-db.json is created by members page, fallback to placeholders if not found
-    console.error("Failed to read members-db.json for groups page, using placeholders:", error);
-    return placeholderMembers;
-  }
-}
-
-export async function addMinistryAreaAction(newAreaData: AddMinistryAreaFormValues): Promise<{ success: boolean; message: string; newArea?: MinistryArea }> {
-  try {
-    let currentAreas = await readMinistryAreasFromDb();
-    const newArea: MinistryArea = {
-      ...newAreaData,
-      id: `${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}`,
-      memberIds: [], // Initially no members except the leader implicitly
-      imageUrl: newAreaData.imageUrl || 'https://placehold.co/600x400',
+    // Convert AddMinistryAreaFormValues to MinistryAreaWriteData if necessary (e.g. if form values differ from DB structure)
+    // For now, they are compatible enough.
+    const areaToWrite: MinistryAreaWriteData = {
+        name: newAreaData.name,
+        description: newAreaData.description,
+        leaderId: newAreaData.leaderId,
+        imageUrl: newAreaData.imageUrl || 'https://placehold.co/600x400',
+        memberIds: [] // New areas start with no explicit members beyond the leader
     };
-    const updatedAreas = [...currentAreas, newArea];
-    await fs.writeFile(MINISTRY_AREAS_DB_PATH, JSON.stringify(updatedAreas, null, 2), 'utf-8');
+    const newArea = await addMinistryArea(areaToWrite);
     revalidatePath('/groups');
+    // Potentially revalidate member page if leader assignment affects member view
+    revalidatePath(`/members`); 
     return { success: true, message: `Ministry Area "${newArea.name}" added successfully.`, newArea };
   } catch (error: any) {
     console.error("Error adding ministry area:", error);
@@ -69,17 +29,17 @@ export async function addMinistryAreaAction(newAreaData: AddMinistryAreaFormValu
   }
 }
 
-export async function addGdiAction(newGdiData: AddGdiFormValues): Promise<{ success: boolean; message: string; newGdi?: GDI }> {
+export async function addGdiActionSvc(newGdiData: AddGdiFormValues): Promise<{ success: boolean; message: string; newGdi?: GDI }> {
   try {
-    let currentGdis = await readGdisFromDb();
-    const newGdi: GDI = {
-      ...newGdiData,
-      id: `${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}`,
-      memberIds: [], // Initially no members except the guide implicitly
+    const gdiToWrite: GdiWriteData = {
+        name: newGdiData.name,
+        guideId: newGdiData.guideId,
+        memberIds: [] // New GDIs start with no explicit members
     };
-    const updatedGdis = [...currentGdis, newGdi];
-    await fs.writeFile(GDIS_DB_PATH, JSON.stringify(updatedGdis, null, 2), 'utf-8');
+    const newGdi = await addGdi(gdiToWrite);
     revalidatePath('/groups');
+    // Potentially revalidate member page if guide assignment affects member view
+    revalidatePath(`/members`);
     return { success: true, message: `GDI "${newGdi.name}" added successfully.`, newGdi };
   } catch (error: any) {
     console.error("Error adding GDI:", error);
@@ -88,9 +48,9 @@ export async function addGdiAction(newGdiData: AddGdiFormValues): Promise<{ succ
 }
 
 async function getGroupsData(): Promise<{ ministryAreas: MinistryArea[], gdis: GDI[], members: Member[] }> {
-  const ministryAreas = await readMinistryAreasFromDb();
-  const gdis = await readGdisFromDb();
-  const members = await readMembersFromDb();
+  const ministryAreas = await getAllMinistryAreas();
+  const gdis = await getAllGdis();
+  const members = await getAllMembers();
   return { ministryAreas, gdis, members };
 }
 
@@ -107,8 +67,8 @@ export default async function GroupsPage() {
         initialMinistryAreas={ministryAreas}
         initialGdis={gdis}
         allMembers={members}
-        addMinistryAreaAction={addMinistryAreaAction}
-        addGdiAction={addGdiAction}
+        addMinistryAreaAction={addMinistryAreaActionSvc} // Use the new service-calling action
+        addGdiAction={addGdiActionSvc} // Use the new service-calling action
       />
     </div>
   );

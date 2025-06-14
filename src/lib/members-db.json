@@ -15,7 +15,8 @@
     "fromAnotherChurch": true,
     "assignedGDIId": "gdi2",
     "assignedAreaIds": [
-      "ma1"
+      "ma1",
+      "1749880199537-cvuyxy3"
     ]
   },
   {
@@ -91,7 +92,6 @@
     "fromAnotherChurch": true,
     "assignedGDIId": "gdi1",
     "assignedAreaIds": [
-      "ma2",
       "1749880199537-cvuyxy3"
     ]
   },
@@ -198,7 +198,8 @@
     "avatarUrl": "https://placehold.co/100x100",
     "assignedGDIId": "gdi2",
     "assignedAreaIds": [
-      "ma3"
+      "ma3",
+      "ma2"
     ],
     "id": "1749880160940-30020fm"
   }
