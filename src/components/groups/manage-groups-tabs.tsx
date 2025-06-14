@@ -1,33 +1,58 @@
 
 "use client";
 
-import { useState, useCallback } from 'react';
-import type { MinistryArea, GDI, Member } from '@/lib/types';
+import { useState, useCallback, useTransition } from 'react';
+import type { MinistryArea, GDI, Member, AddMinistryAreaFormValues, AddGdiFormValues } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MinistryAreasManager from './ministry-areas-manager';
 import GdisManager from './gdis-manager';
+import { useToast } from '@/hooks/use-toast';
 
 interface ManageGroupsTabsProps {
   initialMinistryAreas: MinistryArea[];
   initialGdis: GDI[];
   allMembers: Member[];
+  addMinistryAreaAction: (data: AddMinistryAreaFormValues) => Promise<{ success: boolean; message: string; newArea?: MinistryArea }>;
+  addGdiAction: (data: AddGdiFormValues) => Promise<{ success: boolean; message: string; newGdi?: GDI }>;
 }
 
-export default function ManageGroupsTabs({ initialMinistryAreas, initialGdis, allMembers }: ManageGroupsTabsProps) {
+export default function ManageGroupsTabs({ 
+  initialMinistryAreas, 
+  initialGdis, 
+  allMembers,
+  addMinistryAreaAction,
+  addGdiAction
+}: ManageGroupsTabsProps) {
   const [ministryAreas, setMinistryAreas] = useState<MinistryArea[]>(initialMinistryAreas);
   const [gdis, setGdis] = useState<GDI[]>(initialGdis);
+  const [isPending, startTransition] = useTransition();
+  const { toast } = useToast();
 
   const activeMembers = allMembers.filter(m => m.status === 'Active');
 
-  const handleAddMinistryArea = useCallback((newArea: MinistryArea) => {
-    setMinistryAreas(prev => [newArea, ...prev]);
-    // API call to add area
-  }, []);
+  const handleAddMinistryArea = useCallback(async (newAreaData: AddMinistryAreaFormValues) => {
+    startTransition(async () => {
+      const result = await addMinistryAreaAction(newAreaData);
+      if (result.success && result.newArea) {
+        setMinistryAreas(prev => [result.newArea!, ...prev]);
+        toast({ title: "Success", description: result.message });
+      } else {
+        toast({ title: "Error", description: result.message, variant: "destructive" });
+      }
+    });
+  }, [addMinistryAreaAction, toast]);
 
-  const handleAddGdi = useCallback((newGdi: GDI) => {
-    setGdis(prev => [newGdi, ...prev]);
-    // API call to add GDI
-  }, []);
+  const handleAddGdi = useCallback(async (newGdiData: AddGdiFormValues) => {
+    startTransition(async () => {
+      const result = await addGdiAction(newGdiData);
+      if (result.success && result.newGdi) {
+        setGdis(prev => [result.newGdi!, ...prev]);
+        toast({ title: "Success", description: result.message });
+      } else {
+        toast({ title: "Error", description: result.message, variant: "destructive" });
+      }
+    });
+  }, [addGdiAction, toast]);
 
   return (
     <Tabs defaultValue="ministry-areas" className="w-full">
@@ -38,17 +63,19 @@ export default function ManageGroupsTabs({ initialMinistryAreas, initialGdis, al
       <TabsContent value="ministry-areas">
         <MinistryAreasManager
           ministryAreas={ministryAreas}
-          allMembers={allMembers} // Pass all members for resolving leader names in display
-          activeMembers={activeMembers} // Pass active members for leader selection in form
+          allMembers={allMembers}
+          activeMembers={activeMembers}
           onAddArea={handleAddMinistryArea}
+          isSubmitting={isPending}
         />
       </TabsContent>
       <TabsContent value="gdis">
         <GdisManager
           gdis={gdis}
-          allMembers={allMembers} // Pass all members for resolving guide names in display
-          activeMembers={activeMembers} // Pass active members for guide selection in form
+          allMembers={allMembers}
+          activeMembers={activeMembers}
           onAddGDI={handleAddGdi}
+          isSubmitting={isPending}
         />
       </TabsContent>
     </Tabs>

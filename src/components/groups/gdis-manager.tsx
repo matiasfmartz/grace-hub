@@ -2,21 +2,23 @@
 "use client";
 
 import { useState } from 'react';
-import type { GDI, Member } from '@/lib/types';
+import type { GDI, Member, AddGdiFormValues } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, UserCheck, PlusCircle, Mail, Phone } from 'lucide-react';
+import { Users, UserCheck, PlusCircle, Mail, Phone, Edit } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import AddGdiForm from './add-gdi-form';
+// import Link from 'next/link'; // Link for future "Manage GDI" page
 
 interface GdisManagerProps {
   gdis: GDI[];
   allMembers: Member[]; 
   activeMembers: Member[]; 
-  onAddGDI: (newGdi: GDI) => void;
+  onAddGDI: (newGdi: AddGdiFormValues) => void;
+  isSubmitting?: boolean;
 }
 
-export default function GdisManager({ gdis, allMembers, activeMembers, onAddGDI }: GdisManagerProps) {
+export default function GdisManager({ gdis, allMembers, activeMembers, onAddGDI, isSubmitting = false }: GdisManagerProps) {
   const [isAddGdiDialogOpen, setIsAddGdiDialogOpen] = useState(false);
 
   const getGuideDetails = (guideId: string) => {
@@ -24,16 +26,18 @@ export default function GdisManager({ gdis, allMembers, activeMembers, onAddGDI 
   };
 
   const handleManageGDI = (gdiId: string, gdiName: string) => {
-    console.log(`Manage GDI clicked: ID = ${gdiId}, Name = ${gdiName}`);
-    // Placeholder for future functionality, e.g., open an edit dialog or member assignment view
-    alert(`Managing GDI: ${gdiName} (ID: ${gdiId}) - Functionality to be implemented.`);
+    // This would navigate to a specific GDI management page in the future
+    // For now, it's a placeholder
+    alert(`Managing GDI: ${gdiName} (ID: ${gdiId}) - Functionality to be implemented. This will navigate to /groups/gdis/${gdiId}/manage.`);
+    // Example of future navigation:
+    // router.push(`/groups/gdis/${gdiId}/manage`);
   };
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold">GDIs (Integration Groups)</h2>
-        <Button onClick={() => setIsAddGdiDialogOpen(true)}>
+        <Button onClick={() => setIsAddGdiDialogOpen(true)} disabled={isSubmitting}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add New GDI
         </Button>
       </div>
@@ -75,8 +79,9 @@ export default function GdisManager({ gdis, allMembers, activeMembers, onAddGDI 
                     variant="outline" 
                     className="w-full border-primary text-primary hover:bg-primary/10"
                     onClick={() => handleManageGDI(gdi.id, gdi.name)}
+                    // disabled // Enable when navigation is ready
                   >
-                    Manage GDI
+                    <Edit className="mr-2 h-4 w-4" /> Manage GDI
                   </Button>
                 </CardFooter>
               </Card>
@@ -103,6 +108,7 @@ export default function GdisManager({ gdis, allMembers, activeMembers, onAddGDI 
             onOpenChange={setIsAddGdiDialogOpen}
             onAddGDI={onAddGDI}
             activeMembers={activeMembers}
+            isSubmitting={isSubmitting}
           />
         </DialogContent>
       </Dialog>

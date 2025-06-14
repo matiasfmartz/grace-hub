@@ -3,7 +3,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { GDI, Member, AddGdiFormValues } from "@/lib/types";
+import type { Member, AddGdiFormValues } from "@/lib/types";
 import { AddGdiFormSchema } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,14 +22,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
 
 interface AddGdiFormProps {
   onOpenChange: (open: boolean) => void;
-  onAddGDI: (newGdi: GDI) => void;
+  onAddGDI: (newGdiData: AddGdiFormValues) => void; // Changed to accept form values
   activeMembers: Member[];
+  isSubmitting?: boolean;
 }
 
-export default function AddGdiForm({ onOpenChange, onAddGDI, activeMembers }: AddGdiFormProps) {
+export default function AddGdiForm({ onOpenChange, onAddGDI, activeMembers, isSubmitting = false }: AddGdiFormProps) {
   const form = useForm<AddGdiFormValues>({
     resolver: zodResolver(AddGdiFormSchema),
     defaultValues: {
@@ -39,12 +41,7 @@ export default function AddGdiForm({ onOpenChange, onAddGDI, activeMembers }: Ad
   });
 
   function onSubmit(values: AddGdiFormValues) {
-    const newGdi: GDI = {
-      id: Date.now().toString(), // Temporary ID
-      memberIds: [], // Initially no members except the guide implicitly
-      ...values,
-    };
-    onAddGDI(newGdi);
+    onAddGDI(values);
     onOpenChange(false);
     form.reset();
   }
@@ -59,7 +56,7 @@ export default function AddGdiForm({ onOpenChange, onAddGDI, activeMembers }: Ad
             <FormItem>
               <FormLabel>GDI Name</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., GDI Alpha" {...field} />
+                <Input placeholder="e.g., GDI Alpha" {...field} disabled={isSubmitting} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -71,7 +68,7 @@ export default function AddGdiForm({ onOpenChange, onAddGDI, activeMembers }: Ad
           render={({ field }) => (
             <FormItem>
               <FormLabel>Assign Guide</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSubmitting}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select an active member as guide" />
@@ -93,10 +90,12 @@ export default function AddGdiForm({ onOpenChange, onAddGDI, activeMembers }: Ad
           <Button type="button" variant="outline" onClick={() => {
             onOpenChange(false);
             form.reset();
-          }}>
+          }} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit">Add GDI</Button>
+          <Button type="submit" disabled={isSubmitting}>
+             {isSubmitting ? <Loader2 className="animate-spin" /> : "Add GDI"}
+          </Button>
         </div>
       </form>
     </Form>

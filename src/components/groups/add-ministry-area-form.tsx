@@ -3,7 +3,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { MinistryArea, Member, AddMinistryAreaFormValues } from "@/lib/types";
+import type { Member, AddMinistryAreaFormValues } from "@/lib/types";
 import { AddMinistryAreaFormSchema } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,14 +23,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
 
 interface AddMinistryAreaFormProps {
   onOpenChange: (open: boolean) => void;
-  onAddArea: (newArea: MinistryArea) => void;
+  onAddArea: (newAreaData: AddMinistryAreaFormValues) => void; // Changed to accept form values
   activeMembers: Member[];
+  isSubmitting?: boolean;
 }
 
-export default function AddMinistryAreaForm({ onOpenChange, onAddArea, activeMembers }: AddMinistryAreaFormProps) {
+export default function AddMinistryAreaForm({ onOpenChange, onAddArea, activeMembers, isSubmitting = false }: AddMinistryAreaFormProps) {
   const form = useForm<AddMinistryAreaFormValues>({
     resolver: zodResolver(AddMinistryAreaFormSchema),
     defaultValues: {
@@ -42,13 +44,12 @@ export default function AddMinistryAreaForm({ onOpenChange, onAddArea, activeMem
   });
 
   function onSubmit(values: AddMinistryAreaFormValues) {
-    const newArea: MinistryArea = {
-      id: Date.now().toString(), // Temporary ID
-      memberIds: [], // Initially no members except the leader implicitly
-      ...values,
-    };
-    onAddArea(newArea);
-    onOpenChange(false);
+    onAddArea(values);
+    // Dialog closing and form reset might be handled by parent after successful submission
+    // For now, we'll close and reset here, assuming the parent will show a toast.
+    // This behavior might need adjustment based on how `onAddArea` is handled.
+    // If `onAddArea` is async and the parent handles closing, these might not be needed here.
+    onOpenChange(false); 
     form.reset();
   }
 
@@ -62,7 +63,7 @@ export default function AddMinistryAreaForm({ onOpenChange, onAddArea, activeMem
             <FormItem>
               <FormLabel>Area Name</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Youth Ministry" {...field} />
+                <Input placeholder="e.g., Youth Ministry" {...field} disabled={isSubmitting} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -75,7 +76,7 @@ export default function AddMinistryAreaForm({ onOpenChange, onAddArea, activeMem
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Textarea placeholder="Describe the purpose of this area." {...field} />
+                <Textarea placeholder="Describe the purpose of this area." {...field} disabled={isSubmitting} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -88,7 +89,7 @@ export default function AddMinistryAreaForm({ onOpenChange, onAddArea, activeMem
             <FormItem>
               <FormLabel>Image URL (Optional)</FormLabel>
               <FormControl>
-                <Input type="url" placeholder="https://example.com/image.png" {...field} />
+                <Input type="url" placeholder="https://example.com/image.png" {...field} value={field.value ?? ''} disabled={isSubmitting} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -100,7 +101,7 @@ export default function AddMinistryAreaForm({ onOpenChange, onAddArea, activeMem
           render={({ field }) => (
             <FormItem>
               <FormLabel>Assign Leader</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSubmitting}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select an active member as leader" />
@@ -122,10 +123,12 @@ export default function AddMinistryAreaForm({ onOpenChange, onAddArea, activeMem
           <Button type="button" variant="outline" onClick={() => {
              onOpenChange(false);
              form.reset();
-          }}>
+          }} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit">Add Ministry Area</Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="animate-spin" /> : "Add Ministry Area"}
+          </Button>
         </div>
       </form>
     </Form>

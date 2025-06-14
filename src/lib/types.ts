@@ -32,12 +32,17 @@ export interface MinistryArea {
   imageUrl?: string;
 }
 
+export type MinistryAreaWriteData = Omit<MinistryArea, 'id'>;
+
+
 export interface GDI { // Grupo de Integración
   id: string;
   name: string;
   guideId: string; // Member ID of the guide
   memberIds: string[];
 }
+
+export type GDIWriteData = Omit<GDI, 'id'>;
 
 export interface ChurchEvent {
   id: string;
@@ -96,3 +101,15 @@ export const AddGdiFormSchema = z.object({
   guideId: z.string().min(1, { message: "A guide must be selected." }),
 });
 export type AddGdiFormValues = z.infer<typeof AddGdiFormSchema>;
+
+export const UpdateMinistryAreaLeaderFormSchema = z.object({
+  leaderId: z.string().min(1, { message: "A leader must be selected." }),
+});
+export type UpdateMinistryAreaLeaderFormValues = z.infer<typeof UpdateMinistryAreaLeaderFormSchema>;
+
+// Schema for assigning members to a ministry area might look like this:
+export const AssignMinistryAreaMembersFormSchema = z.object({
+  memberIds: z.array(z.string()).min(0, { message: "Select at least one member or an empty list." }), // Assuming an area can have zero members.
+});
+export type AssignMinistryAreaMembersFormValues = z.infer<typeof AssignMinistryAreaMembersFormSchema>;
+

@@ -5,15 +5,15 @@
     "lastName": "Johnson",
     "email": "alice@example.com",
     "phone": "555-0101",
-    "status": "Active",
+    "status": "Inactive",
     "avatarUrl": "https://placehold.co/100x100",
     "birthDate": "1990-05-15",
     "churchJoinDate": "2018-03-10",
     "baptismDate": "June 2018",
     "attendsLifeSchool": true,
     "attendsBibleInstitute": false,
-    "fromAnotherChurch": false,
-    "assignedGDIId": "gdi1",
+    "fromAnotherChurch": true,
+    "assignedGDIId": "gdi2",
     "assignedAreaIds": [
       "ma1"
     ]

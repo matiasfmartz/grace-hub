@@ -1,0 +1,20 @@
+
+[
+  {
+    "id": "gdi1",
+    "name": "GDI Alpha",
+    "guideId": "1",
+    "memberIds": [
+      "3",
+      "5"
+    ]
+  },
+  {
+    "id": "gdi2",
+    "name": "GDI Beta",
+    "guideId": "2",
+    "memberIds": [
+      "4"
+    ]
+  }
+]
