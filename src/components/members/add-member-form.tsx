@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { Member, GDI, MinistryArea, AddMemberFormValues } from "@/lib/types";
-import { AddMemberFormSchema } from "@/lib/types";
+import { AddMemberFormSchema, NONE_GDI_OPTION_VALUE } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
 
 interface AddMemberFormProps {
@@ -35,8 +34,6 @@ interface AddMemberFormProps {
   allMinistryAreas: MinistryArea[];
   allMembers: Member[];
 }
-
-const NONE_GDI_OPTION_VALUE = "__NONE_GDI__";
 
 export default function AddMemberForm({
   onOpenChange,
@@ -86,8 +83,8 @@ export default function AddMemberForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
-        <ScrollArea className="flex-grow min-h-0 pr-6 -mr-6 mb-4">
+      {/* The parent div in members-list-view.tsx will handle scrolling */}
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-6">
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
@@ -173,7 +170,7 @@ export default function AddMemberForm({
                     <FormControl>
                       <Input placeholder="ej: Junio 15, Junio 2023, 2023-06-15" {...field} />
                     </FormControl>
-                    <FormDescription>Ingrese día y mes (ej: Junio 15), mes y año (ej: Junio 2023), o fecha completa (ej: 2023-06-15).</FormDescription>
+                    <FormDescription>Día y mes (Junio 15), mes y año (Junio 2023), o fecha completa (2023-06-15).</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -184,7 +181,10 @@ export default function AddMemberForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Estado</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Seleccionar estado del miembro" />
@@ -298,6 +298,8 @@ export default function AddMemberForm({
                   control={form.control}
                   name="assignedAreaIds"
                   render={() => (
+                    // This div might need a max-height and overflow-y-auto if the list of areas is very long
+                    // For now, relying on the parent scroll for the whole form.
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2 border rounded-md max-h-48 overflow-y-auto">
                       {allMinistryAreas.map((area) => (
                         <FormField
@@ -338,8 +340,7 @@ export default function AddMemberForm({
                 <FormMessage>{form.formState.errors.assignedAreaIds?.message}</FormMessage>
               </div>
           </div>
-        </ScrollArea>
-        <div className="flex justify-end space-x-2 pt-4 border-t mt-auto">
+        <div className="flex justify-end space-x-2 pt-6 border-t mt-6">
           <Button type="button" variant="outline" onClick={() => {
             onOpenChange(false);
             form.reset();

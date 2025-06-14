@@ -92,6 +92,7 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
 
   const handleAddMember = useCallback((newMember: Member) => {
     setMembers(prevMembers => [newMember, ...prevMembers]);
+    // In a real app, you'd likely call an API to save the member here
   }, []);
   
   const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
@@ -199,14 +200,15 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
         onClose={handleCloseDetailsDialog}
       />
       <Dialog open={isAddMemberDialogOpen} onOpenChange={setIsAddMemberDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="p-6 border-b sticky top-0 bg-background z-10">
             <DialogTitle>Agregar Nuevo Miembro</DialogTitle>
             <DialogDescription>
               Complete los detalles del nuevo miembro de la iglesia. Haga clic en guardar cuando haya terminado.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-grow min-h-0">
+          {/* This div will contain the form and will be scrollable */}
+          <div className="flex-grow overflow-y-auto">
             <AddMemberForm 
               onOpenChange={setIsAddMemberDialogOpen} 
               onAddMember={handleAddMember}
