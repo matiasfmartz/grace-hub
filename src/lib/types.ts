@@ -19,7 +19,7 @@ export interface Member {
   avatarUrl?: string;
 }
 
-// Type for data sent to server action (ID will be generated server-side)
+// Type for data sent to server action for CREATING (ID will be generated server-side)
 export type MemberWriteData = Omit<Member, 'id'>;
 
 

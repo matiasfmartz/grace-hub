@@ -26,77 +26,99 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
+import { useEffect } from "react";
 
 interface AddMemberFormProps {
-  onOpenChange?: (open: boolean) => void; // For dialog control
-  onAddMember: (newMember: Member) => void;
+  onDialogClose?: () => void; // For dialog control
+  onSubmitMember: (data: AddMemberFormValues, memberId?: string) => void; // Combined submit for add/edit
+  initialMemberData?: Member | null; // For pre-filling form in edit mode
   allGDIs: GDI[];
   allMinistryAreas: MinistryArea[];
-  allMembers: Member[];
+  allMembers: Member[]; // For GDI/Area leader name lookup
   submitButtonText: string;
-  clearButtonText: string;
+  cancelButtonText: string;
+  isSubmitting?: boolean; // To show loading state on submit button
 }
 
 export default function AddMemberForm({
-  onOpenChange,
-  onAddMember,
+  onDialogClose,
+  onSubmitMember,
+  initialMemberData,
   allGDIs,
   allMinistryAreas,
   allMembers,
   submitButtonText,
-  clearButtonText,
+  cancelButtonText,
+  isSubmitting = false,
 }: AddMemberFormProps) {
+  
+  const defaultValues: AddMemberFormValues = {
+    firstName: initialMemberData?.firstName || "",
+    lastName: initialMemberData?.lastName || "",
+    email: initialMemberData?.email || "",
+    phone: initialMemberData?.phone || "",
+    birthDate: initialMemberData?.birthDate ? new Date(initialMemberData.birthDate + 'T00:00:00Z') : undefined,
+    churchJoinDate: initialMemberData?.churchJoinDate ? new Date(initialMemberData.churchJoinDate + 'T00:00:00Z') : undefined,
+    baptismDate: initialMemberData?.baptismDate || "",
+    attendsLifeSchool: initialMemberData?.attendsLifeSchool || false,
+    attendsBibleInstitute: initialMemberData?.attendsBibleInstitute || false,
+    fromAnotherChurch: initialMemberData?.fromAnotherChurch || false,
+    status: initialMemberData?.status || "New",
+    avatarUrl: initialMemberData?.avatarUrl || "",
+    assignedGDIId: initialMemberData?.assignedGDIId === null ? NONE_GDI_OPTION_VALUE : initialMemberData?.assignedGDIId || NONE_GDI_OPTION_VALUE,
+    assignedAreaIds: initialMemberData?.assignedAreaIds || [],
+  };
+  
   const form = useForm<AddMemberFormValues>({
     resolver: zodResolver(AddMemberFormSchema),
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      birthDate: undefined,
-      churchJoinDate: undefined,
-      baptismDate: "",
-      attendsLifeSchool: false,
-      attendsBibleInstitute: false,
-      fromAnotherChurch: false,
-      status: "New",
-      avatarUrl: "",
-      assignedGDIId: NONE_GDI_OPTION_VALUE,
-      assignedAreaIds: [],
-    },
+    defaultValues: defaultValues,
   });
 
-  function onSubmit(values: AddMemberFormValues) {
-    const newMember: Member = {
-      id: Date.now().toString(),
+  useEffect(() => {
+    // Reset form if initialMemberData changes (e.g., when switching from add to edit or vice-versa)
+     form.reset({
+        firstName: initialMemberData?.firstName || "",
+        lastName: initialMemberData?.lastName || "",
+        email: initialMemberData?.email || "",
+        phone: initialMemberData?.phone || "",
+        birthDate: initialMemberData?.birthDate ? new Date(initialMemberData.birthDate + 'T00:00:00Z') : undefined,
+        churchJoinDate: initialMemberData?.churchJoinDate ? new Date(initialMemberData.churchJoinDate + 'T00:00:00Z') : undefined,
+        baptismDate: initialMemberData?.baptismDate || "",
+        attendsLifeSchool: initialMemberData?.attendsLifeSchool || false,
+        attendsBibleInstitute: initialMemberData?.attendsBibleInstitute || false,
+        fromAnotherChurch: initialMemberData?.fromAnotherChurch || false,
+        status: initialMemberData?.status || "New",
+        avatarUrl: initialMemberData?.avatarUrl || "",
+        assignedGDIId: initialMemberData?.assignedGDIId === null ? NONE_GDI_OPTION_VALUE : initialMemberData?.assignedGDIId || NONE_GDI_OPTION_VALUE,
+        assignedAreaIds: initialMemberData?.assignedAreaIds || [],
+    });
+  }, [initialMemberData, form.reset, form]);
+
+
+  function processSubmit(values: AddMemberFormValues) {
+    const submissionValues = {
       ...values,
-      birthDate: values.birthDate ? values.birthDate.toISOString().split('T')[0] : undefined,
-      churchJoinDate: values.churchJoinDate ? values.churchJoinDate.toISOString().split('T')[0] : undefined,
       assignedGDIId: values.assignedGDIId === NONE_GDI_OPTION_VALUE ? null : values.assignedGDIId,
     };
-    onAddMember(newMember);
-    form.reset({
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      birthDate: undefined,
-      churchJoinDate: undefined,
-      baptismDate: "",
-      attendsLifeSchool: false,
-      attendsBibleInstitute: false,
-      fromAnotherChurch: false,
-      status: "New",
-      avatarUrl: "",
-      assignedGDIId: NONE_GDI_OPTION_VALUE,
-      assignedAreaIds: [],
-    });
+    onSubmitMember(submissionValues, initialMemberData?.id);
+    
+    // Only reset form if not in edit mode OR if dialog is meant to close after submit.
+    // In bulk add, we don't call onDialogClose, so form resets there.
+    // In single add/edit dialog, onDialogClose will handle closing.
+    if (!initialMemberData && !onDialogClose) {
+      form.reset({ // Reset to blank for next entry in bulk add
+        firstName: "", lastName: "", email: "", phone: "",
+        birthDate: undefined, churchJoinDate: undefined, baptismDate: "",
+        attendsLifeSchool: false, attendsBibleInstitute: false, fromAnotherChurch: false,
+        status: "New", avatarUrl: "", assignedGDIId: NONE_GDI_OPTION_VALUE, assignedAreaIds: [],
+      });
+    }
   }
 
-  const handleClearOrCancel = () => {
-    form.reset();
-    if (onOpenChange && clearButtonText === "Cancelar") { // Specific check for dialog context
-        onOpenChange(false);
+  const handleCancel = () => {
+    form.reset(defaultValues); // Reset to initial/default values on cancel
+    if (onDialogClose) {
+        onDialogClose();
     }
   };
 
@@ -108,7 +130,7 @@ export default function AddMemberForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-1 sm:p-6">
+      <form onSubmit={form.handleSubmit(processSubmit)} className="space-y-6 p-1 sm:p-6">
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
@@ -207,7 +229,7 @@ export default function AddMemberForm({
                     <FormLabel>Estado</FormLabel>
                     <Select
                         onValueChange={field.onChange}
-                        defaultValue={field.value}
+                        value={field.value} // Relies on defaultValues to be set correctly
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -363,10 +385,12 @@ export default function AddMemberForm({
               </div>
           </div>
         <div className="flex justify-end space-x-2 pt-6 border-t mt-6">
-          <Button type="button" variant="outline" onClick={handleClearOrCancel}>
-            {clearButtonText}
+          <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting}>
+            {cancelButtonText}
           </Button>
-          <Button type="submit">{submitButtonText}</Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Guardando...' : submitButtonText}
+            </Button>
         </div>
       </form>
     </Form>
