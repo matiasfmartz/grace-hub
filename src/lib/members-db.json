@@ -24,7 +24,7 @@
     "lastName": "Smith",
     "email": "bob@example.com",
     "phone": "555-0102",
-    "status": "Inactive",
+    "status": "Active",
     "avatarUrl": "https://placehold.co/100x100",
     "birthDate": "1985-08-22",
     "churchJoinDate": "2015-01-20",
@@ -32,7 +32,7 @@
     "attendsLifeSchool": false,
     "attendsBibleInstitute": true,
     "fromAnotherChurch": true,
-    "assignedGDIId": "gdi2",
+    "assignedGDIId": "gdi1",
     "assignedAreaIds": [
       "ma2"
     ]
