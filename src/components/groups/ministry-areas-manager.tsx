@@ -24,6 +24,12 @@ export default function MinistryAreasManager({ ministryAreas, allMembers, active
     return allMembers.find(member => member.id === leaderId);
   };
 
+  const handleManageArea = (areaId: string, areaName: string) => {
+    console.log(`Manage Ministry Area clicked: ID = ${areaId}, Name = ${areaName}`);
+    // Placeholder for future functionality, e.g., open an edit dialog
+    alert(`Managing Ministry Area: ${areaName} (ID: ${areaId}) - Functionality to be implemented.`);
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -75,7 +81,11 @@ export default function MinistryAreasManager({ ministryAreas, allMembers, active
                   )}
                 </CardContent>
                 <CardFooter>
-                  <Button variant="outline" className="w-full border-primary text-primary hover:bg-primary/10">
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-primary text-primary hover:bg-primary/10"
+                    onClick={() => handleManageArea(area.id, area.name)}
+                  >
                     Manage Area
                   </Button>
                 </CardFooter>

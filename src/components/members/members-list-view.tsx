@@ -69,7 +69,7 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
       if (typeof valA === 'number' && typeof valB === 'number') {
         return sortOrder === 'asc' ? valA - valB : valB - valA;
       }
-      // Fallback for date strings if not handled by direct property access
+      
       if (sortKey === 'birthDate' || sortKey === 'churchJoinDate') {
           const dateA = valA ? new Date(valA as string).getTime() : 0;
           const dateB = valB ? new Date(valB as string).getTime() : 0;
@@ -92,12 +92,20 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
 
   const handleAddMember = useCallback((newMember: Member) => {
     setMembers(prevMembers => [newMember, ...prevMembers]);
-    // In a real app, you would also make an API call here
   }, []);
   
   const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
     if (sortKey !== columnKey) return null;
     return sortOrder === 'asc' ? <ArrowUpNarrowWide size={16} /> : <ArrowDownNarrowWide size={16} />;
+  };
+
+  const displayStatus = (status: Member['status']) => {
+    switch (status) {
+      case 'Active': return 'Activo';
+      case 'Inactive': return 'Inactivo';
+      case 'New': return 'Nuevo';
+      default: return status;
+    }
   };
 
   return (
@@ -166,7 +174,7 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
                     'bg-yellow-500/20 text-yellow-700 border-yellow-500/50'
                   }
                   >
-                    {member.status === 'Active' ? 'Activo' : member.status === 'Inactive' ? 'Inactivo' : 'Nuevo'}
+                    {displayStatus(member.status)}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-center">
@@ -191,24 +199,24 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
         onClose={handleCloseDetailsDialog}
       />
       <Dialog open={isAddMemberDialogOpen} onOpenChange={setIsAddMemberDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Agregar Nuevo Miembro</DialogTitle>
             <DialogDescription>
               Complete los detalles del nuevo miembro de la iglesia. Haga clic en guardar cuando haya terminado.
             </DialogDescription>
           </DialogHeader>
-          <AddMemberForm 
-            onOpenChange={setIsAddMemberDialogOpen} 
-            onAddMember={handleAddMember}
-            allGDIs={allGDIs}
-            allMinistryAreas={allMinistryAreas}
-            allMembers={members}
-          />
+          <div className="flex-grow overflow-hidden"> {/* This div will contain the form and allow it to take up space */}
+            <AddMemberForm 
+              onOpenChange={setIsAddMemberDialogOpen} 
+              onAddMember={handleAddMember}
+              allGDIs={allGDIs}
+              allMinistryAreas={allMinistryAreas}
+              allMembers={members}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </>
   );
 }
-
-    

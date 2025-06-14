@@ -5,14 +5,14 @@ import { useState } from 'react';
 import type { GDI, Member } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, UserCheck, PlusCircle, Mail, Phone } from 'lucide-react'; // Users can be generic group icon
+import { Users, UserCheck, PlusCircle, Mail, Phone } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import AddGdiForm from './add-gdi-form';
 
 interface GdisManagerProps {
   gdis: GDI[];
-  allMembers: Member[]; // For resolving guide names
-  activeMembers: Member[]; // For guide selection
+  allMembers: Member[]; 
+  activeMembers: Member[]; 
   onAddGDI: (newGdi: GDI) => void;
 }
 
@@ -21,6 +21,12 @@ export default function GdisManager({ gdis, allMembers, activeMembers, onAddGDI 
 
   const getGuideDetails = (guideId: string) => {
     return allMembers.find(member => member.id === guideId);
+  };
+
+  const handleManageGDI = (gdiId: string, gdiName: string) => {
+    console.log(`Manage GDI clicked: ID = ${gdiId}, Name = ${gdiName}`);
+    // Placeholder for future functionality, e.g., open an edit dialog or member assignment view
+    alert(`Managing GDI: ${gdiName} (ID: ${gdiId}) - Functionality to be implemented.`);
   };
 
   return (
@@ -65,7 +71,11 @@ export default function GdisManager({ gdis, allMembers, activeMembers, onAddGDI 
                   </CardDescription>
                 </CardContent>
                 <CardFooter>
-                   <Button variant="outline" className="w-full border-primary text-primary hover:bg-primary/10">
+                   <Button 
+                    variant="outline" 
+                    className="w-full border-primary text-primary hover:bg-primary/10"
+                    onClick={() => handleManageGDI(gdi.id, gdi.name)}
+                  >
                     Manage GDI
                   </Button>
                 </CardFooter>
