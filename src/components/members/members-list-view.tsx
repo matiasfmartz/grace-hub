@@ -19,7 +19,7 @@ interface MembersListViewProps {
   allMinistryAreas: MinistryArea[];
 }
 
-type SortKey = keyof Member | 'fullName';
+type SortKey = Exclude<keyof Member, 'email' | 'assignedGDIId' | 'assignedAreaIds' | 'avatarUrl' | 'attendsLifeSchool' | 'attendsBibleInstitute' | 'fromAnotherChurch' | 'baptismDate'> | 'fullName';
 type SortOrder = 'asc' | 'desc';
 
 export default function MembersListView({ initialMembers, allGDIs, allMinistryAreas }: MembersListViewProps) {
@@ -30,6 +30,14 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
+
+  const getGdiGuideName = useCallback((member: Member): string => {
+    if (!member.assignedGDIId) return "No asignado";
+    const gdi = allGDIs.find(g => g.id === member.assignedGDIId);
+    if (!gdi) return "GDI no encontrado";
+    const guide = members.find(m => m.id === gdi.guideId);
+    return guide ? `${guide.firstName} ${guide.lastName}` : "Guía no encontrado";
+  }, [allGDIs, members]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -45,7 +53,6 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
     if (searchTerm) {
       membersToSort = membersToSort.filter(member =>
         `${member.firstName} ${member.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         member.status.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
@@ -116,7 +123,7 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Buscar miembros por nombre, email, o estado..."
+            placeholder="Buscar miembros por nombre o estado..."
             className="w-full md:w-1/2 lg:w-1/3 pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-primary focus:border-primary"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -137,12 +144,8 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
                   Nombre <SortIcon columnKey="fullName" />
                 </div>
               </TableHead>
-              <TableHead onClick={() => handleSort('email')} className="cursor-pointer">
-                <div className="flex items-center gap-1 hover:text-primary">
-                  Email <SortIcon columnKey="email" />
-                </div>
-              </TableHead>
               <TableHead>Teléfono</TableHead>
+              <TableHead>Guía GDI</TableHead>
               <TableHead onClick={() => handleSort('status')} className="cursor-pointer">
                 <div className="flex items-center gap-1 hover:text-primary">
                   Estado <SortIcon columnKey="status" />
@@ -156,13 +159,13 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
               <TableRow key={member.id} className="hover:bg-muted/50 transition-colors">
                 <TableCell>
                   <Avatar>
-                    <AvatarImage src={member.avatarUrl} alt={`${member.firstName} ${member.lastName}`} data-ai-hint="person portrait" />
+                    <AvatarImage src={member.avatarUrl} alt={`${member.firstName} ${member.lastName}`} data-ai-hint="person portrait"/>
                     <AvatarFallback>{member.firstName.substring(0, 1)}{member.lastName.substring(0,1)}</AvatarFallback>
                   </Avatar>
                 </TableCell>
                 <TableCell className="font-medium">{member.firstName} {member.lastName}</TableCell>
-                <TableCell>{member.email}</TableCell>
                 <TableCell>{member.phone}</TableCell>
+                <TableCell>{getGdiGuideName(member)}</TableCell>
                 <TableCell>
                   <Badge variant={
                     member.status === 'Active' ? 'default' :
@@ -207,7 +210,6 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
               Complete los detalles del nuevo miembro de la iglesia. Haga clic en guardar cuando haya terminado.
             </DialogDescription>
           </DialogHeader>
-          {/* This div will contain the form and will be scrollable */}
           <div className="flex-grow overflow-y-auto">
             <AddMemberForm 
               onOpenChange={setIsAddMemberDialogOpen} 
@@ -222,3 +224,4 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
     </>
   );
 }
+
