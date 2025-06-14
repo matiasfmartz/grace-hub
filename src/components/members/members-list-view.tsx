@@ -206,7 +206,7 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
               Complete los detalles del nuevo miembro de la iglesia. Haga clic en guardar cuando haya terminado.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-grow overflow-hidden"> {/* This div will contain the form and allow it to take up space */}
+          <div className="flex-grow min-h-0">
             <AddMemberForm 
               onOpenChange={setIsAddMemberDialogOpen} 
               onAddMember={handleAddMember}

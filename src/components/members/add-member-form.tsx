@@ -87,7 +87,7 @@ export default function AddMemberForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
-        <ScrollArea className="flex-grow pr-6 -mr-6 mb-4"> {/* Adjusted for scrollbar, mb for spacing */}
+        <ScrollArea className="flex-grow min-h-0 pr-6 -mr-6 mb-4">
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
@@ -339,7 +339,7 @@ export default function AddMemberForm({
               </div>
           </div>
         </ScrollArea>
-        <div className="flex justify-end space-x-2 pt-4 border-t mt-auto"> {/* Buttons outside ScrollArea */}
+        <div className="flex justify-end space-x-2 pt-4 border-t mt-auto">
           <Button type="button" variant="outline" onClick={() => {
             onOpenChange(false);
             form.reset();
