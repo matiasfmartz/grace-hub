@@ -1,0 +1,43 @@
+
+[
+  {
+    "id": "m1",
+    "name": "Sunday General Service",
+    "type": "General",
+    "date": "2024-07-28",
+    "time": "10:00",
+    "location": "Main Sanctuary",
+    "description": "Join us for our weekly worship service, open to all.",
+    "imageUrl": "https://placehold.co/600x400"
+  },
+  {
+    "id": "m2",
+    "name": "Mid-week GDI Focus",
+    "type": "GDI Focus",
+    "date": "2024-07-31",
+    "time": "19:00",
+    "location": "Fellowship Hall",
+    "description": "A time for all GDI members to connect and grow together.",
+    "imageUrl": "https://placehold.co/600x400"
+  },
+  {
+    "id": "m3",
+    "name": "Obreros Training Session",
+    "type": "Obreros",
+    "date": "2024-08-03",
+    "time": "09:00",
+    "location": "Room 101",
+    "description": "Special training for all active workers (members of ministry areas).",
+    "imageUrl": "https://placehold.co/600x400"
+  },
+  {
+    "id": "m4",
+    "name": "Leadership Council",
+    "type": "Lideres",
+    "date": "2024-08-05",
+    "time": "18:00",
+    "location": "Pastor's Office",
+    "description": "Meeting for all GDI Guides and Ministry Area Leaders.",
+    "imageUrl": "https://placehold.co/600x400"
+  }
+]

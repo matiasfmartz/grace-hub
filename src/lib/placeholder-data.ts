@@ -1,5 +1,5 @@
 
-import type { Member, MinistryArea, GDI, ChurchEvent, Resource } from './types';
+import type { Member, MinistryArea, GDI, Meeting, Resource, AttendanceRecord, MeetingType } from './types';
 
 export const placeholderMembers: Member[] = [
   { 
@@ -25,7 +25,7 @@ export const placeholderMembers: Member[] = [
     lastName: 'Smith', 
     email: 'bob@example.com', 
     phone: '555-0102', 
-    status: 'Inactive', 
+    status: 'Active', 
     avatarUrl: 'https://placehold.co/100x100',
     birthDate: '1985-08-22',
     churchJoinDate: '2015-01-20',
@@ -33,7 +33,7 @@ export const placeholderMembers: Member[] = [
     attendsLifeSchool: false,
     attendsBibleInstitute: true,
     fromAnotherChurch: true,
-    assignedGDIId: 'gdi2',
+    assignedGDIId: null, // Bob is guide of gdi2, so assignedGDIId is null here as per new logic
     assignedAreaIds: ['ma2']
   },
   { 
@@ -50,7 +50,7 @@ export const placeholderMembers: Member[] = [
     attendsLifeSchool: true,
     attendsBibleInstitute: true,
     fromAnotherChurch: false,
-    assignedGDIId: 'gdi1',
+    assignedGDIId: 'gdi2',
     assignedAreaIds: []
   },
   { 
@@ -101,7 +101,7 @@ export const placeholderMembers: Member[] = [
     attendsLifeSchool: true,
     attendsBibleInstitute: true,
     fromAnotherChurch: false,
-    assignedGDIId: null, 
+    assignedGDIId: 'gdi1', 
     assignedAreaIds: [], 
   },
   { 
@@ -118,7 +118,7 @@ export const placeholderMembers: Member[] = [
     attendsLifeSchool: true,
     attendsBibleInstitute: false,
     fromAnotherChurch: true,
-    assignedGDIId: null,
+    assignedGDIId: null, // Sarah is guide of gdi1
     assignedAreaIds: [], 
   },
    { 
@@ -135,7 +135,7 @@ export const placeholderMembers: Member[] = [
     attendsLifeSchool: false,
     attendsBibleInstitute: true,
     fromAnotherChurch: false,
-    assignedGDIId: null,
+    assignedGDIId: 'gdi2',
     assignedAreaIds: [],
   }
 ];
@@ -145,16 +145,16 @@ export const placeholderMinistryAreas: MinistryArea[] = [
     id: 'ma1', 
     name: 'Youth Ministry', 
     description: 'Engaging young people with faith and community activities.',
-    leaderId: '6', // Michael Lee
-    memberIds: ['1', '4'],
+    leaderId: '1', // Alice Johnson
+    memberIds: ['4'],
     imageUrl: 'https://placehold.co/600x400'
   },
   { 
     id: 'ma2', 
     name: 'Worship Team', 
     description: 'Leading the congregation in worship through music and song.',
-    leaderId: '7', // Sarah Miller
-    memberIds: ['2', '5'],
+    leaderId: '2', // Bob Smith
+    memberIds: ['5'],
     imageUrl: 'https://placehold.co/600x400'
   },
   { 
@@ -171,46 +171,67 @@ export const placeholderGDIs: GDI[] = [
   {
     id: 'gdi1',
     name: 'GDI Alpha',
-    guideId: '1', // Alice Johnson
-    memberIds: ['3', '5'] 
+    guideId: '7', // Sarah Miller
+    memberIds: ['1', '5', '6'] 
   },
   {
     id: 'gdi2',
     name: 'GDI Beta',
     guideId: '2', // Bob Smith
-    memberIds: ['4'] 
+    memberIds: ['4', '8', '3'] 
   }
 ];
 
-export const placeholderEvents: ChurchEvent[] = [
+export const placeholderMeetings: Meeting[] = [
   { 
-    id: 'e1', 
-    name: 'Sunday Service', 
-    date: 'Every Sunday', 
-    time: '10:00 AM - 11:30 AM', 
+    id: 'm1', 
+    name: 'Sunday General Service', 
+    type: 'General',
+    date: '2024-07-28', 
+    time: '10:00', 
     location: 'Main Sanctuary', 
-    description: 'Join us for our weekly worship service.',
+    description: 'Join us for our weekly worship service, open to all.',
     imageUrl: 'https://placehold.co/600x400' 
   },
   { 
-    id: 'e2', 
-    name: 'Mid-week Bible Study', 
-    date: 'Every Wednesday', 
-    time: '7:00 PM - 8:30 PM', 
+    id: 'm2', 
+    name: 'Mid-week GDI Focus', 
+    type: 'GDI Focus',
+    date: '2024-07-31', 
+    time: '19:00', 
     location: 'Fellowship Hall', 
-    description: 'Deep dive into the scriptures.',
+    description: 'A time for all GDI members to connect and grow together.',
     imageUrl: 'https://placehold.co/600x400'
   },
   { 
-    id: 'e3', 
-    name: 'Annual Church Picnic', 
-    date: 'July 20, 2024', 
-    time: '12:00 PM - 4:00 PM', 
-    location: 'City Park', 
-    description: 'A fun day of fellowship, food, and games for the whole family.',
+    id: 'm3', 
+    name: 'Obreros Training Session', 
+    type: 'Obreros',
+    date: '2024-08-03', 
+    time: '09:00', 
+    location: 'Room 101', 
+    description: 'Special training for all active workers (members of ministry areas).',
     imageUrl: 'https://placehold.co/600x400'
   },
+  {
+    id: 'm4',
+    name: 'Leadership Council',
+    type: 'Lideres',
+    date: '2024-08-05',
+    time: '18:00',
+    location: 'Pastor\'s Office',
+    description: 'Meeting for all GDI Guides and Ministry Area Leaders.',
+    imageUrl: 'https://placehold.co/600x400'
+  }
 ];
+
+export const placeholderAttendanceRecords: AttendanceRecord[] = [
+  // Example: Alice attended the Sunday General Service
+  { id: 'att1', meetingId: 'm1', memberId: '1', attended: true },
+  // Example: Bob did not attend the Mid-week GDI Focus
+  { id: 'att2', meetingId: 'm2', memberId: '2', attended: false, notes: "Called in sick" },
+];
+
 
 export const placeholderResources: Resource[] = [
   { 

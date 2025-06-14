@@ -44,15 +44,39 @@ export interface GDI { // Grupo de Integración
 
 export type GDIWriteData = Omit<GDI, 'id'>;
 
-export interface ChurchEvent {
+// Replaces ChurchEvent
+export const MeetingTypeSchema = z.enum([
+  "General", // All members
+  "GDI Focus", // All members in any GDI (conceptual placeholder)
+  "Obreros",   // Active members (in any ministry area)
+  "Lideres",   // Ministry Area Leaders AND GDI Guides
+  "AreaSpecific" // Members of a specific ministry area
+]);
+export type MeetingType = z.infer<typeof MeetingTypeSchema>;
+
+export interface Meeting {
   id: string;
   name: string;
-  date: string;
-  time: string;
+  type: MeetingType;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM, e.g., "10:00" or "19:30"
   location: string;
-  description: string;
-  imageUrl?: string;
+  description?: string;
+  imageUrl?: string; // Optional image for the meeting
+  relatedAreaId?: string | null; // Only for 'AreaSpecific' type
 }
+export type MeetingWriteData = Omit<Meeting, 'id'>;
+
+
+export interface AttendanceRecord {
+  id: string;
+  meetingId: string;
+  memberId: string;
+  attended: boolean;
+  notes?: string;
+}
+export type AttendanceRecordWriteData = Omit<AttendanceRecord, 'id'>;
+
 
 export interface Resource {
   id: string;
@@ -107,9 +131,26 @@ export const UpdateMinistryAreaLeaderFormSchema = z.object({
 });
 export type UpdateMinistryAreaLeaderFormValues = z.infer<typeof UpdateMinistryAreaLeaderFormSchema>;
 
-// Schema for assigning members to a ministry area might look like this:
 export const AssignMinistryAreaMembersFormSchema = z.object({
-  memberIds: z.array(z.string()).min(0, { message: "Select at least one member or an empty list." }), // Assuming an area can have zero members.
+  memberIds: z.array(z.string()).min(0, { message: "Select at least one member or an empty list." }),
 });
 export type AssignMinistryAreaMembersFormValues = z.infer<typeof AssignMinistryAreaMembersFormSchema>;
 
+
+export const AddMeetingFormSchema = z.object({
+  name: z.string().min(3, { message: "El nombre de la reunión debe tener al menos 3 caracteres." }),
+  type: MeetingTypeSchema.refine(type => type !== "AreaSpecific", {
+    message: "Las reuniones específicas del área se crean desde la gestión del área.", // This form won't offer 'AreaSpecific'
+  }),
+  date: z.date({ required_error: "La fecha es requerida." }),
+  time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Formato de hora inválido (HH:MM)." }),
+  location: z.string().min(3, { message: "La ubicación es requerida." }),
+  description: z.string().optional(),
+  imageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')),
+  relatedAreaId: z.string().nullable().optional(), // Should be null if type is not AreaSpecific
+}).refine(data => data.type === "AreaSpecific" ? !!data.relatedAreaId : true, {
+  message: "relatedAreaId es requerido para reuniones específicas del área.",
+  path: ["relatedAreaId"],
+});
+
+export type AddMeetingFormValues = z.infer<typeof AddMeetingFormSchema>;

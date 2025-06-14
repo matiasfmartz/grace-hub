@@ -34,7 +34,8 @@
     "fromAnotherChurch": true,
     "assignedGDIId": null,
     "assignedAreaIds": [
-      "ma2"
+      "ma2",
+      "1749880199537-cvuyxy3"
     ]
   },
   {
@@ -50,8 +51,9 @@
     "attendsLifeSchool": true,
     "attendsBibleInstitute": true,
     "fromAnotherChurch": false,
-    "assignedGDIId": "gdi1",
-    "assignedAreaIds": []
+    "assignedGDIId": "gdi2",
+    "assignedAreaIds": [],
+    "baptismDate": ""
   },
   {
     "id": "4",
@@ -89,7 +91,8 @@
     "fromAnotherChurch": true,
     "assignedGDIId": "gdi1",
     "assignedAreaIds": [
-      "ma2"
+      "ma2",
+      "1749880199537-cvuyxy3"
     ]
   },
   {
@@ -106,7 +109,7 @@
     "attendsLifeSchool": true,
     "attendsBibleInstitute": true,
     "fromAnotherChurch": false,
-    "assignedGDIId": null,
+    "assignedGDIId": "gdi1",
     "assignedAreaIds": []
   },
   {
@@ -160,7 +163,8 @@
     "assignedAreaIds": [
       "ma1",
       "ma3",
-      "1749880199537-cvuyxy3"
+      "1749880199537-cvuyxy3",
+      "ma2"
     ],
     "id": "1749877175613-ls6oqv6"
   },
@@ -194,8 +198,7 @@
     "avatarUrl": "https://placehold.co/100x100",
     "assignedGDIId": "gdi2",
     "assignedAreaIds": [
-      "ma3",
-      "1749880199537-cvuyxy3"
+      "ma3"
     ],
     "id": "1749880160940-30020fm"
   }
