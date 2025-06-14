@@ -2,7 +2,7 @@
 "use client";
 
 import type { Member, GDI, MinistryArea } from '@/lib/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"; // Removed DialogDescription import as it's not used directly for the badge
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -49,7 +49,8 @@ export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMi
             </Avatar>
             <div>
               <DialogTitle className="text-2xl">{member.firstName} {member.lastName}</DialogTitle>
-              <DialogDescription>
+              {/* Badge moved here, outside of DialogDescription */}
+              <div className="mt-1">
                 <Badge variant={
                     member.status === 'Active' ? 'default' :
                     member.status === 'Inactive' ? 'secondary' :
@@ -63,7 +64,7 @@ export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMi
                 >
                   {member.status}
                 </Badge>
-              </DialogDescription>
+              </div>
             </div>
           </div>
         </DialogHeader>
@@ -126,3 +127,4 @@ export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMi
     </Dialog>
   );
 }
+
