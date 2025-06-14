@@ -2,7 +2,7 @@
 "use client";
 
 import type { Member, GDI, MinistryArea, AddMemberFormValues } from '@/lib/types';
-import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -93,9 +93,6 @@ export default function MemberDetailsDialog({
         });
         onMemberUpdated(result.updatedMember); // Update client-side state
         setIsEditing(false); // Switch back to view mode
-        // Dialog closing is handled by onOpenChange if `isEditing` becomes false,
-        // or if onDialogClose from AddMemberForm is called.
-        // For direct closure after save, we can call onClose.
         onClose(); 
       } else {
         toast({
@@ -156,7 +153,7 @@ export default function MemberDetailsDialog({
               allMembers={allMembers}
               submitButtonText="Guardar Cambios"
               cancelButtonText="Cancelar Edición"
-              onDialogClose={handleEditToggle} // To toggle isEditing off when form's cancel is clicked
+              onDialogClose={handleEditToggle} 
               isSubmitting={isPending}
             />
           </div>
@@ -226,4 +223,3 @@ export default function MemberDetailsDialog({
     </Dialog>
   );
 }
-
