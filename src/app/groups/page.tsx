@@ -5,7 +5,7 @@ import ManageGroupsTabs from '@/components/groups/manage-groups-tabs';
 import { revalidatePath } from 'next/cache';
 import { getAllMinistryAreas, addMinistryArea } from '@/services/ministryAreaService';
 import { getAllGdis, addGdi } from '@/services/gdiService';
-import { getAllMembers } from '@/services/memberService';
+import { getAllMembersNonPaginated } from '@/services/memberService'; // Changed import
 
 export async function addMinistryAreaActionSvc(newAreaData: AddMinistryAreaFormValues): Promise<{ success: boolean; message: string; newArea?: MinistryArea }> {
   try {
@@ -50,7 +50,7 @@ export async function addGdiActionSvc(newGdiData: AddGdiFormValues): Promise<{ s
 async function getGroupsData(): Promise<{ ministryAreas: MinistryArea[], gdis: GDI[], members: Member[] }> {
   const ministryAreas = await getAllMinistryAreas();
   const gdis = await getAllGdis();
-  const members = await getAllMembers();
+  const members = await getAllMembersNonPaginated(); // Corrected to use getAllMembersNonPaginated
   return { ministryAreas, gdis, members };
 }
 
@@ -66,10 +66,11 @@ export default async function GroupsPage() {
       <ManageGroupsTabs
         initialMinistryAreas={ministryAreas}
         initialGdis={gdis}
-        allMembers={members}
-        addMinistryAreaAction={addMinistryAreaActionSvc} // Use the new service-calling action
-        addGdiAction={addGdiActionSvc} // Use the new service-calling action
+        allMembers={members} // This will now correctly be an array
+        addMinistryAreaAction={addMinistryAreaActionSvc} 
+        addGdiAction={addGdiActionSvc} 
       />
     </div>
   );
 }
+
