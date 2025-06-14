@@ -144,7 +144,7 @@ export default function MemberDetailsDialog({
         </DialogHeader>
         
         {isEditing ? (
-          <div className="flex-grow overflow-y-auto">
+          <div className="flex-grow overflow-y-auto min-h-0">
             <AddMemberForm
               initialMemberData={member}
               onSubmitMember={handleFormSubmit}
@@ -158,7 +158,7 @@ export default function MemberDetailsDialog({
             />
           </div>
         ) : (
-          <div className="flex-grow overflow-y-auto p-6">
+          <div className="flex-grow overflow-y-auto p-6 min-h-0">
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-3 gap-2">
                 <span className="font-semibold text-muted-foreground">Email:</span>
@@ -223,3 +223,4 @@ export default function MemberDetailsDialog({
     </Dialog>
   );
 }
+
