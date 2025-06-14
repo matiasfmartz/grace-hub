@@ -15,10 +15,6 @@ import {
 import { getAllGdis } from '@/services/gdiService';
 import { getAllMinistryAreas } from '@/services/ministryAreaService';
 
-const GDIS_DB_FILE_PATH = 'gdis-db.json';
-const MINISTRY_AREAS_DB_FILE_PATH = 'ministry-areas-db.json';
-
-
 export async function addSingleMemberAction(newMemberData: MemberWriteData): Promise<{ success: boolean; message: string; newMember?: Member }> {
   try {
     const newMember = await addMember(newMemberData);
@@ -54,7 +50,6 @@ export async function updateMemberAction(updatedMemberData: Member): Promise<{ s
 
     const memberToUpdate = await updateMember(updatedMemberData.id, updatedMemberData);
     
-    // Pass full original and updated member data for comprehensive sync
     await updateMemberAssignments(
       memberToUpdate.id,
       originalMemberData, 
@@ -79,10 +74,11 @@ interface MembersPageProps {
   searchParams?: {
     page?: string;
     pageSize?: string;
+    search?: string;
   };
 }
 
-async function getMembersPageData(page: number, pageSize: number): Promise<{ 
+async function getMembersPageData(page: number, pageSize: number, searchTerm?: string): Promise<{ 
   membersForPage: Member[], 
   allMembersForDropdowns: Member[],
   gdis: GDI[], 
@@ -90,8 +86,8 @@ async function getMembersPageData(page: number, pageSize: number): Promise<{
   currentPage: number,
   totalPages: number
 }> {
-  const { members, totalMembers, totalPages } = await getAllMembers(page, pageSize);
-  const allMembersForDropdowns = await getAllMembersNonPaginated(); // For dropdowns in forms
+  const { members, totalMembers, totalPages } = await getAllMembers(page, pageSize, searchTerm);
+  const allMembersForDropdowns = await getAllMembersNonPaginated(); 
   const gdis = await getAllGdis();
   const ministryAreas = await getAllMinistryAreas();
   return { membersForPage: members, allMembersForDropdowns, gdis, ministryAreas, currentPage: page, totalPages };
@@ -99,9 +95,10 @@ async function getMembersPageData(page: number, pageSize: number): Promise<{
 
 export default async function MembersPage({ searchParams }: MembersPageProps) {
   const currentPage = Number(searchParams?.page) || 1;
-  const pageSize = Number(searchParams?.pageSize) || 10; // Default page size
+  const pageSize = Number(searchParams?.pageSize) || 10; 
+  const searchTerm = searchParams?.search || '';
   
-  const { membersForPage, allMembersForDropdowns, gdis, ministryAreas, totalPages } = await getMembersPageData(currentPage, pageSize);
+  const { membersForPage, allMembersForDropdowns, gdis, ministryAreas, totalPages } = await getMembersPageData(currentPage, pageSize, searchTerm);
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -119,6 +116,7 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
         currentPage={currentPage}
         totalPages={totalPages}
         pageSize={pageSize}
+        currentSearchTerm={searchTerm}
       />
     </div>
   );
