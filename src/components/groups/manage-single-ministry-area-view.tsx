@@ -1,28 +1,25 @@
 
 "use client";
 
-import { useState, useTransition, useEffect } from 'react';
-import type { MinistryArea, Member, UpdateMinistryAreaLeaderFormValues, AssignMinistryAreaMembersFormValues } from '@/lib/types';
-import { UpdateMinistryAreaLeaderFormSchema, AssignMinistryAreaMembersFormSchema } from '@/lib/types';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, Controller } from 'react-hook-form';
+import { useState, useTransition, useEffect, useCallback } from 'react';
+import type { MinistryArea, Member } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { FormItem, FormLabel, FormControl } from '@/components/ui/form'; // Removed Form, FormField, FormMessage as we are not using react-hook-form here
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { Loader2, Users, UserCheck, ListChecks, Save, Image as ImageIcon, Edit3 } from 'lucide-react';
+import { Loader2, Save, Image as ImageIcon, Edit3, Users, UserCheck, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ManageSingleMinistryAreaViewProps {
   ministryArea: MinistryArea;
-  allMembers: Member[];
-  activeMembers: Member[];
+  allMembers: Member[]; // Full list for display consistency
+  activeMembers: Member[]; // Active list for selection (leaders, assignable members)
   updateMinistryAreaAction: (
     areaId: string,
     updatedData: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description' | 'imageUrl'>>
@@ -31,265 +28,245 @@ interface ManageSingleMinistryAreaViewProps {
 
 export default function ManageSingleMinistryAreaView({
   ministryArea: initialMinistryArea,
-  allMembers,
+  allMembers, // Used for general lookups if needed, activeMembers is primary for choices
   activeMembers,
   updateMinistryAreaAction,
 }: ManageSingleMinistryAreaViewProps) {
-  const [ministryArea, setMinistryArea] = useState<MinistryArea>(initialMinistryArea);
+  const [editableArea, setEditableArea] = useState<MinistryArea>(initialMinistryArea);
+  const [memberSearchTerm, setMemberSearchTerm] = useState('');
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const router = useRouter();
 
-  const leaderForm = useForm<UpdateMinistryAreaLeaderFormValues>({
-    resolver: zodResolver(UpdateMinistryAreaLeaderFormSchema),
-    defaultValues: {
-      leaderId: ministryArea.leaderId || '',
-    },
-  });
-
-  const membersForm = useForm<AssignMinistryAreaMembersFormValues>({
-    resolver: zodResolver(AssignMinistryAreaMembersFormSchema),
-    defaultValues: {
-      memberIds: ministryArea.memberIds || [],
-    },
-  });
-  
-  const detailsForm = useForm<Pick<MinistryArea, 'name' | 'description' | 'imageUrl'>>({
-    defaultValues: {
-      name: ministryArea.name,
-      description: ministryArea.description,
-      imageUrl: ministryArea.imageUrl || '',
-    }
-  })
-
   useEffect(() => {
-    leaderForm.reset({ leaderId: ministryArea.leaderId || '' });
-    membersForm.reset({ memberIds: ministryArea.memberIds || [] });
-    detailsForm.reset({
-      name: ministryArea.name,
-      description: ministryArea.description,
-      imageUrl: ministryArea.imageUrl || '',
-    });
-  }, [ministryArea, leaderForm, membersForm, detailsForm]);
+    // When the initialMinistryArea prop changes (e.g., after a save and re-fetch),
+    // update our editableArea state to reflect the latest data.
+    setEditableArea(initialMinistryArea);
+  }, [initialMinistryArea]);
 
-  const currentLeader = allMembers.find(m => m.id === ministryArea.leaderId);
-
-  const handleUpdateLeader = (values: UpdateMinistryAreaLeaderFormValues) => {
-    startTransition(async () => {
-      const result = await updateMinistryAreaAction(ministryArea.id, { leaderId: values.leaderId });
-      if (result.success && result.updatedArea) {
-        setMinistryArea(result.updatedArea);
-        toast({ title: "Success", description: "Leader updated successfully." });
-      } else {
-        toast({ title: "Error", description: result.message, variant: "destructive" });
-      }
-    });
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditableArea(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleUpdateMembers = (values: AssignMinistryAreaMembersFormValues) => {
-    startTransition(async () => {
-      const result = await updateMinistryAreaAction(ministryArea.id, { memberIds: values.memberIds });
-      if (result.success && result.updatedArea) {
-        setMinistryArea(result.updatedArea);
-        toast({ title: "Success", description: "Members updated successfully." });
-      } else {
-        toast({ title: "Error", description: result.message, variant: "destructive" });
-      }
-    });
+  const handleLeaderChange = (leaderId: string) => {
+    setEditableArea(prev => ({ ...prev, leaderId }));
   };
   
-  const handleUpdateDetails = (values: Pick<MinistryArea, 'name' | 'description' | 'imageUrl'>) => {
+  const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditableArea(prev => ({ ...prev, imageUrl: e.target.value || undefined })); // Store as undefined if empty string
+  }
+
+  const handleMemberSelectionChange = (memberIdToToggle: string, isChecked: boolean) => {
+    setEditableArea(prevArea => {
+      const currentMemberIds = prevArea.memberIds || [];
+      let newMemberIds;
+
+      if (isChecked) {
+        // Add member if not already present and not the leader
+        if (!currentMemberIds.includes(memberIdToToggle) && memberIdToToggle !== prevArea.leaderId) {
+          newMemberIds = [...currentMemberIds, memberIdToToggle];
+        } else {
+          newMemberIds = currentMemberIds; // No change needed
+        }
+      } else {
+        // Remove member (cannot remove leader this way, leader checkbox is disabled)
+        if (memberIdToToggle !== prevArea.leaderId) {
+          newMemberIds = currentMemberIds.filter(id => id !== memberIdToToggle);
+        } else {
+          newMemberIds = currentMemberIds; // No change needed
+        }
+      }
+      return { ...prevArea, memberIds: newMemberIds };
+    });
+  };
+
+  const handleSubmit = () => {
     startTransition(async () => {
-      const result = await updateMinistryAreaAction(ministryArea.id, { 
-        name: values.name, 
-        description: values.description,
-        imageUrl: values.imageUrl || 'https://placehold.co/600x400' 
-      });
+      const { id, ...dataToUpdate } = editableArea; // Exclude id from the data payload
+      
+      // Ensure imageUrl has a default if it's empty or undefined
+      const finalDataToUpdate = {
+        ...dataToUpdate,
+        imageUrl: dataToUpdate.imageUrl || 'https://placehold.co/600x400',
+      };
+
+      const result = await updateMinistryAreaAction(initialMinistryArea.id, finalDataToUpdate);
       if (result.success && result.updatedArea) {
-        setMinistryArea(result.updatedArea);
-        toast({ title: "Success", description: "Area details updated successfully." });
-        // Update the page title potentially, though this is client side
-        if (typeof window !== "undefined") {
+        toast({ title: "Success", description: "Ministry Area updated successfully." });
+        // The useEffect hook will update editableArea when initialMinistryArea prop changes due to revalidation
+        // If direct update is preferred without waiting for prop change:
+        // setEditableArea(result.updatedArea); 
+        
+        // Optionally update window title if name changed (client-side effect)
+        if (typeof window !== "undefined" && result.updatedArea.name !== initialMinistryArea.name) {
             document.title = `Manage: ${result.updatedArea.name}`;
         }
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
       }
     });
-  }
+  };
+
+  const filteredAssignableMembers = activeMembers.filter(member =>
+    `${member.firstName} ${member.lastName}`.toLowerCase().includes(memberSearchTerm.toLowerCase()) ||
+    member.email.toLowerCase().includes(memberSearchTerm.toLowerCase())
+  );
+  
+  const getMemberName = (memberId: string | undefined | null): string => {
+    if (!memberId) return 'N/A';
+    const member = allMembers.find(m => m.id === memberId);
+    return member ? `${member.firstName} ${member.lastName}` : 'N/A';
+  };
 
   return (
     <div className="space-y-8">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center"><Edit3 className="mr-2 h-6 w-6 text-primary" /> Edit Area Details</CardTitle>
-          <CardDescription>Update the name, description, and image for this ministry area.</CardDescription>
+          <CardTitle className="flex items-center"><Edit3 className="mr-2 h-6 w-6 text-primary" /> Manage Ministry Area: {initialMinistryArea.name}</CardTitle>
+          <CardDescription>Modify the details, leader, and members for this area. Click "Save All Changes" when done.</CardDescription>
         </CardHeader>
-        <Form {...detailsForm}>
-          <form onSubmit={detailsForm.handleSubmit(handleUpdateDetails)}>
-            <CardContent className="space-y-4">
-              <FormField
-                control={detailsForm.control}
+        <CardContent className="space-y-6">
+          {/* Area Details Section */}
+          <div className="p-4 border rounded-md space-y-4">
+            <h3 className="text-lg font-semibold flex items-center"><ImageIcon className="mr-2 h-5 w-5 text-muted-foreground" />Area Details</h3>
+            <FormItem>
+              <FormLabel htmlFor="name">Area Name</FormLabel>
+              <Input
+                id="name"
                 name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Area Name</FormLabel>
-                    <FormControl>
-                      <Input {...field} disabled={isPending} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                value={editableArea.name}
+                onChange={handleInputChange}
+                disabled={isPending}
+                className="mt-1"
               />
-              <FormField
-                control={detailsForm.control}
+            </FormItem>
+            <FormItem>
+              <FormLabel htmlFor="description">Description</FormLabel>
+              <Textarea
+                id="description"
                 name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} rows={4} disabled={isPending} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                value={editableArea.description}
+                onChange={handleInputChange}
+                rows={3}
+                disabled={isPending}
+                className="mt-1"
               />
-              <FormField
-                control={detailsForm.control}
-                name="imageUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Image URL</FormLabel>
-                    <FormControl>
-                       <Input type="url" {...field} value={field.value ?? ''} placeholder="https://placehold.co/600x400" disabled={isPending} />
-                    </FormControl>
-                    {field.value && (
-                      <div className="mt-2 relative w-full h-40 rounded overflow-hidden border">
-                        <Image src={field.value} alt="Area image preview" layout="fill" objectFit="cover" data-ai-hint="ministry event" />
-                      </div>
-                    )}
-                    <FormMessage />
-                  </FormItem>
+            </FormItem>
+            <FormItem>
+                <FormLabel htmlFor="imageUrl">Image URL</FormLabel>
+                <Input
+                    id="imageUrl"
+                    name="imageUrl"
+                    type="url"
+                    value={editableArea.imageUrl || ''}
+                    placeholder="https://placehold.co/600x400"
+                    onChange={handleImageUrlChange}
+                    disabled={isPending}
+                    className="mt-1"
+                />
+                {(editableArea.imageUrl || initialMinistryArea.imageUrl) && (
+                  <div className="mt-2 relative w-full h-32 rounded overflow-hidden border">
+                    <Image 
+                        src={editableArea.imageUrl || initialMinistryArea.imageUrl || 'https://placehold.co/600x400'} 
+                        alt="Area image preview" 
+                        layout="fill" 
+                        objectFit="cover" 
+                        data-ai-hint="ministry team group"
+                    />
+                  </div>
                 )}
-              />
-            </CardContent>
-            <CardFooter>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? <Loader2 className="animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save Details
-              </Button>
-            </CardFooter>
-          </form>
-        </Form>
-      </Card>
+            </FormItem>
+          </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center"><UserCheck className="mr-2 h-6 w-6 text-primary" /> Change Leader</CardTitle>
-          <CardDescription>
-            Current Leader: {currentLeader ? `${currentLeader.firstName} ${currentLeader.lastName}` : 'N/A'}
-          </CardDescription>
-        </CardHeader>
-        <Form {...leaderForm}>
-          <form onSubmit={leaderForm.handleSubmit(handleUpdateLeader)}>
-            <CardContent>
-              <FormField
-                control={leaderForm.control}
-                name="leaderId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>New Leader</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isPending}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a new leader" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {activeMembers.map((member) => (
-                          <SelectItem key={member.id} value={member.id}>
-                            {member.firstName} {member.lastName} ({member.email})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-            <CardFooter>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? <Loader2 className="animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Update Leader
-              </Button>
-            </CardFooter>
-          </form>
-        </Form>
-      </Card>
+          {/* Leader Selection Section */}
+          <div className="p-4 border rounded-md space-y-4">
+             <h3 className="text-lg font-semibold flex items-center"><UserCheck className="mr-2 h-5 w-5 text-muted-foreground" />Area Leader</h3>
+            <FormItem>
+                <FormLabel>Current Leader: {getMemberName(editableArea.leaderId)}</FormLabel>
+                <Select onValueChange={handleLeaderChange} value={editableArea.leaderId} disabled={isPending}>
+                <FormControl>
+                    <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select a new leader" />
+                    </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                    {activeMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                        {member.firstName} {member.lastName} ({member.email})
+                    </SelectItem>
+                    ))}
+                </SelectContent>
+                </Select>
+            </FormItem>
+          </div>
+          
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center"><Users className="mr-2 h-6 w-6 text-primary" /> Assign Members</CardTitle>
-          <CardDescription>Select members to assign to this ministry area. Currently {ministryArea.memberIds.length} members assigned.</CardDescription>
-        </CardHeader>
-        <Form {...membersForm}>
-          <form onSubmit={membersForm.handleSubmit(handleUpdateMembers)}>
-            <CardContent>
-              <FormField
-                control={membersForm.control}
-                name="memberIds"
-                render={() => (
-                  <FormItem>
-                    <ScrollArea className="h-72 w-full rounded-md border p-4">
-                      <div className="space-y-2">
-                        {allMembers.map((member) => (
-                          <FormField
-                            key={member.id}
-                            control={membersForm.control}
-                            name="memberIds"
-                            render={({ field }) => {
-                              return (
-                                <FormItem
-                                  key={member.id}
-                                  className="flex flex-row items-center space-x-3 space-y-0 p-2 hover:bg-muted/50 rounded-md"
-                                >
-                                  <FormControl>
-                                    <Checkbox
-                                      checked={field.value?.includes(member.id)}
-                                      onCheckedChange={(checked) => {
-                                        return checked
-                                          ? field.onChange([...(field.value || []), member.id])
-                                          : field.onChange(
-                                              field.value?.filter(
-                                                (value) => value !== member.id
-                                              )
-                                            );
-                                      }}
-                                      disabled={isPending || member.id === ministryArea.leaderId} // Disable checkbox for current leader
-                                    />
-                                  </FormControl>
-                                  <FormLabel className="font-normal flex-grow cursor-pointer">
-                                    {member.firstName} {member.lastName}
-                                    {member.id === ministryArea.leaderId && <span className="text-xs text-primary ml-2">(Leader)</span>}
-                                  </FormLabel>
-                                </FormItem>
-                              );
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </ScrollArea>
-                    <FormMessage />
-                  </FormItem>
+          {/* Member Assignment Section */}
+          <div className="p-4 border rounded-md space-y-4">
+            <h3 className="text-lg font-semibold flex items-center"><Users className="mr-2 h-5 w-5 text-muted-foreground" />Assign Members</h3>
+            <CardDescription className="mb-2 text-sm">
+              Select members to include in this ministry area. The Area Leader is automatically part of the area.
+            </CardDescription>
+            <Input
+              type="search"
+              placeholder="Search members by name or email..."
+              value={memberSearchTerm}
+              onChange={(e) => setMemberSearchTerm(e.target.value)}
+              className="mb-4"
+              disabled={isPending}
+            />
+            <ScrollArea className="h-60 w-full rounded-md border p-4">
+              <div className="space-y-1">
+                {filteredAssignableMembers.length > 0 ? filteredAssignableMembers.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex flex-row items-center space-x-3 p-2 hover:bg-muted/50 rounded-md"
+                  >
+                    <Checkbox
+                      id={`member-${member.id}`}
+                      checked={member.id === editableArea.leaderId || (editableArea.memberIds || []).includes(member.id)}
+                      disabled={isPending || member.id === editableArea.leaderId} 
+                      onCheckedChange={(checked) => {
+                        handleMemberSelectionChange(member.id, Boolean(checked));
+                      }}
+                      aria-label={`Assign ${member.firstName} ${member.lastName}`}
+                    />
+                    <label
+                      htmlFor={`member-${member.id}`}
+                      className="font-normal flex-grow cursor-pointer text-sm"
+                    >
+                      {member.firstName} {member.lastName}
+                      {member.id === editableArea.leaderId && <Badge variant="outline" className="ml-2 text-primary border-primary">Leader</Badge>}
+                    </label>
+                  </div>
+                )) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">No members match your search.</p>
                 )}
-              />
-            </CardContent>
-            <CardFooter>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? <Loader2 className="animate-spin" /> : <ListChecks className="mr-2 h-4 w-4" />} Update Member Assignments
-              </Button>
-            </CardFooter>
-          </form>
-        </Form>
+              </div>
+            </ScrollArea>
+            <div className="text-sm text-muted-foreground mt-2 space-y-1">
+                <p>
+                    Additional members selected: {(editableArea.memberIds || []).filter(id => id !== editableArea.leaderId).length}
+                </p>
+                <p>
+                    Total members in area (including leader): {
+                        // Use Set to count unique IDs, ensuring leader is counted once if also in memberIds
+                        new Set([editableArea.leaderId, ...(editableArea.memberIds || [])].filter(Boolean)).size
+                    }
+                </p>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-4 border-t pt-6">
+           <Button variant="outline" onClick={() => router.push('/groups')} disabled={isPending} className="w-full sm:w-auto">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Groups
+          </Button>
+          <Button onClick={handleSubmit} disabled={isPending} className="w-full sm:w-auto">
+            {isPending ? <Loader2 className="animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save All Changes
+          </Button>
+        </CardFooter>
       </Card>
     </div>
   );
