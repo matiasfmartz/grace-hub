@@ -9,6 +9,8 @@ import { revalidatePath } from 'next/cache';
 
 const MEMBERS_DB_PATH = path.join(process.cwd(), 'src/lib/members-db.json');
 const MINISTRY_AREAS_DB_PATH = path.join(process.cwd(), 'src/lib/ministry-areas-db.json');
+const GDIS_DB_PATH = path.join(process.cwd(), 'src/lib/gdis-db.json');
+
 
 async function readMembersFromDb(): Promise<Member[]> {
   try {
@@ -31,12 +33,25 @@ async function readMinistryAreasFromDb(): Promise<MinistryArea[]> {
     return JSON.parse(fileContent);
   } catch (error: any) {
     if (error.code === 'ENOENT') {
-      // This shouldn't happen if groups page is visited first, but as a fallback:
       await fs.writeFile(MINISTRY_AREAS_DB_PATH, JSON.stringify(placeholderMinistryAreas, null, 2), 'utf-8');
       return placeholderMinistryAreas;
     }
     console.error("Failed to read ministry-areas-db.json for member update sync:", error);
     return placeholderMinistryAreas;
+  }
+}
+
+async function readGdisFromDb(): Promise<GDI[]> {
+  try {
+    const fileContent = await fs.readFile(GDIS_DB_PATH, 'utf-8');
+    return JSON.parse(fileContent);
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      await fs.writeFile(GDIS_DB_PATH, JSON.stringify(placeholderGDIs, null, 2), 'utf-8');
+      return placeholderGDIs;
+    }
+    console.error("Failed to read gdis-db.json for member update sync:", error);
+    return placeholderGDIs;
   }
 }
 
@@ -72,12 +87,31 @@ export async function addSingleMemberAction(newMemberData: MemberWriteData): Pro
       }
     }
 
+    // Synchronize with GDIs
+    const assignedGDIId = newMemberWithId.assignedGDIId;
+    if (assignedGDIId) {
+      let allGdis = await readGdisFromDb();
+      const gdiIndex = allGdis.findIndex(gdi => gdi.id === assignedGDIId);
+      if (gdiIndex !== -1) {
+        // A member can only be in one GDI. Ensure they are not in other GDI member lists.
+        // (This specific action assumes the member is NEW, so no need to remove from old GDI lists here,
+        // but if they were somehow assigned to multiple by mistake in form, this logic would be more complex).
+        if (!allGdis[gdiIndex].memberIds.includes(newMemberWithId.id) && allGdis[gdiIndex].guideId !== newMemberWithId.id) {
+          allGdis[gdiIndex].memberIds.push(newMemberWithId.id);
+          await fs.writeFile(GDIS_DB_PATH, JSON.stringify(allGdis, null, 2), 'utf-8');
+        }
+      }
+    }
+
     revalidatePath('/members');
     revalidatePath('/groups');
     if (newMemberWithId.assignedAreaIds) {
       newMemberWithId.assignedAreaIds.forEach(areaId => {
         revalidatePath(`/groups/ministry-areas/${areaId}/manage`);
       });
+    }
+    if (assignedGDIId) {
+        revalidatePath(`/groups/gdis/${assignedGDIId}/manage`);
     }
     
     return { success: true, message: `Miembro ${newMemberWithId.firstName} ${newMemberWithId.lastName} agregado exitosamente.`, newMember: newMemberWithId };
@@ -99,7 +133,7 @@ export async function updateMemberAction(updatedMemberData: Member): Promise<{ s
       return { success: false, message: `Error: Miembro con ID ${updatedMemberData.id} no encontrado.` };
     }
     
-    const originalMemberData = { ...currentMembers[memberIndex] }; // Data before update
+    const originalMemberData = { ...currentMembers[memberIndex] }; 
 
     const memberToUpdate = {
       ...updatedMemberData,
@@ -112,24 +146,19 @@ export async function updateMemberAction(updatedMemberData: Member): Promise<{ s
     // Synchronize with Ministry Areas
     const originalAreaIds = new Set(originalMemberData.assignedAreaIds || []);
     const updatedAreaIds = new Set(memberToUpdate.assignedAreaIds || []);
-
     const areasAddedTo = Array.from(updatedAreaIds).filter(id => !originalAreaIds.has(id));
     const areasRemovedFrom = Array.from(originalAreaIds).filter(id => !updatedAreaIds.has(id));
 
     if (areasAddedTo.length > 0 || areasRemovedFrom.length > 0) {
       let allMinistryAreas = await readMinistryAreasFromDb();
       let ministryAreasDbChanged = false;
-
       areasAddedTo.forEach(areaId => {
         const areaIndex = allMinistryAreas.findIndex(area => area.id === areaId);
-        if (areaIndex !== -1) {
-          if (!allMinistryAreas[areaIndex].memberIds.includes(memberToUpdate.id)) {
-            allMinistryAreas[areaIndex].memberIds.push(memberToUpdate.id);
-            ministryAreasDbChanged = true;
-          }
+        if (areaIndex !== -1 && !allMinistryAreas[areaIndex].memberIds.includes(memberToUpdate.id)) {
+          allMinistryAreas[areaIndex].memberIds.push(memberToUpdate.id);
+          ministryAreasDbChanged = true;
         }
       });
-
       areasRemovedFrom.forEach(areaId => {
         const areaIndex = allMinistryAreas.findIndex(area => area.id === areaId);
         if (areaIndex !== -1) {
@@ -137,18 +166,56 @@ export async function updateMemberAction(updatedMemberData: Member): Promise<{ s
           ministryAreasDbChanged = true;
         }
       });
-
       if (ministryAreasDbChanged) {
         await fs.writeFile(MINISTRY_AREAS_DB_PATH, JSON.stringify(allMinistryAreas, null, 2), 'utf-8');
+      }
+    }
+
+    // Synchronize with GDIs
+    const oldGdiId = originalMemberData.assignedGDIId;
+    const newGdiId = memberToUpdate.assignedGDIId;
+
+    if (oldGdiId !== newGdiId) {
+      let allGdis = await readGdisFromDb();
+      let gdisDbChanged = false;
+      // Remove from old GDI if exists
+      if (oldGdiId) {
+        const oldGdiIndex = allGdis.findIndex(gdi => gdi.id === oldGdiId);
+        if (oldGdiIndex !== -1) {
+          allGdis[oldGdiIndex].memberIds = allGdis[oldGdiIndex].memberIds.filter(id => id !== memberToUpdate.id);
+          // If member was the guide of the old GDI, that GDI now has no guide or needs a new one.
+          // This logic should ideally be handled from GDI management. For now, we just remove as member.
+          // if (allGdis[oldGdiIndex].guideId === memberToUpdate.id) {
+          //   allGdis[oldGdiIndex].guideId = // some default or null. This is complex.
+          // }
+          gdisDbChanged = true;
+        }
+      }
+      // Add to new GDI if exists
+      if (newGdiId) {
+        const newGdiIndex = allGdis.findIndex(gdi => gdi.id === newGdiId);
+        if (newGdiIndex !== -1) {
+          // Ensure member is not already in the new GDI's member list (could happen if they are also the guide)
+          if (!allGdis[newGdiIndex].memberIds.includes(memberToUpdate.id) && allGdis[newGdiIndex].guideId !== memberToUpdate.id) {
+            allGdis[newGdiIndex].memberIds.push(memberToUpdate.id);
+          }
+          // If this member is now the guide of the new GDI, it's handled by GDI management.
+          // Here, we are just concerned about their membership if assignedGDIId implies general membership.
+          // The form ensures a guide isn't also in memberIds of the same GDI.
+          gdisDbChanged = true;
+        }
+      }
+      if (gdisDbChanged) {
+        await fs.writeFile(GDIS_DB_PATH, JSON.stringify(allGdis, null, 2), 'utf-8');
       }
     }
 
     revalidatePath('/members');
     revalidatePath('/groups');
     const allAffectedAreaIds = new Set([...areasAddedTo, ...areasRemovedFrom]);
-    allAffectedAreaIds.forEach(areaId => {
-      revalidatePath(`/groups/ministry-areas/${areaId}/manage`);
-    });
+    allAffectedAreaIds.forEach(areaId => revalidatePath(`/groups/ministry-areas/${areaId}/manage`));
+    if (oldGdiId) revalidatePath(`/groups/gdis/${oldGdiId}/manage`);
+    if (newGdiId) revalidatePath(`/groups/gdis/${newGdiId}/manage`);
     
     return { success: true, message: `Miembro ${memberToUpdate.firstName} ${memberToUpdate.lastName} actualizado exitosamente.`, updatedMember: memberToUpdate };
   } catch (error: any) {
@@ -160,25 +227,8 @@ export async function updateMemberAction(updatedMemberData: Member): Promise<{ s
 
 async function getMembersData(): Promise<{ members: Member[], gdis: GDI[], ministryAreas: MinistryArea[] }> {
   const members = await readMembersFromDb();
-  // For GDI data, we'll read from its own db file if available for consistency, else placeholders.
-  let gdis: GDI[];
-  try {
-      const gdiFileContent = await fs.readFile(path.join(process.cwd(), 'src/lib/gdis-db.json'), 'utf-8');
-      gdis = JSON.parse(gdiFileContent);
-  } catch (error) {
-      console.warn("Failed to read gdis-db.json for members page, using placeholders:", error);
-      gdis = placeholderGDIs;
-  }
-
-  // For MinistryArea data, also read from its own db file.
-  let ministryAreas: MinistryArea[];
-   try {
-      const maFileContent = await fs.readFile(MINISTRY_AREAS_DB_PATH, 'utf-8');
-      ministryAreas = JSON.parse(maFileContent);
-  } catch (error) {
-      console.warn("Failed to read ministry-areas-db.json for members page, using placeholders:", error);
-      ministryAreas = placeholderMinistryAreas;
-  }
+  const gdis = await readGdisFromDb();
+  const ministryAreas = await readMinistryAreasFromDb();
 
   return {
     members,
@@ -206,4 +256,3 @@ export default async function MembersPage() {
     </div>
   );
 }
-

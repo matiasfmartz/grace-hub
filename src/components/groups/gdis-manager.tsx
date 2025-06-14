@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Users, UserCheck, PlusCircle, Mail, Phone, Edit } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import AddGdiForm from './add-gdi-form';
-// import Link from 'next/link'; // Link for future "Manage GDI" page
+import Link from 'next/link';
 
 interface GdisManagerProps {
   gdis: GDI[];
@@ -23,14 +23,6 @@ export default function GdisManager({ gdis, allMembers, activeMembers, onAddGDI,
 
   const getGuideDetails = (guideId: string) => {
     return allMembers.find(member => member.id === guideId);
-  };
-
-  const handleManageGDI = (gdiId: string, gdiName: string) => {
-    // This would navigate to a specific GDI management page in the future
-    // For now, it's a placeholder
-    alert(`Managing GDI: ${gdiName} (ID: ${gdiId}) - Functionality to be implemented. This will navigate to /groups/gdis/${gdiId}/manage.`);
-    // Example of future navigation:
-    // router.push(`/groups/gdis/${gdiId}/manage`);
   };
 
   return (
@@ -76,12 +68,13 @@ export default function GdisManager({ gdis, allMembers, activeMembers, onAddGDI,
                 </CardContent>
                 <CardFooter>
                    <Button 
+                    asChild
                     variant="outline" 
                     className="w-full border-primary text-primary hover:bg-primary/10"
-                    onClick={() => handleManageGDI(gdi.id, gdi.name)}
-                    // disabled // Enable when navigation is ready
                   >
-                    <Edit className="mr-2 h-4 w-4" /> Manage GDI
+                    <Link href={`/groups/gdis/${gdi.id}/manage`}>
+                      <Edit className="mr-2 h-4 w-4" /> Manage GDI
+                    </Link>
                   </Button>
                 </CardFooter>
               </Card>
