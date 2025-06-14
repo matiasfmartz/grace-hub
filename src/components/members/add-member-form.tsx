@@ -60,7 +60,7 @@ export default function AddMemberForm({
       fromAnotherChurch: false,
       status: "New",
       avatarUrl: "",
-      assignedGDIId: NONE_GDI_OPTION_VALUE, // Default to "None" visually
+      assignedGDIId: NONE_GDI_OPTION_VALUE,
       assignedAreaIds: [],
     },
   });
@@ -95,9 +95,9 @@ export default function AddMemberForm({
               name="firstName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>First Name</FormLabel>
+                  <FormLabel>Nombre</FormLabel>
                   <FormControl>
-                    <Input placeholder="John" {...field} />
+                    <Input placeholder="Juan" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -108,9 +108,9 @@ export default function AddMemberForm({
               name="lastName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Last Name</FormLabel>
+                  <FormLabel>Apellido</FormLabel>
                   <FormControl>
-                    <Input placeholder="Doe" {...field} />
+                    <Input placeholder="Pérez" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -123,7 +123,7 @@ export default function AddMemberForm({
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="john.doe@example.com" {...field} />
+                    <Input type="email" placeholder="juan.perez@example.com" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -134,7 +134,7 @@ export default function AddMemberForm({
               name="phone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone</FormLabel>
+                  <FormLabel>Contacto (Teléfono)</FormLabel>
                   <FormControl>
                     <Input type="tel" placeholder="555-1234" {...field} />
                   </FormControl>
@@ -147,8 +147,8 @@ export default function AddMemberForm({
               name="birthDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Birth Date</FormLabel>
-                  <DatePicker date={field.value} setDate={field.onChange} placeholder="Select birth date" />
+                  <FormLabel>Fecha de Nacimiento</FormLabel>
+                  <DatePicker date={field.value} setDate={field.onChange} placeholder="Seleccionar fecha de nacimiento" />
                   <FormMessage />
                 </FormItem>
               )}
@@ -158,8 +158,8 @@ export default function AddMemberForm({
               name="churchJoinDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Church Join Date</FormLabel>
-                  <DatePicker date={field.value} setDate={field.onChange} placeholder="Select join date" />
+                  <FormLabel>Fecha de Ingreso a la Iglesia</FormLabel>
+                  <DatePicker date={field.value} setDate={field.onChange} placeholder="Seleccionar fecha de ingreso" />
                   <FormMessage />
                 </FormItem>
               )}
@@ -169,11 +169,11 @@ export default function AddMemberForm({
               name="baptismDate"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Baptism Date (Month Year)</FormLabel>
+                  <FormLabel>Fecha de Bautismo</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., June 2023 or 2023-06-15" {...field} />
+                    <Input placeholder="ej: Junio 15, Junio 2023, 2023-06-15" {...field} />
                   </FormControl>
-                  <FormDescription>Enter month and year, or full date.</FormDescription>
+                  <FormDescription>Ingrese día y mes (ej: Junio 15), mes y año (ej: Junio 2023), o fecha completa (ej: 2023-06-15).</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -183,17 +183,17 @@ export default function AddMemberForm({
               name="status"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Status</FormLabel>
+                  <FormLabel>Estado</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select member status" />
+                        <SelectValue placeholder="Seleccionar estado del miembro" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="New">New</SelectItem>
-                      <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="Inactive">Inactive</SelectItem>
+                      <SelectItem value="New">Nuevo</SelectItem>
+                      <SelectItem value="Active">Activo</SelectItem>
+                      <SelectItem value="Inactive">Inactivo</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -205,7 +205,7 @@ export default function AddMemberForm({
               name="avatarUrl"
               render={({ field }) => (
                 <FormItem className="md:col-span-2">
-                  <FormLabel>Avatar URL</FormLabel>
+                  <FormLabel>URL del Avatar (Opcional)</FormLabel>
                   <FormControl>
                     <Input type="url" placeholder="https://example.com/avatar.png" {...field} />
                   </FormControl>
@@ -215,7 +215,7 @@ export default function AddMemberForm({
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4 pt-2">
             <FormField
                 control={form.control}
                 name="attendsLifeSchool"
@@ -227,7 +227,7 @@ export default function AddMemberForm({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                    <FormLabel className="font-normal mb-0!">Attends Life School?</FormLabel>
+                    <FormLabel className="font-normal mb-0!">¿Asiste a Escuela de Vida?</FormLabel>
                   </FormItem>
                 )}
               />
@@ -242,7 +242,7 @@ export default function AddMemberForm({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                    <FormLabel className="font-normal mb-0!">Attends Bible Institute?</FormLabel>
+                    <FormLabel className="font-normal mb-0!">¿Asiste al Instituto Bíblico Externo (IBE)?</FormLabel>
                   </FormItem>
                 )}
               />
@@ -257,7 +257,7 @@ export default function AddMemberForm({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                    <FormLabel className="font-normal mb-0!">Came from another church?</FormLabel>
+                    <FormLabel className="font-normal mb-0!">¿Vino de otra iglesia?</FormLabel>
                   </FormItem>
                 )}
               />
@@ -268,21 +268,21 @@ export default function AddMemberForm({
               name="assignedGDIId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Assign to GDI</FormLabel>
+                  <FormLabel>Asignar a GDI</FormLabel>
                   <Select 
                     onValueChange={field.onChange} 
                     defaultValue={field.value || NONE_GDI_OPTION_VALUE}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a GDI" />
+                        <SelectValue placeholder="Seleccionar un GDI" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value={NONE_GDI_OPTION_VALUE}>None</SelectItem>
+                      <SelectItem value={NONE_GDI_OPTION_VALUE}>Ninguno</SelectItem>
                       {allGDIs.map((gdi) => (
                         <SelectItem key={gdi.id} value={gdi.id}>
-                          {gdi.name} (Guide: {getMemberName(gdi.guideId)})
+                          {gdi.name} (Guía: {getMemberName(gdi.guideId)})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -293,7 +293,7 @@ export default function AddMemberForm({
             />
             
             <div className="space-y-2">
-              <Label>Assign to Ministry Areas</Label>
+              <Label>Asignar a Áreas de Ministerio</Label>
               <FormField
                 control={form.control}
                 name="assignedAreaIds"
@@ -325,7 +325,7 @@ export default function AddMemberForm({
                                 />
                               </FormControl>
                               <FormLabel className="font-normal">
-                                {area.name} (Leader: {getMemberName(area.leaderId)})
+                                {area.name} (Líder: {getMemberName(area.leaderId)})
                               </FormLabel>
                             </FormItem>
                           )
@@ -344,11 +344,13 @@ export default function AddMemberForm({
             onOpenChange(false);
             form.reset();
             }}>
-            Cancel
+            Cancelar
           </Button>
-          <Button type="submit">Add Member</Button>
+          <Button type="submit">Agregar Miembro</Button>
         </div>
       </form>
     </Form>
   );
 }
+
+    

@@ -107,14 +107,14 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search members by name, email, or status..."
+            placeholder="Buscar miembros por nombre, email, o estado..."
             className="w-full md:w-1/2 lg:w-1/3 pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-primary focus:border-primary"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <Button onClick={() => setIsAddMemberDialogOpen(true)}>
-          <UserPlus className="mr-2 h-4 w-4" /> Add New Member
+          <UserPlus className="mr-2 h-4 w-4" /> Agregar Nuevo Miembro
         </Button>
       </div>
 
@@ -125,7 +125,7 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
               <TableHead className="w-[80px]">Avatar</TableHead>
               <TableHead onClick={() => handleSort('fullName')} className="cursor-pointer">
                 <div className="flex items-center gap-1 hover:text-primary">
-                  Name <SortIcon columnKey="fullName" />
+                  Nombre <SortIcon columnKey="fullName" />
                 </div>
               </TableHead>
               <TableHead onClick={() => handleSort('email')} className="cursor-pointer">
@@ -133,13 +133,13 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
                   Email <SortIcon columnKey="email" />
                 </div>
               </TableHead>
-              <TableHead>Phone</TableHead>
+              <TableHead>Teléfono</TableHead>
               <TableHead onClick={() => handleSort('status')} className="cursor-pointer">
                 <div className="flex items-center gap-1 hover:text-primary">
-                  Status <SortIcon columnKey="status" />
+                  Estado <SortIcon columnKey="status" />
                 </div>
               </TableHead>
-              <TableHead className="text-center">Actions</TableHead>
+              <TableHead className="text-center">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -166,11 +166,11 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
                     'bg-yellow-500/20 text-yellow-700 border-yellow-500/50'
                   }
                   >
-                    {member.status}
+                    {member.status === 'Active' ? 'Activo' : member.status === 'Inactive' ? 'Inactivo' : 'Nuevo'}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-center">
-                  <Button variant="outline" size="icon" onClick={() => handleOpenDetailsDialog(member)} title="View Details">
+                  <Button variant="outline" size="icon" onClick={() => handleOpenDetailsDialog(member)} title="Ver Detalles">
                     <Info className="h-4 w-4" />
                   </Button>
                 </TableCell>
@@ -180,7 +180,7 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
         </Table>
       </div>
       {sortedMembers.length === 0 && (
-        <p className="text-center text-muted-foreground mt-8">No members found.</p>
+        <p className="text-center text-muted-foreground mt-8">No se encontraron miembros.</p>
       )}
       <MemberDetailsDialog
         member={selectedMember}
@@ -193,9 +193,9 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
       <Dialog open={isAddMemberDialogOpen} onOpenChange={setIsAddMemberDialogOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Add New Member</DialogTitle>
+            <DialogTitle>Agregar Nuevo Miembro</DialogTitle>
             <DialogDescription>
-              Fill in the details for the new church member. Click save when you&apos;re done.
+              Complete los detalles del nuevo miembro de la iglesia. Haga clic en guardar cuando haya terminado.
             </DialogDescription>
           </DialogHeader>
           <AddMemberForm 
@@ -210,3 +210,5 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
     </>
   );
 }
+
+    

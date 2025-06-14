@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-// DialogDescription import is removed as it's no longer used to wrap the Badge.
-// If a text description is needed elsewhere, DialogDescription can be used, but not to wrap block elements like Badge.
 
 interface MemberDetailsDialogProps {
   member: Member | null;
@@ -25,9 +23,9 @@ export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMi
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
     try {
-      return new Date(dateString).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+      return new Date(dateString).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
     } catch (e) {
-      return dateString; // if already formatted like "Month Year"
+      return dateString; 
     }
   };
   
@@ -40,6 +38,15 @@ export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMi
     ? member.assignedAreaIds.map(areaId => allMinistryAreas.find(area => area.id === areaId)?.name).filter(Boolean)
     : [];
 
+  const displayStatus = (status: Member['status']) => {
+    switch (status) {
+      case 'Active': return 'Activo';
+      case 'Inactive': return 'Inactivo';
+      case 'New': return 'Nuevo';
+      default: return status;
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg max-h-[80vh]">
@@ -51,7 +58,6 @@ export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMi
             </Avatar>
             <div>
               <DialogTitle className="text-2xl">{member.firstName} {member.lastName}</DialogTitle>
-              {/* Badge is now placed in a div, sibling to DialogTitle, to avoid nesting in a <p> tag. */}
               <div className="mt-1">
                 <Badge variant={
                     member.status === 'Active' ? 'default' :
@@ -64,7 +70,7 @@ export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMi
                     'bg-yellow-500/20 text-yellow-700 border-yellow-500/50'
                   }
                 >
-                  {member.status}
+                  {displayStatus(member.status)}
                 </Badge>
               </div>
             </div>
@@ -78,7 +84,7 @@ export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMi
               <span className="col-span-2">{member.email}</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <span className="font-semibold text-muted-foreground">Phone:</span>
+              <span className="font-semibold text-muted-foreground">Teléfono:</span>
               <span className="col-span-2">{member.phone}</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -98,7 +104,7 @@ export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMi
               <span className="col-span-2">{member.attendsLifeSchool ? 'Sí' : 'No'}</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <span className="font-semibold text-muted-foreground">Instituto Bíblico:</span>
+              <span className="font-semibold text-muted-foreground">Instituto Bíblico (IBE):</span>
               <span className="col-span-2">{member.attendsBibleInstitute ? 'Sí' : 'No'}</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -114,7 +120,7 @@ export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMi
               </span>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <span className="font-semibold text-muted-foreground">Áreas:</span>
+              <span className="font-semibold text-muted-foreground">Áreas de Ministerio:</span>
               <span className="col-span-2">
                 {memberAreas.length > 0 ? memberAreas.join(', ') : 'Ninguna'}
               </span>
@@ -129,3 +135,5 @@ export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMi
     </Dialog>
   );
 }
+
+    
