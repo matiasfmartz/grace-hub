@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, Save, Image as ImageIcon, Edit3, Users, UserCheck, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from "@/components/ui/badge";
 
 interface ManageSingleMinistryAreaViewProps {
   ministryArea: MinistryArea;
