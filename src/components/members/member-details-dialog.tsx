@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Pencil } from 'lucide-react';
 
 interface MemberDetailsDialogProps {
   member: Member | null;
@@ -15,15 +16,18 @@ interface MemberDetailsDialogProps {
   allMinistryAreas: MinistryArea[];
   isOpen: boolean;
   onClose: () => void;
+  onEdit?: (member: Member) => void; // Placeholder for edit action
 }
 
-export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMinistryAreas, isOpen, onClose }: MemberDetailsDialogProps) {
+export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMinistryAreas, isOpen, onClose, onEdit }: MemberDetailsDialogProps) {
   if (!member) return null;
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
     try {
-      return new Date(dateString).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+      // Ensure dateString is treated as UTC to avoid off-by-one day errors due to timezone
+      const date = new Date(dateString + 'T00:00:00Z');
+      return date.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
     } catch (e) {
       return dateString; 
     }
@@ -44,6 +48,15 @@ export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMi
       case 'Inactive': return 'Inactivo';
       case 'New': return 'Nuevo';
       default: return status;
+    }
+  };
+
+  const handleEdit = () => {
+    if (onEdit && member) {
+      onEdit(member);
+    } else {
+      console.log(`Edit button clicked for member: ${member?.firstName} ${member?.lastName} (ID: ${member?.id}) - Full edit functionality to be implemented.`);
+      // alert(`Edit functionality for ${member?.firstName} ${member?.lastName} will be implemented soon.`);
     }
   };
 
@@ -77,11 +90,11 @@ export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMi
           </div>
         </DialogHeader>
         
-        <ScrollArea className="max-h-[calc(80vh-200px)] pr-6">
+        <ScrollArea className="max-h-[calc(80vh-250px)] pr-6">
           <div className="space-y-3 text-sm">
             <div className="grid grid-cols-3 gap-2">
               <span className="font-semibold text-muted-foreground">Email:</span>
-              <span className="col-span-2">{member.email}</span>
+              <span className="col-span-2 break-all">{member.email}</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
               <span className="font-semibold text-muted-foreground">Teléfono:</span>
@@ -128,12 +141,14 @@ export default function MemberDetailsDialog({ member, allMembers, allGDIs, allMi
           </div>
         </ScrollArea>
 
-        <DialogFooter className="mt-6">
+        <DialogFooter className="mt-6 pt-4 border-t">
+          <Button onClick={handleEdit} variant="default">
+            <Pencil className="mr-2 h-4 w-4" />
+            Editar
+          </Button>
           <Button onClick={onClose} variant="outline">Cerrar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-
-    
