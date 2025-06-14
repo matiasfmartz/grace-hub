@@ -1,15 +1,17 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { Member, GDI, MinistryArea } from '@/lib/types';
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info } from 'lucide-react';
+import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus } from 'lucide-react';
 import MemberDetailsDialog from './member-details-dialog';
+import AddMemberForm from './add-member-form';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface MembersListViewProps {
   initialMembers: Member[];
@@ -21,11 +23,13 @@ type SortKey = keyof Member | 'fullName';
 type SortOrder = 'asc' | 'desc';
 
 export default function MembersListView({ initialMembers, allGDIs, allMinistryAreas }: MembersListViewProps) {
+  const [members, setMembers] = useState<Member[]>(initialMembers);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('fullName');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -37,7 +41,7 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
   };
 
   const sortedMembers = useMemo(() => {
-    let membersToSort = [...initialMembers];
+    let membersToSort = [...members];
     if (searchTerm) {
       membersToSort = membersToSort.filter(member =>
         `${member.firstName} ${member.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -65,20 +69,31 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
       if (typeof valA === 'number' && typeof valB === 'number') {
         return sortOrder === 'asc' ? valA - valB : valB - valA;
       }
+      // Fallback for date strings if not handled by direct property access
+      if (sortKey === 'birthDate' || sortKey === 'churchJoinDate') {
+          const dateA = valA ? new Date(valA as string).getTime() : 0;
+          const dateB = valB ? new Date(valB as string).getTime() : 0;
+          return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      }
       return 0;
     });
     return membersToSort;
-  }, [initialMembers, searchTerm, sortKey, sortOrder]);
+  }, [members, searchTerm, sortKey, sortOrder]);
 
-  const handleOpenDialog = (member: Member) => {
+  const handleOpenDetailsDialog = (member: Member) => {
     setSelectedMember(member);
-    setIsDialogOpen(true);
+    setIsDetailsDialogOpen(true);
   };
 
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
+  const handleCloseDetailsDialog = () => {
+    setIsDetailsDialogOpen(false);
     setSelectedMember(null);
   };
+
+  const handleAddMember = useCallback((newMember: Member) => {
+    setMembers(prevMembers => [newMember, ...prevMembers]);
+    // In a real app, you would also make an API call here
+  }, []);
   
   const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
     if (sortKey !== columnKey) return null;
@@ -87,15 +102,20 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
 
   return (
     <>
-      <div className="mb-6 relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Search members by name, email, or status..."
-          className="w-full pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-primary focus:border-primary"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      <div className="flex justify-between items-center mb-6">
+        <div className="relative flex-grow">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search members by name, email, or status..."
+            className="w-full md:w-1/2 lg:w-1/3 pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-primary focus:border-primary"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <Button onClick={() => setIsAddMemberDialogOpen(true)}>
+          <UserPlus className="mr-2 h-4 w-4" /> Add New Member
+        </Button>
       </div>
 
       <div className="overflow-x-auto bg-card rounded-lg shadow-md">
@@ -150,7 +170,7 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
                   </Badge>
                 </TableCell>
                 <TableCell className="text-center">
-                  <Button variant="outline" size="icon" onClick={() => handleOpenDialog(member)} title="View Details">
+                  <Button variant="outline" size="icon" onClick={() => handleOpenDetailsDialog(member)} title="View Details">
                     <Info className="h-4 w-4" />
                   </Button>
                 </TableCell>
@@ -164,12 +184,29 @@ export default function MembersListView({ initialMembers, allGDIs, allMinistryAr
       )}
       <MemberDetailsDialog
         member={selectedMember}
-        allMembers={initialMembers} 
+        allMembers={members} 
         allGDIs={allGDIs}
         allMinistryAreas={allMinistryAreas}
-        isOpen={isDialogOpen}
-        onClose={handleCloseDialog}
+        isOpen={isDetailsDialogOpen}
+        onClose={handleCloseDetailsDialog}
       />
+      <Dialog open={isAddMemberDialogOpen} onOpenChange={setIsAddMemberDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add New Member</DialogTitle>
+            <DialogDescription>
+              Fill in the details for the new church member. Click save when you&apos;re done.
+            </DialogDescription>
+          </DialogHeader>
+          <AddMemberForm 
+            onOpenChange={setIsAddMemberDialogOpen} 
+            onAddMember={handleAddMember}
+            allGDIs={allGDIs}
+            allMinistryAreas={allMinistryAreas}
+            allMembers={members}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

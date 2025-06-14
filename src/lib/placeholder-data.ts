@@ -46,9 +46,12 @@ export const placeholderMembers: Member[] = [
     avatarUrl: 'https://placehold.co/100x100',
     birthDate: '1995-12-01',
     churchJoinDate: '2023-07-01',
+    // No baptismDate
     attendsLifeSchool: true,
     attendsBibleInstitute: true,
+    fromAnotherChurch: false,
     assignedGDIId: 'gdi1',
+    assignedAreaIds: []
   },
   { 
     id: '4', 
@@ -57,6 +60,7 @@ export const placeholderMembers: Member[] = [
     email: 'david@example.com', 
     phone: '555-0104', 
     status: 'Active',
+    avatarUrl: 'https://placehold.co/100x100',
     birthDate: '1980-02-10',
     churchJoinDate: '2010-09-05',
     baptismDate: 'March 2011',
@@ -90,8 +94,15 @@ export const placeholderMembers: Member[] = [
     email: 'michael.lee@example.com', 
     phone: '555-0201', 
     status: 'Active',
-    assignedGDIId: null, // This member is a leader, might not be in a GDI as a regular member
-    assignedAreaIds: [], // Leader of ma1
+    avatarUrl: 'https://placehold.co/100x100',
+    birthDate: '1975-07-20',
+    churchJoinDate: '2005-10-10',
+    baptismDate: 'May 2006',
+    attendsLifeSchool: true,
+    attendsBibleInstitute: true,
+    fromAnotherChurch: false,
+    assignedGDIId: null, 
+    assignedAreaIds: [], 
   },
   { 
     id: '7', 
@@ -100,8 +111,15 @@ export const placeholderMembers: Member[] = [
     email: 'sarah.miller@example.com', 
     phone: '555-0202', 
     status: 'Active',
+    avatarUrl: 'https://placehold.co/100x100',
+    birthDate: '1982-03-12',
+    churchJoinDate: '2012-02-02',
+    baptismDate: 'August 2012',
+    attendsLifeSchool: true,
+    attendsBibleInstitute: false,
+    fromAnotherChurch: true,
     assignedGDIId: null,
-    assignedAreaIds: [], // Leader of ma2
+    assignedAreaIds: [], 
   },
    { 
     id: '8', 
@@ -110,8 +128,15 @@ export const placeholderMembers: Member[] = [
     email: 'james.wilson@example.com', 
     phone: '555-0203', 
     status: 'Active',
+    avatarUrl: 'https://placehold.co/100x100',
+    birthDate: '1988-09-03',
+    churchJoinDate: '2017-05-15',
+    baptismDate: 'November 2017',
+    attendsLifeSchool: false,
+    attendsBibleInstitute: true,
+    fromAnotherChurch: false,
     assignedGDIId: null,
-    assignedAreaIds: [], // Leader of ma3
+    assignedAreaIds: [],
   }
 ];
 
@@ -147,13 +172,13 @@ export const placeholderGDIs: GDI[] = [
     id: 'gdi1',
     name: 'GDI Alpha',
     guideId: '1', // Alice Johnson
-    memberIds: ['3', '5'] // Carol White, Eve Davis
+    memberIds: ['3', '5'] 
   },
   {
     id: 'gdi2',
     name: 'GDI Beta',
     guideId: '2', // Bob Smith
-    memberIds: ['4'] // David Brown
+    memberIds: ['4'] 
   }
 ];
 
