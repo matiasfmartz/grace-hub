@@ -19,6 +19,10 @@ export interface Member {
   avatarUrl?: string;
 }
 
+// Type for data sent to server action (ID will be generated server-side)
+export type MemberWriteData = Omit<Member, 'id'>;
+
+
 export interface MinistryArea {
   id: string;
   name: string;
@@ -58,13 +62,13 @@ export interface Resource {
 
 export const MemberStatusSchema = z.enum(['Active', 'Inactive', 'New']);
 
-export const NONE_GDI_OPTION_VALUE = "__NONE__"; // Added this export
+export const NONE_GDI_OPTION_VALUE = "__NONE__";
 
 export const AddMemberFormSchema = z.object({
-  firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
-  lastName: z.string().min(2, { message: "Last name must be at least 2 characters." }),
-  email: z.string().email({ message: "Invalid email address." }),
-  phone: z.string().min(7, { message: "Phone number seems too short." }),
+  firstName: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
+  lastName: z.string().min(2, { message: "El apellido debe tener al menos 2 caracteres." }),
+  email: z.string().email({ message: "Dirección de email inválida." }),
+  phone: z.string().min(7, { message: "El número de teléfono parece demasiado corto." }),
   birthDate: z.date().optional(),
   churchJoinDate: z.date().optional(),
   baptismDate: z.string().optional(),
@@ -72,7 +76,7 @@ export const AddMemberFormSchema = z.object({
   attendsBibleInstitute: z.boolean().default(false),
   fromAnotherChurch: z.boolean().default(false),
   status: MemberStatusSchema,
-  avatarUrl: z.string().url({ message: "Invalid URL." }).optional().or(z.literal('')),
+  avatarUrl: z.string().url({ message: "URL inválida." }).optional().or(z.literal('')),
   assignedGDIId: z.string().nullable().optional(),
   assignedAreaIds: z.array(z.string()).optional(),
 });

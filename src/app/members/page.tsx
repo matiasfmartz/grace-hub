@@ -1,13 +1,35 @@
 
-import { placeholderMembers, placeholderGDIs, placeholderMinistryAreas } from '@/lib/placeholder-data';
+'use server';
+import { placeholderMembers as initialMembersForDb, placeholderGDIs, placeholderMinistryAreas } from '@/lib/placeholder-data';
 import type { Member, GDI, MinistryArea } from '@/lib/types';
 import MembersListView from '@/components/members/members-list-view';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+
+const MEMBERS_DB_PATH = path.join(process.cwd(), 'src/lib/members-db.json');
 
 async function getMembersData(): Promise<{ members: Member[], gdis: GDI[], ministryAreas: MinistryArea[] }> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 100)); 
+  let members: Member[];
+  try {
+    const fileContent = await fs.readFile(MEMBERS_DB_PATH, 'utf-8');
+    members = JSON.parse(fileContent);
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      // File doesn't exist, use initial data
+      // In a real app, the bulk add action would create this file.
+      // For now, if it's missing on the members page, we fall back.
+      console.log('members-db.json not found on members page, using initial placeholder data.');
+      members = initialMembersForDb;
+    } else {
+      console.error("Failed to read members-db.json for Member Directory:", error);
+      members = initialMembersForDb; // Fallback on other errors
+    }
+  }
+  
+  // For GDIs and MinistryAreas, we'll still use placeholders for simplicity.
+  // In a real app, these would also come from a persistent source.
   return {
-    members: placeholderMembers,
+    members,
     gdis: placeholderGDIs,
     ministryAreas: placeholderMinistryAreas,
   };

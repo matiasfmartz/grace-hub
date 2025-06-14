@@ -1,14 +1,14 @@
 
 "use client";
 
-import { useState, useCallback } from 'react';
-import type { Member, GDI, MinistryArea } from '@/lib/types';
+import { useState, useCallback, useTransition } from 'react';
+import type { Member, GDI, MinistryArea, MemberWriteData } from '@/lib/types';
 import AddMemberForm from './add-member-form';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Users, Save, ListChecks, Undo2, Home } from 'lucide-react';
+import { Trash2, Users, Save, ListChecks, Undo2, Home, Loader2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,22 +16,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 interface BulkAddMembersViewProps {
   allGDIs: GDI[];
   allMinistryAreas: MinistryArea[];
-  allMembers: Member[];
+  allMembers: Member[]; // These are existing members, used for select dropdowns
+  addBulkMembersAction: (stagedMembersData: MemberWriteData[]) => Promise<{ success: boolean; message: string }>;
 }
 
-export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembers }: BulkAddMembersViewProps) {
+export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembers, addBulkMembersAction }: BulkAddMembersViewProps) {
   const [stagedMembers, setStagedMembers] = useState<Member[]>([]);
   const [recentlyProcessedMembers, setRecentlyProcessedMembers] = useState<Member[]>([]);
   const { toast } = useToast();
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
   const handleStageMember = useCallback((newMember: Member) => {
-    setStagedMembers(prev => [...prev, { ...newMember, id: `staged-${Date.now()}-${prev.length}` }]);
+    // Ensure client-side ID for staging purposes
+    const memberWithStagingId = { ...newMember, id: `staged-${Date.now()}-${stagedMembers.length}` };
+    setStagedMembers(prev => [...prev, memberWithStagingId]);
     toast({
       title: "Miembro Preparado",
       description: `${newMember.firstName} ${newMember.lastName} ha sido agregado a la lista de preparación.`,
     });
-  }, [toast]);
+  }, [toast, stagedMembers.length]);
 
   const handleRemoveStagedMember = (memberId: string) => {
     setStagedMembers(prev => prev.filter(member => member.id !== memberId));
@@ -52,22 +56,31 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
       return;
     }
 
-    console.log("Simulando guardado de los siguientes miembros:", stagedMembers.map(m => ({...m, id: `final-${m.id.replace('staged-','')}`})));
+    const membersToSave: MemberWriteData[] = stagedMembers.map(({ id, ...memberData }) => memberData);
 
-    setRecentlyProcessedMembers(prev => [...prev, ...stagedMembers]); // Append to recently processed
-    setStagedMembers([]);
-
-    toast({
-      title: "Éxito",
-      description: `${stagedMembers.length} miembro(s) han sido procesados. Revísalos en la sección 'Miembros Recientemente Procesados'.`,
+    startTransition(async () => {
+      const result = await addBulkMembersAction(membersToSave);
+      if (result.success) {
+        setRecentlyProcessedMembers(prev => [...prev, ...stagedMembers.map(m => ({...m, id: `processed-${m.id}`}))]); // Use original staged members for display
+        setStagedMembers([]);
+        toast({
+          title: "Éxito",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "Error al Guardar",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
     });
   };
-
+  
   const getGdiGuideNameFromList = (member: Member): string => {
     if (!member.assignedGDIId) return "No asignado";
     const gdi = allGDIs.find(g => g.id === member.assignedGDIId);
     if (!gdi) return "GDI no encontrado";
-    // Use initial allMembers prop for guide lookup as the members state on this page might not have all guides.
     const guide = allMembers.find(m => m.id === gdi.guideId);
     return guide ? `${guide.firstName} ${guide.lastName}` : "Guía no encontrado";
   };
@@ -81,12 +94,11 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
     }
   };
 
-  const handleStartNewBatch = () => {
-    // Clear only recently processed for a new "reporting" batch, staged members remain if user wants to continue adding to current staging list
+  const handleClearProcessedList = () => {
     setRecentlyProcessedMembers([]); 
     toast({
-      title: "Visor de Lote Limpio",
-      description: "La lista de miembros recientemente procesados ha sido limpiada. Puede continuar agregando miembros o guardar un nuevo lote.",
+      title: "Lista Limpia",
+      description: "La lista de miembros recientemente procesados ha sido limpiada.",
     });
   };
 
@@ -95,7 +107,7 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
   };
 
   const renderMembersTable = (membersToList: Member[], isStagedTable: boolean) => (
-    <div className="overflow-x-auto max-h-[calc(100vh-350px)]"> {/* Adjusted max-height for better fit */}
+    <div className="overflow-x-auto max-h-[calc(100vh-400px)]">
       <Table>
         <TableHeader>
           <TableRow>
@@ -136,7 +148,7 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
               </TableCell>
               {isStagedTable && (
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => handleRemoveStagedMember(member.id)} title="Remover de la lista">
+                  <Button variant="ghost" size="icon" onClick={() => handleRemoveStagedMember(member.id)} title="Remover de la lista" disabled={isPending}>
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </TableCell>
@@ -162,7 +174,7 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
                       onAddMember={handleStageMember}
                       allGDIs={allGDIs}
                       allMinistryAreas={allMinistryAreas}
-                      allMembers={allMembers} // Pass all members for form select options
+                      allMembers={allMembers} 
                       submitButtonText="Preparar Miembro"
                       clearButtonText="Limpiar Formulario"
                   />
@@ -178,11 +190,11 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
                 <CardTitle className="flex items-center"><Users className="mr-2 h-6 w-6" /> Miembros Preparados ({stagedMembers.length})</CardTitle>
                 <Button
                   onClick={handleSaveAllStagedMembers}
-                  disabled={stagedMembers.length === 0}
+                  disabled={stagedMembers.length === 0 || isPending}
                   size="lg"
                 >
-                  <Save className="mr-2 h-5 w-5" />
-                  Guardar Lote Actual
+                  {isPending ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+                  {isPending ? "Guardando..." : "Guardar Lote Actual"}
                 </Button>
               </div>
             </CardHeader>
@@ -207,13 +219,13 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
                         <ListChecks className="mr-2 h-6 w-6 text-green-600" /> Miembros Recientemente Procesados ({recentlyProcessedMembers.length})
                     </CardTitle>
                      <div className="flex gap-2">
-                        <Button onClick={handleStartNewBatch} variant="outline">
+                        <Button onClick={handleClearProcessedList} variant="outline" disabled={isPending}>
                             <Undo2 className="mr-2 h-4 w-4" /> Limpiar Lista de Procesados
                         </Button>
                     </div>
                  </div>
                  <p className="text-sm text-muted-foreground pt-2">
-                    Estos miembros han sido "procesados" en esta sesión. Para persistencia real en el directorio general, se requiere integración con base de datos.
+                    Estos miembros han sido procesados en esta sesión.
                  </p>
               </CardHeader>
               <CardContent>
@@ -224,7 +236,7 @@ export default function BulkAddMembersView({ allGDIs, allMinistryAreas, allMembe
         </div>
       </div>
       <div className="text-center mt-8 lg:col-span-3 pb-8">
-            <Button onClick={handleReturnToDirectory} variant="outline" size="lg">
+            <Button onClick={handleReturnToDirectory} variant="outline" size="lg" disabled={isPending}>
                 <Home className="mr-2 h-4 w-4" /> Volver al Directorio de Miembros
             </Button>
       </div>
