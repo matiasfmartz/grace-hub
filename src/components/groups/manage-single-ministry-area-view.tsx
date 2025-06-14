@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useTransition, useEffect, useCallback } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import type { MinistryArea, Member } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { FormItem, FormLabel, FormControl } from '@/components/ui/form'; // Removed Form, FormField, FormMessage as we are not using react-hook-form here
+import { Label } from '@/components/ui/label'; // Import Label
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -29,7 +29,7 @@ interface ManageSingleMinistryAreaViewProps {
 
 export default function ManageSingleMinistryAreaView({
   ministryArea: initialMinistryArea,
-  allMembers, // Used for general lookups if needed, activeMembers is primary for choices
+  allMembers, 
   activeMembers,
   updateMinistryAreaAction,
 }: ManageSingleMinistryAreaViewProps) {
@@ -40,8 +40,6 @@ export default function ManageSingleMinistryAreaView({
   const router = useRouter();
 
   useEffect(() => {
-    // When the initialMinistryArea prop changes (e.g., after a save and re-fetch),
-    // update our editableArea state to reflect the latest data.
     setEditableArea(initialMinistryArea);
   }, [initialMinistryArea]);
 
@@ -55,7 +53,7 @@ export default function ManageSingleMinistryAreaView({
   };
   
   const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEditableArea(prev => ({ ...prev, imageUrl: e.target.value || undefined })); // Store as undefined if empty string
+    setEditableArea(prev => ({ ...prev, imageUrl: e.target.value || undefined }));
   }
 
   const handleMemberSelectionChange = (memberIdToToggle: string, isChecked: boolean) => {
@@ -64,18 +62,16 @@ export default function ManageSingleMinistryAreaView({
       let newMemberIds;
 
       if (isChecked) {
-        // Add member if not already present and not the leader
         if (!currentMemberIds.includes(memberIdToToggle) && memberIdToToggle !== prevArea.leaderId) {
           newMemberIds = [...currentMemberIds, memberIdToToggle];
         } else {
-          newMemberIds = currentMemberIds; // No change needed
+          newMemberIds = currentMemberIds; 
         }
       } else {
-        // Remove member (cannot remove leader this way, leader checkbox is disabled)
         if (memberIdToToggle !== prevArea.leaderId) {
           newMemberIds = currentMemberIds.filter(id => id !== memberIdToToggle);
         } else {
-          newMemberIds = currentMemberIds; // No change needed
+          newMemberIds = currentMemberIds; 
         }
       }
       return { ...prevArea, memberIds: newMemberIds };
@@ -84,9 +80,8 @@ export default function ManageSingleMinistryAreaView({
 
   const handleSubmit = () => {
     startTransition(async () => {
-      const { id, ...dataToUpdate } = editableArea; // Exclude id from the data payload
+      const { id, ...dataToUpdate } = editableArea; 
       
-      // Ensure imageUrl has a default if it's empty or undefined
       const finalDataToUpdate = {
         ...dataToUpdate,
         imageUrl: dataToUpdate.imageUrl || 'https://placehold.co/600x400',
@@ -95,11 +90,8 @@ export default function ManageSingleMinistryAreaView({
       const result = await updateMinistryAreaAction(initialMinistryArea.id, finalDataToUpdate);
       if (result.success && result.updatedArea) {
         toast({ title: "Success", description: "Ministry Area updated successfully." });
-        // The useEffect hook will update editableArea when initialMinistryArea prop changes due to revalidation
-        // If direct update is preferred without waiting for prop change:
-        // setEditableArea(result.updatedArea); 
+        setEditableArea(result.updatedArea); 
         
-        // Optionally update window title if name changed (client-side effect)
         if (typeof window !== "undefined" && result.updatedArea.name !== initialMinistryArea.name) {
             document.title = `Manage: ${result.updatedArea.name}`;
         }
@@ -128,11 +120,10 @@ export default function ManageSingleMinistryAreaView({
           <CardDescription>Modify the details, leader, and members for this area. Click "Save All Changes" when done.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Area Details Section */}
           <div className="p-4 border rounded-md space-y-4">
             <h3 className="text-lg font-semibold flex items-center"><ImageIcon className="mr-2 h-5 w-5 text-muted-foreground" />Area Details</h3>
-            <FormItem>
-              <FormLabel htmlFor="name">Area Name</FormLabel>
+            <div className="space-y-1">
+              <Label htmlFor="name">Area Name</Label>
               <Input
                 id="name"
                 name="name"
@@ -141,9 +132,9 @@ export default function ManageSingleMinistryAreaView({
                 disabled={isPending}
                 className="mt-1"
               />
-            </FormItem>
-            <FormItem>
-              <FormLabel htmlFor="description">Description</FormLabel>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
                 name="description"
@@ -153,9 +144,9 @@ export default function ManageSingleMinistryAreaView({
                 disabled={isPending}
                 className="mt-1"
               />
-            </FormItem>
-            <FormItem>
-                <FormLabel htmlFor="imageUrl">Image URL</FormLabel>
+            </div>
+            <div className="space-y-1">
+                <Label htmlFor="imageUrl">Image URL</Label>
                 <Input
                     id="imageUrl"
                     name="imageUrl"
@@ -177,33 +168,28 @@ export default function ManageSingleMinistryAreaView({
                     />
                   </div>
                 )}
-            </FormItem>
+            </div>
           </div>
 
-          {/* Leader Selection Section */}
           <div className="p-4 border rounded-md space-y-4">
              <h3 className="text-lg font-semibold flex items-center"><UserCheck className="mr-2 h-5 w-5 text-muted-foreground" />Area Leader</h3>
-            <FormItem>
-                <FormLabel>Current Leader: {getMemberName(editableArea.leaderId)}</FormLabel>
+            <div className="space-y-1">
+                <Label>Current Leader: {getMemberName(editableArea.leaderId)}</Label>
                 <Select onValueChange={handleLeaderChange} value={editableArea.leaderId} disabled={isPending}>
-                <FormControl>
-                    <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select a new leader" />
+                    <SelectTrigger className="mt-1" id="leaderId">
+                        <SelectValue placeholder="Select a new leader" />
                     </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                    {activeMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                        {member.firstName} {member.lastName} ({member.email})
-                    </SelectItem>
-                    ))}
-                </SelectContent>
+                    <SelectContent>
+                        {activeMembers.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                            {member.firstName} {member.lastName} ({member.email})
+                        </SelectItem>
+                        ))}
+                    </SelectContent>
                 </Select>
-            </FormItem>
+            </div>
           </div>
           
-
-          {/* Member Assignment Section */}
           <div className="p-4 border rounded-md space-y-4">
             <h3 className="text-lg font-semibold flex items-center"><Users className="mr-2 h-5 w-5 text-muted-foreground" />Assign Members</h3>
             <CardDescription className="mb-2 text-sm">
@@ -211,6 +197,7 @@ export default function ManageSingleMinistryAreaView({
             </CardDescription>
             <Input
               type="search"
+              id="memberSearch"
               placeholder="Search members by name or email..."
               value={memberSearchTerm}
               onChange={(e) => setMemberSearchTerm(e.target.value)}
@@ -233,13 +220,13 @@ export default function ManageSingleMinistryAreaView({
                       }}
                       aria-label={`Assign ${member.firstName} ${member.lastName}`}
                     />
-                    <label
+                    <Label
                       htmlFor={`member-${member.id}`}
                       className="font-normal flex-grow cursor-pointer text-sm"
                     >
                       {member.firstName} {member.lastName}
                       {member.id === editableArea.leaderId && <Badge variant="outline" className="ml-2 text-primary border-primary">Leader</Badge>}
-                    </label>
+                    </Label>
                   </div>
                 )) : (
                   <p className="text-sm text-muted-foreground text-center py-4">No members match your search.</p>
@@ -252,7 +239,6 @@ export default function ManageSingleMinistryAreaView({
                 </p>
                 <p>
                     Total members in area (including leader): {
-                        // Use Set to count unique IDs, ensuring leader is counted once if also in memberIds
                         new Set([editableArea.leaderId, ...(editableArea.memberIds || [])].filter(Boolean)).size
                     }
                 </p>
@@ -272,3 +258,4 @@ export default function ManageSingleMinistryAreaView({
     </div>
   );
 }
+
