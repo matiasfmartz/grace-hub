@@ -14,11 +14,11 @@ import {
 } from "@/components/ui/dialog";
 import DefineMeetingSeriesForm from '@/components/events/add-meeting-form';
 import DeleteMeetingSeriesAlert from '@/components/events/delete-meeting-series-alert';
-import type { DefineMeetingSeriesFormValues, MeetingSeries, DayOfWeekType } from '@/lib/types';
+import type { DefineMeetingSeriesFormValues, MeetingSeries, DayOfWeekType, WeekOrdinalType } from '@/lib/types';
 import { daysOfWeek, weekOrdinals } from '@/lib/types';
 import { Settings, Edit2, Trash2, Info, Loader2, CalendarDays, Clock, MapPin, Users, Repeat, Image as ImageIcon } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid as isValidDate } from 'date-fns'; // Import isValidDate
 import { es } from 'date-fns/locale';
 
 interface ManageMeetingSeriesDialogProps {
@@ -35,7 +35,7 @@ const getDayLabel = (dayId: DayOfWeekType): string => {
   return day ? day.label : dayId;
 };
 
-const getWeekOrdinalLabel = (ordinalId?: string): string => {
+const getWeekOrdinalLabel = (ordinalId?: WeekOrdinalType): string => { // Corrected type
   if (!ordinalId) return '';
   const ordinal = weekOrdinals.find(o => o.id === ordinalId);
   return ordinal ? ordinal.label : ordinalId;
@@ -61,6 +61,10 @@ export default function ManageMeetingSeriesDialog({
     setIsDialogOpen(false); 
   };
   
+  const parsedOneTimeDate = (series.oneTimeDate && typeof series.oneTimeDate === 'string' && series.oneTimeDate.trim() !== "")
+    ? parseISO(series.oneTimeDate)
+    : undefined;
+
   const initialFormValues: DefineMeetingSeriesFormValues = {
     name: series.name,
     description: series.description || "",
@@ -69,7 +73,7 @@ export default function ManageMeetingSeriesDialog({
     defaultImageUrl: series.defaultImageUrl || "",
     targetAttendeeGroups: series.targetAttendeeGroups || [],
     frequency: series.frequency,
-    oneTimeDate: series.oneTimeDate ? parseISO(series.oneTimeDate) : undefined, // Convert string to Date
+    oneTimeDate: (parsedOneTimeDate && isValidDate(parsedOneTimeDate)) ? parsedOneTimeDate : undefined,
     weeklyDays: series.weeklyDays || [],
     monthlyRuleType: series.monthlyRuleType,
     monthlyDayOfMonth: series.monthlyDayOfMonth,
@@ -79,8 +83,10 @@ export default function ManageMeetingSeriesDialog({
 
   const handleSubmitUpdate = (data: DefineMeetingSeriesFormValues) => {
     startTransition(async () => {
-      // Format date back to string for action
-      const dataToSend = { ...data, oneTimeDate: data.oneTimeDate ? format(data.oneTimeDate, 'yyyy-MM-dd') : undefined };
+      const dataToSend = { 
+        ...data, 
+        oneTimeDate: data.oneTimeDate && isValidDate(data.oneTimeDate) ? format(data.oneTimeDate, 'yyyy-MM-dd') : undefined 
+      };
       const result = await updateMeetingSeriesAction(series.id, dataToSend as any);
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
@@ -93,7 +99,11 @@ export default function ManageMeetingSeriesDialog({
 
   const renderFrequencyDetails = () => {
     if (series.frequency === 'OneTime' && series.oneTimeDate) {
-      return `Única Vez: ${format(parseISO(series.oneTimeDate), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}`;
+       const parsedDate = parseISO(series.oneTimeDate);
+       if (isValidDate(parsedDate)) {
+        return `Única Vez: ${format(parsedDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}`;
+       }
+       return `Única Vez: Fecha inválida (${series.oneTimeDate})`;
     }
     if (series.frequency === 'Weekly' && series.weeklyDays && series.weeklyDays.length > 0) {
       return `Semanal: ${series.weeklyDays.map(day => getDayLabel(day)).join(', ')}`;
@@ -135,7 +145,7 @@ export default function ManageMeetingSeriesDialog({
               defineMeetingSeriesAction={handleSubmitUpdate as any} 
               initialValues={initialFormValues}
               isEditing={true}
-              onCancelEdit={() => setIsEditing(false)} // Pass cancel specific for edit mode
+              onCancelEdit={() => setIsEditing(false)}
             />
           ) : (
             <div className="space-y-3 text-sm">
@@ -194,4 +204,3 @@ const InfoItem: React.FC<{icon: React.ElementType, label: string, value: string}
     <p className="ml-6">{value}</p>
   </div>
 );
-

@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { format } from "date-fns"
+import { format, isValid } from "date-fns" // Import isValid
 import { Calendar as CalendarIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -22,6 +22,9 @@ interface DatePickerProps {
 }
 
 export function DatePicker({ date, setDate, placeholder = "Pick a date", disabled }: DatePickerProps) {
+  // Check if the date is a valid Date object
+  const isDateValid = date instanceof Date && isValid(date);
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -30,17 +33,17 @@ export function DatePicker({ date, setDate, placeholder = "Pick a date", disable
           disabled={disabled}
           className={cn(
             "w-full justify-start text-left font-normal",
-            !date && "text-muted-foreground"
+            !isDateValid && "text-muted-foreground" // Use isDateValid here
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "PPP") : <span>{placeholder}</span>}
+          {isDateValid ? format(date, "PPP") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0">
         <Calendar
           mode="single"
-          selected={date}
+          selected={date} // It's okay to pass potentially invalid date here, Calendar handles it
           onSelect={setDate}
           disabled={disabled}
           initialFocus
@@ -49,4 +52,3 @@ export function DatePicker({ date, setDate, placeholder = "Pick a date", disable
     </Popover>
   )
 }
-
