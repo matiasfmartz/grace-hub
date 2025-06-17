@@ -2,13 +2,27 @@
 "use client";
 
 import type { Meeting, AttendanceRecord } from '@/lib/types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart3, CalendarRange, Users } from 'lucide-react';
+import {
+  Line,
+  LineChart as RechartsLineChart, // Renamed to avoid conflict if any
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from 'recharts';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 
-interface AttendanceFrequencySummaryTableProps {
+interface AttendanceLineChartProps {
   meetingsForSeries: Meeting[];
   allAttendanceRecords: AttendanceRecord[];
   seriesName: string;
@@ -16,28 +30,25 @@ interface AttendanceFrequencySummaryTableProps {
   filterEndDate?: string;
 }
 
-interface MeetingAttendanceSummary {
-  meetingId: string;
-  meetingName: string;
-  meetingDate: string;
-  meetingTime: string;
+interface ChartDataPoint {
+  meetingDisplay: string;
   attendedCount: number;
-  expectedCount: number; // Total UIDs associated with the meeting
+  expectedCount: number;
 }
 
 const formatMeetingDisplay = (dateString: string, timeString: string, name: string, isDuplicateDate: boolean): string => {
   try {
     const parsedDate = parseISO(dateString);
     if (!isValid(parsedDate)) {
-        return isDuplicateDate ? `${name} (${dateString} ${timeString})` : `${name} (${dateString})`;
+        return isDuplicateDate ? `${name.substring(0,15)}... (${dateString} ${timeString})` : `${name.substring(0,15)}... (${dateString})`;
     }
     const datePart = format(parsedDate, "d MMM yy", { locale: es });
     if (isDuplicateDate) {
-      return `${name} (${datePart} ${timeString})`;
+      return `${name.substring(0,15)}... (${datePart} ${timeString})`;
     }
-    return `${name} (${datePart})`;
+    return `${name.substring(0,15)}... (${datePart})`;
   } catch (error) {
-    return isDuplicateDate ? `${name} (${dateString} ${timeString})` : `${name} (${dateString})`;
+    return isDuplicateDate ? `${name.substring(0,15)}... (${dateString} ${timeString})` : `${name.substring(0,15)}... (${dateString})`;
   }
 };
 
@@ -49,25 +60,32 @@ const formatDateRangeText = (startDate?: string, endDate?: string): string => {
        if (!isValid(parsedStart) || !isValid(parsedEnd)) return "Rango de fechas inválido";
       const formattedStart = format(parsedStart, "dd/MM/yy", { locale: es });
       const formattedEnd = format(parsedEnd, "dd/MM/yy", { locale: es });
-      return `Resumen para instancias entre ${formattedStart} y ${formattedEnd}`;
+      return `Progresión de asistencia para instancias entre ${formattedStart} y ${formattedEnd}`;
     } catch (e) {
         return "Rango de fechas inválido";
     }
   }
-  return `Resumen para todas las instancias visibles de la serie.`;
+  return `Progresión de asistencia para todas las instancias visibles de la serie.`;
 };
 
+const chartConfig = {
+  attendedCount: {
+    label: "Asistentes",
+    color: "hsl(var(--primary))",
+  },
+} satisfies ChartConfig;
 
-export default function AttendanceFrequencySummaryTable({
+
+export default function AttendanceLineChart({
   meetingsForSeries,
   allAttendanceRecords,
   seriesName,
   filterStartDate,
   filterEndDate,
-}: AttendanceFrequencySummaryTableProps) {
+}: AttendanceLineChartProps) {
 
   if (!meetingsForSeries || meetingsForSeries.length === 0) {
-    return null; // Don't render if no meetings for the series/filter
+    return null;
   }
 
   const dateCounts = new Map<string, number>();
@@ -75,13 +93,15 @@ export default function AttendanceFrequencySummaryTable({
       dateCounts.set(meeting.date, (dateCounts.get(meeting.date) || 0) + 1);
   });
 
-  const summaryData = meetingsForSeries.map(meeting => {
+  // Sort meetings by date ascending for correct line chart progression
+  const sortedMeetings = [...meetingsForSeries].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+
+  const chartData: ChartDataPoint[] = sortedMeetings.map(meeting => {
     const attendedRecords = allAttendanceRecords.filter(
       record => record.meetingId === meeting.id && record.attended
     );
     const isDuplicateDate = (dateCounts.get(meeting.date) || 0) > 1;
     return {
-      meetingId: meeting.id,
       meetingDisplay: formatMeetingDisplay(meeting.date, meeting.time, meeting.name, isDuplicateDate),
       attendedCount: attendedRecords.length,
       expectedCount: meeting.attendeeUids?.length || 0,
@@ -94,54 +114,67 @@ export default function AttendanceFrequencySummaryTable({
     <Card className="mb-6 shadow-md">
       <CardHeader>
         <CardTitle className="font-headline text-xl text-primary flex items-center">
-          <BarChart3 className="mr-2 h-5 w-5" />
-          Resumen de Asistencia para: {seriesName}
+          <BarChart3 className="mr-2 h-5 w-5" /> {/* Icon can be LineChart from lucide-react */}
+          Progresión de Asistencia: {seriesName}
         </CardTitle>
-        <CardDescription>
-          Total de asistentes presentes por cada instancia de reunión.
-        </CardDescription>
+        {captionDateRangeText && (
+            <CardDescription className="flex items-center text-xs text-muted-foreground pt-1">
+                <CalendarRange className="mr-1.5 h-3.5 w-3.5 text-primary/80" />
+                {captionDateRangeText}
+            </CardDescription>
+        )}
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-            <Table>
-                {captionDateRangeText && (
-                    <TableCaption className="text-left pb-2 mt-0 pt-0">
-                        <div className="flex items-center text-xs text-muted-foreground">
-                            <CalendarRange className="mr-1.5 h-3.5 w-3.5 text-primary/80" />
-                            {captionDateRangeText}
-                        </div>
-                    </TableCaption>
-                )}
-            <TableHeader>
-                <TableRow>
-                <TableHead className="min-w-[200px]">Reunión (Instancia)</TableHead>
-                <TableHead className="text-right">Asistentes Presentes</TableHead>
-                <TableHead className="text-right">Esperados</TableHead>
-                <TableHead className="text-right">% Asistencia</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {summaryData.map(item => (
-                <TableRow key={item.meetingId}>
-                    <TableCell className="font-medium">{item.meetingDisplay}</TableCell>
-                    <TableCell className="text-right">{item.attendedCount}</TableCell>
-                    <TableCell className="text-right">{item.expectedCount}</TableCell>
-                    <TableCell className="text-right">
-                        {item.expectedCount > 0 
-                        ? `${((item.attendedCount / item.expectedCount) * 100).toFixed(0)}%`
-                        : 'N/A'}
-                    </TableCell>
-                </TableRow>
-                ))}
-            </TableBody>
-            </Table>
-        </div>
-        {summaryData.length === 0 && (
-             <p className="text-sm text-muted-foreground text-center py-4">
-                No hay datos de asistencia para resumir para las instancias visibles.
-            </p>
+        {chartData.length > 0 ? (
+          <ChartContainer config={chartConfig} className="h-[300px] w-full">
+            <RechartsLineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 40 }}> {/* Increased bottom margin for XAxis labels */}
+              <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              <XAxis
+                dataKey="meetingDisplay"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={10}
+                angle={-30} // Angle labels to prevent overlap
+                textAnchor="end"
+                height={60} // Adjust height to accommodate angled labels
+                interval={0} // Show all labels
+                tick={{ fontSize: 10 }}
+              />
+              <YAxis
+                dataKey="attendedCount"
+                allowDecimals={false}
+                tickLine={false}
+                axisLine={false}
+                tickMargin={5}
+                tick={{ fontSize: 10 }}
+              />
+              <Tooltip
+                cursor={true}
+                content={<ChartTooltipContent indicator="line" />}
+              />
+              <Line
+                dataKey="attendedCount"
+                type="monotone"
+                stroke="var(--color-attendedCount)"
+                strokeWidth={2}
+                dot={{
+                  fill: "var(--color-attendedCount)",
+                  r: 4,
+                }}
+                activeDot={{
+                  r: 6,
+                }}
+                name="Asistentes"
+              />
+            </RechartsLineChart>
+          </ChartContainer>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            No hay suficientes datos de asistencia para mostrar el gráfico para las instancias visibles.
+          </p>
         )}
       </CardContent>
     </Card>
   );
 }
+
