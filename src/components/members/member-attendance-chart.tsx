@@ -25,7 +25,7 @@ interface MemberAttendanceSummaryProps {
 interface FilteredMeetingInfo {
   meetingId: string;
   meetingName: string;
-  meetingDate: string;
+  meetingDate: string; // Store as YYYY-MM-DD string
   seriesName: string;
   attended: boolean;
 }
@@ -42,35 +42,39 @@ export default function MemberAttendanceSummary({
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
   const processedMeetingData = useMemo(() => {
+    // 1. Filter meetings where the member was expected
     const memberExpectedMeetings = allMeetings.filter(meeting =>
       meeting.attendeeUids && meeting.attendeeUids.includes(memberId)
     );
 
+    // 2. Filter by selected series (if any)
     let meetingsFilteredBySeries = selectedSeriesId === 'all'
       ? memberExpectedMeetings
       : memberExpectedMeetings.filter(meeting => meeting.seriesId === selectedSeriesId);
 
+    // 3. Filter by date range
     let meetingsFilteredByDate = meetingsFilteredBySeries;
     if (startDate && endDate && startDate <= endDate) {
       meetingsFilteredByDate = meetingsFilteredBySeries.filter(meeting => {
-        const meetingDate = parseISO(meeting.date);
-        return isValid(meetingDate) && 
-               isWithinInterval(meetingDate, { start: startOfDay(startDate), end: endOfDay(endDate) });
+        const meetingDateObj = parseISO(meeting.date); // meeting.date is YYYY-MM-DD
+        return isValid(meetingDateObj) && 
+               isWithinInterval(meetingDateObj, { start: startOfDay(startDate), end: endOfDay(endDate) });
       });
     } else if (startDate) {
         meetingsFilteredByDate = meetingsFilteredBySeries.filter(meeting => {
-            const meetingDate = parseISO(meeting.date);
-            return isValid(meetingDate) && meetingDate >= startOfDay(startDate);
+            const meetingDateObj = parseISO(meeting.date);
+            return isValid(meetingDateObj) && meetingDateObj >= startOfDay(startDate);
         });
     } else if (endDate) {
         meetingsFilteredByDate = meetingsFilteredBySeries.filter(meeting => {
-            const meetingDate = parseISO(meeting.date);
-            return isValid(meetingDate) && meetingDate <= endOfDay(endDate);
+            const meetingDateObj = parseISO(meeting.date);
+            return isValid(meetingDateObj) && meetingDateObj <= endOfDay(endDate);
         });
     }
     
+    // Sort meetings by date descending (newest first)
     const sortedMeetings = meetingsFilteredByDate.sort((a, b) => 
-      parseISO(b.date).getTime() - parseISO(a.date).getTime() // Sort descending by date (newest first)
+      parseISO(b.date).getTime() - parseISO(a.date).getTime()
     );
 
     const detailedInfo: FilteredMeetingInfo[] = sortedMeetings.map(meeting => {
@@ -81,7 +85,7 @@ export default function MemberAttendanceSummary({
       return {
         meetingId: meeting.id,
         meetingName: meeting.name,
-        meetingDate: meeting.date,
+        meetingDate: meeting.date, // Keep as YYYY-MM-DD string
         seriesName: series?.name || 'Serie Desconocida',
         attended: attendanceRecord?.attended || false, // Default to false if no record
       };
@@ -106,9 +110,12 @@ export default function MemberAttendanceSummary({
     setEndDate(undefined);
   };
   
-  const formatDateDisplay = (dateString: string) => {
+  const formatDateDisplay = (dateString: string) => { // Expects YYYY-MM-DD
     try {
-      return format(parseISO(dateString), "dd/MM/yyyy", { locale: es });
+      // Add 'T00:00:00Z' to parse as UTC and avoid timezone issues with parseISO if only date is provided
+      const dateObj = parseISO(dateString);
+      if (!isValid(dateObj)) return dateString;
+      return format(dateObj, "dd/MM/yyyy", { locale: es });
     } catch (e) {
       return dateString;
     }
@@ -217,5 +224,3 @@ export default function MemberAttendanceSummary({
     </Card>
   );
 }
-
-    
