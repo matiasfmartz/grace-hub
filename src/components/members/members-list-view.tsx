@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 interface MembersListViewProps {
@@ -201,6 +202,13 @@ export default function MembersListView({
     return `${pathname}?${params.toString()}`;
   };
 
+  const handlePageSizeChange = (newSize: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('pageSize', newSize);
+    params.set('page', '1'); // Reset to first page when size changes
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
 
   return (
     <>
@@ -306,31 +314,53 @@ export default function MembersListView({
          <p className="text-center text-muted-foreground mt-8">No hay miembros para mostrar.</p>
       )}
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-end space-x-2 py-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push(createPageURL(currentPage - 1))}
-            disabled={currentPage <= 1 || isProcessingMember}
-          >
-            <ChevronLeft className="mr-2 h-4 w-4" />
-            Anterior
-          </Button>
-          <span className="text-sm text-muted-foreground">
+    {totalPages > 0 && ( // Show pagination controls only if there are pages
+        <div className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0 sm:space-x-2 py-4">
+          <div className="text-sm text-muted-foreground">
             Página {currentPage} de {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push(createPageURL(currentPage + 1))}
-            disabled={currentPage >= totalPages || isProcessingMember}
-          >
-            Siguiente
-            <ChevronRight className="ml-2 h-4 w-4" />
-          </Button>
+            <span className="hidden sm:inline"> ({initialMembers.length > 0 ? ((currentPage -1) * pageSize) + 1 : 0}-{(Math.min(currentPage * pageSize, processedMembers.reduce((acc, _curr) => acc + 1, (currentPage - 1) * pageSize + (initialMembers.length > 0 ? initialMembers.length % pageSize === 0 ? pageSize : initialMembers.length % pageSize : 0 ) )))} de {processedMembers.reduce((acc, _curr) => acc + 1, (currentPage - 1) * pageSize + (initialMembers.length > 0 ? initialMembers.length % pageSize === 0 ? pageSize : initialMembers.length % pageSize : 0 ) - initialMembers.length + (totalPages*pageSize - (pageSize - (initialMembers.length % pageSize === 0 ? pageSize : initialMembers.length % pageSize))) )} total)</span>
+            {/* The total count logic above is complex to get the total across all pages; consider simplifying if just total on current page is needed */}
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1">
+                <span className="text-sm text-muted-foreground">Mostrar:</span>
+                <Select
+                    value={pageSize.toString()}
+                    onValueChange={handlePageSizeChange}
+                >
+                    <SelectTrigger className="w-[70px] h-8 text-xs">
+                        <SelectValue placeholder={pageSize.toString()} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="25">25</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => router.push(createPageURL(currentPage - 1))}
+              disabled={currentPage <= 1 || isProcessingMember}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => router.push(createPageURL(currentPage + 1))}
+              disabled={currentPage >= totalPages || isProcessingMember}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       )}
+
 
       {selectedMember && (
         <MemberDetailsDialog
@@ -372,3 +402,4 @@ export default function MembersListView({
     </>
   );
 }
+
