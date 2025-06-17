@@ -126,10 +126,6 @@ async function getEventsPageData(startDateParam?: string, endDateParam?: string)
       appliedStartDate = startDateParam;
       appliedEndDate = endDateParam;
     }
-  } else if (!startDateParam && !endDateParam) {
-    // Default: Show meetings from the last month if no specific range is given.
-    // Or, if you prefer to show ALL meetings by default, remove this block.
-    // For now, let's keep showing all if no params.
   }
 
 
@@ -179,17 +175,6 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
         />
       </div>
 
-      <div className="mb-8 p-4 border rounded-lg shadow-sm bg-card">
-        <h2 className="text-lg font-semibold mb-3 flex items-center">
-          <Filter className="mr-2 h-5 w-5 text-primary" />
-          Filtrar Reuniones por Fecha
-        </h2>
-        <DateRangeFilter 
-          initialStartDate={appliedStartDate} 
-          initialEndDate={appliedEndDate} 
-        />
-      </div>
-
       {sortedMeetingTypesPresent.length > 0 ? (
         <Tabs defaultValue={defaultTabValue} className="w-full">
           <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 mb-6 pb-2 overflow-x-auto">
@@ -197,7 +182,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               <TabsTrigger 
                 key={type} 
                 value={type} 
-                className="whitespace-normal text-xs sm:text-sm h-auto py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="whitespace-normal text-xs sm:text-sm h-auto py-2 px-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
                 {meetingTypeTranslations[type as MeetingType] || type} ({meetingsByType[type].length})
               </TabsTrigger>
@@ -246,6 +231,18 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           </p>
         </div>
       )}
+
+      <div className="mt-8 mb-8 p-4 border rounded-lg shadow-sm bg-card">
+        <h2 className="text-lg font-semibold mb-3 flex items-center">
+          <Filter className="mr-2 h-5 w-5 text-primary" />
+          Filtrar Reuniones por Fecha
+        </h2>
+        <DateRangeFilter 
+          initialStartDate={appliedStartDate} 
+          initialEndDate={appliedEndDate} 
+        />
+      </div>
     </div>
   );
 }
+

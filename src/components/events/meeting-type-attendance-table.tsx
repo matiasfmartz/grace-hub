@@ -15,7 +15,7 @@ interface MeetingTypeAttendanceTableProps {
   allGdis: GDI[];
   allMinistryAreas: MinistryArea[];
   allAttendanceRecords: AttendanceRecord[];
-  meetingTypeLabel: string;
+  meetingTypeLabel: string; // Still useful for placeholder text if no meetings
   filterStartDate?: string;
   filterEndDate?: string;
 }
@@ -30,9 +30,15 @@ const formatDateDisplay = (dateString: string) => {
 
 const formatDateRangeText = (startDate?: string, endDate?: string): string => {
   if (startDate && endDate) {
-    return `Mostrando reuniones entre ${format(parseISO(startDate), "dd/MM/yyyy", { locale: es })} y ${format(parseISO(endDate), "dd/MM/yyyy", { locale: es })}`;
+    try {
+      const formattedStart = format(parseISO(startDate), "dd/MM/yyyy", { locale: es });
+      const formattedEnd = format(parseISO(endDate), "dd/MM/yyyy", { locale: es });
+      return `Mostrando reuniones entre ${formattedStart} y ${formattedEnd}`;
+    } catch (e) {
+        return "Rango de fechas inválido";
+    }
   }
-  return ""; // No text if no specific range is applied
+  return "Mostrando todas las reuniones para este tipo.";
 };
 
 export default async function MeetingTypeAttendanceTable({
@@ -74,9 +80,9 @@ export default async function MeetingTypeAttendanceTable({
     <div className="border rounded-lg shadow-md">
       <ScrollArea className="w-full whitespace-nowrap">
         <Table className="min-w-full">
-          <TableCaption className="my-4 text-lg font-semibold flex items-center justify-center">
-            <CalendarRange className="mr-2 h-5 w-5 text-primary" />
-            {meetingTypeLabel}{captionDateRangeText ? ` - ${captionDateRangeText}` : ""}
+          <TableCaption className="my-4 text-sm flex items-center justify-center">
+            <CalendarRange className="mr-2 h-4 w-4 text-primary" />
+            {captionDateRangeText}
           </TableCaption>
           <TableHeader>
             <TableRow>
