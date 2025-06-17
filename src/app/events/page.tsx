@@ -7,14 +7,14 @@ import { CalendarDays, Clock, MapPin, Users, Briefcase, Award, CheckSquare, Spar
 import { revalidatePath } from 'next/cache';
 import { format, parseISO, isValid, isWithinInterval, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { getAllMeetingSeries, addMeetingSeries, getMeetingsBySeriesId, getMeetingById, updateMeetingMinute } from '@/services/meetingService';
-import { getAllMembersNonPaginated } from '@/services/memberService'; 
+import { getAllMeetingSeries, addMeetingSeries, getMeetingsBySeriesId, getMeetingById, updateMeetingMinute, getAllMeetings } from '@/services/meetingService'; // Added getAllMeetings
+import { getAllMembersNonPaginated } from '@/services/memberService';
 import PageSpecificAddMeetingDialog from '@/components/events/page-specific-add-meeting-dialog';
-import { getAllGdis } from '@/services/gdiService'; 
-import { getAllMinistryAreas } from '@/services/ministryAreaService'; 
+import { getAllGdis } from '@/services/gdiService';
+import { getAllMinistryAreas } from '@/services/ministryAreaService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAllAttendanceRecords } from '@/services/attendanceService';
-import MeetingTypeAttendanceTable from '@/components/events/meeting-type-attendance-table'; // Will be renamed or refactored
+import MeetingTypeAttendanceTable from '@/components/events/meeting-type-attendance-table';
 import DateRangeFilter from '@/components/events/date-range-filter';
 
 export async function defineMeetingSeriesAction(
@@ -33,7 +33,7 @@ export async function defineMeetingSeriesAction(
       },
       newSeriesData.frequency === "OneTime" ? newSeriesData.oneTimeDate : undefined
     );
-    
+
     revalidatePath('/events');
     let message = `Serie de reuniones "${result.series.name}" agregada exitosamente.`;
     if (result.instance) {
@@ -72,11 +72,11 @@ interface EventsPageProps {
 
 async function getEventsPageData(startDateParam?: string, endDateParam?: string): Promise<EventsPageData> {
   const [
-    allSeries, 
+    allSeries,
     allMeetingInstances, // Fetch all instances first
-    allMembers, 
-    allGdis, 
-    allMinistryAreas, 
+    allMembers,
+    allGdis,
+    allMinistryAreas,
     allAttendanceRecords
   ] = await Promise.all([
     getAllMeetingSeries(),
@@ -86,7 +86,7 @@ async function getEventsPageData(startDateParam?: string, endDateParam?: string)
     getAllMinistryAreas(),
     getAllAttendanceRecords()
   ]);
-  
+
   let appliedStartDate: string | undefined = startDateParam;
   let appliedEndDate: string | undefined = endDateParam;
 
@@ -101,13 +101,17 @@ async function getEventsPageData(startDateParam?: string, endDateParam?: string)
         return isValid(meetingDate) && isWithinInterval(meetingDate, { start: parsedStartDate, end: parsedEndDate });
       });
     } else {
-      // Invalid range, reset to show all for safety or handle error
+      // Invalid range, default to showing all meetings if params are bad
       appliedStartDate = undefined;
       appliedEndDate = undefined;
+      // Keep allMeetingInstances if date range is invalid
+      filteredMeetingInstances = allMeetingInstances;
     }
   } else {
+      // No date params, show all meetings
       appliedStartDate = undefined;
       appliedEndDate = undefined;
+      filteredMeetingInstances = allMeetingInstances;
   }
 
 
@@ -118,42 +122,42 @@ async function getEventsPageData(startDateParam?: string, endDateParam?: string)
       .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
   });
 
-  return { 
-    allSeries, 
-    meetingsBySeries, 
-    allMembers, 
-    allGdis, 
-    allMinistryAreas, 
-    allAttendanceRecords, 
-    appliedStartDate, 
-    appliedEndDate 
+  return {
+    allSeries,
+    meetingsBySeries,
+    allMembers,
+    allGdis,
+    allMinistryAreas,
+    allAttendanceRecords,
+    appliedStartDate,
+    appliedEndDate
   };
 }
 
 
 export default async function EventsPage({ searchParams }: EventsPageProps) {
-  const { 
-    allSeries, 
-    meetingsBySeries, 
-    allMembers, 
-    allGdis, 
-    allMinistryAreas, 
-    allAttendanceRecords, 
-    appliedStartDate, 
-    appliedEndDate 
+  const {
+    allSeries,
+    meetingsBySeries,
+    allMembers,
+    allGdis,
+    allMinistryAreas,
+    allAttendanceRecords,
+    appliedStartDate,
+    appliedEndDate
   } = await getEventsPageData(searchParams?.startDate, searchParams?.endDate);
-  
+
   // Filter series that have meetings within the date range or are "Recurring" (always show tab for recurring)
-  const seriesPresentInFilter = allSeries.filter(series => 
+  const seriesPresentInFilter = allSeries.filter(series =>
     meetingsBySeries[series.id]?.length > 0 || series.frequency === "Recurring"
   ).sort((a,b) => a.name.localeCompare(b.name));
 
 
-  const defaultTabValue = 
-    searchParams?.series && seriesPresentInFilter.some(s => s.id === searchParams.series) 
-      ? searchParams.series 
-      : seriesPresentInFilter.length > 0 
-        ? seriesPresentInFilter[0].id 
+  const defaultTabValue =
+    searchParams?.series && seriesPresentInFilter.some(s => s.id === searchParams.series)
+      ? searchParams.series
+      : seriesPresentInFilter.length > 0
+        ? seriesPresentInFilter[0].id
         : '';
 
   return (
@@ -163,7 +167,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           <h1 className="font-headline text-4xl font-bold text-primary">Administración de Reuniones</h1>
           <p className="text-muted-foreground mt-1">Defina series de reuniones y vea el historial de asistencia.</p>
         </div>
-        <PageSpecificAddMeetingDialog 
+        <PageSpecificAddMeetingDialog
           defineMeetingSeriesAction={defineMeetingSeriesAction}
         />
       </div>
@@ -172,9 +176,9 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
         <Tabs defaultValue={defaultTabValue} className="w-full">
           <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 mb-6 pb-2 overflow-x-auto">
             {seriesPresentInFilter.map((series) => (
-              <TabsTrigger 
-                key={series.id} 
-                value={series.id} 
+              <TabsTrigger
+                key={series.id}
+                value={series.id}
                 className="whitespace-normal text-xs sm:text-sm h-auto py-2 px-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
                 {series.name} ({meetingsBySeries[series.id]?.length || 0})
@@ -200,7 +204,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                   meetingsForSeries={meetingsBySeries[series.id]}
                   allMembers={allMembers} // Pass all members for resolving names and potential future use
                   // GDI/Area data no longer directly used by table, but passed for getResolvedAttendees if needed later
-                  allGdis={allGdis} 
+                  allGdis={allGdis}
                   allMinistryAreas={allMinistryAreas}
                   allAttendanceRecords={allAttendanceRecords}
                   seriesName={series.name} // Pass series name instead of type label
@@ -211,12 +215,12 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                 <div className="text-center py-10">
                   <CalendarDays className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                   <h2 className="text-xl font-semibold text-muted-foreground">
-                    {appliedStartDate && appliedEndDate 
+                    {appliedStartDate && appliedEndDate
                       ? `No hay instancias para "${series.name}" en el rango seleccionado`
                       : `No hay instancias programadas para "${series.name}"`}
                   </h2>
                    <p className="text-muted-foreground mt-2">
-                    {appliedStartDate && appliedEndDate 
+                    {appliedStartDate && appliedEndDate
                       ? `(${format(parseISO(appliedStartDate), 'dd/MM/yy', { locale: es })} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', { locale: es })})`
                       : "Agregue una nueva instancia para esta serie o ajuste los filtros de fecha."}
                   </p>
@@ -228,10 +232,14 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       ) : (
          <div className="text-center py-10">
           <CalendarDays className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold text-muted-foreground">No Hay Series de Reuniones Definidas</h2>
+          <h2 className="text-xl font-semibold text-muted-foreground">
+            {appliedStartDate && appliedEndDate
+              ? `No hay reuniones para el rango de fechas seleccionado`
+              : "No Hay Series de Reuniones Definidas"}
+          </h2>
            <p className="text-muted-foreground mt-2">
-            {appliedStartDate && appliedEndDate 
-              ? `No hay reuniones para el rango de fechas seleccionado (${format(parseISO(appliedStartDate), 'dd/MM/yy', { locale: es })} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', { locale: es })})`
+            {appliedStartDate && appliedEndDate
+              ? `(${format(parseISO(appliedStartDate), 'dd/MM/yy', { locale: es })} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', { locale: es })})`
               : "Defina una nueva serie de reuniones o ajuste los filtros de fecha para comenzar."}
           </p>
         </div>
@@ -242,11 +250,12 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           <Filter className="mr-2 h-5 w-5 text-primary" />
           Filtrar Instancias de Reunión por Fecha
         </h2>
-        <DateRangeFilter 
-          initialStartDate={appliedStartDate} 
-          initialEndDate={appliedEndDate} 
+        <DateRangeFilter
+          initialStartDate={appliedStartDate}
+          initialEndDate={appliedEndDate}
         />
       </div>
     </div>
   );
 }
+
