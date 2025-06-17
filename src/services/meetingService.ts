@@ -2,7 +2,7 @@
 'use server';
 import type { Meeting, MeetingWriteData } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
-import { placeholderMeetings } from '@/lib/placeholder-data'; // Will be empty or need update
+// import { placeholderMeetings } from '@/lib/placeholder-data'; // Will be empty or need update
 import { format } from 'date-fns';
 
 const MEETINGS_DB_FILE = 'meetings-db.json';
@@ -39,7 +39,7 @@ export async function addMeeting(meetingData: MeetingWriteData): Promise<Meeting
     imageUrl: meetingData.imageUrl || 'https://placehold.co/600x400',
     relatedGdiId: meetingData.relatedGdiId || null,
     relatedAreaId: meetingData.relatedAreaId || null,
-    attendeeUids: meetingData.attendeeUids || null,
+    attendeeUids: meetingData.attendeeUids || null, // Save attendeeUids
     minute: meetingData.minute || null,
   };
   const updatedMeetings = [...meetings, newMeeting];

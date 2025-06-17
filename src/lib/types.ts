@@ -155,7 +155,9 @@ export const AddGeneralMeetingFormSchema = z.object({
   location: z.string().min(3, { message: "La ubicación es requerida." }),
   description: z.string().optional(),
   imageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')),
-  // relatedGdiId, relatedAreaId, attendeeUids, minute are part of Meeting type but not set in this specific form
+  attendeeUids: z.array(z.string()).optional(), // For "Special_Meeting"
+  // relatedGdiId, relatedAreaId, minute are part of Meeting type but not set in this specific form
 });
 
 export type AddGeneralMeetingFormValues = z.infer<typeof AddGeneralMeetingFormSchema>;
+

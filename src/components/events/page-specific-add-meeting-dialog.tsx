@@ -13,13 +13,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import AddMeetingForm from '@/components/events/add-meeting-form';
-import type { AddGeneralMeetingFormValues, Meeting } from '@/lib/types';
+import type { AddGeneralMeetingFormValues, Meeting, Member } from '@/lib/types';
 
 interface PageSpecificAddMeetingDialogProps {
   addMeetingAction: (data: AddGeneralMeetingFormValues) => Promise<{ success: boolean; message: string; newMeeting?: Meeting }>;
+  allMembers: Member[]; // Added prop to pass all members
 }
 
-export default function PageSpecificAddMeetingDialog({ addMeetingAction }: PageSpecificAddMeetingDialogProps) {
+export default function PageSpecificAddMeetingDialog({ addMeetingAction, allMembers }: PageSpecificAddMeetingDialogProps) {
   const [open, setOpen] = useState(false);
 
   const handleSuccess = () => {
@@ -41,7 +42,11 @@ export default function PageSpecificAddMeetingDialog({ addMeetingAction }: PageS
           </DialogDescription>
         </DialogHeader>
         <div className="flex-grow overflow-y-auto p-6">
-            <AddMeetingForm addMeetingAction={addMeetingAction} onSuccess={handleSuccess} />
+            <AddMeetingForm 
+              addMeetingAction={addMeetingAction} 
+              onSuccess={handleSuccess} 
+              allMembers={allMembers} // Pass allMembers to the form
+            />
         </div>
       </DialogContent>
     </Dialog>

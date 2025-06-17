@@ -3,7 +3,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { AddGeneralMeetingFormValues, MeetingType } from "@/lib/types";
+import type { AddGeneralMeetingFormValues, MeetingType, Member } from "@/lib/types";
 import { AddGeneralMeetingFormSchema } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,14 +24,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker"; 
-import { Loader2 } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { DialogClose } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AddMeetingFormProps {
   addMeetingAction: (data: AddGeneralMeetingFormValues) => Promise<{ success: boolean; message: string; newMeeting?: any }>;
-  onSuccess?: () => void; // Callback for successful submission to close parent dialog
+  onSuccess?: () => void;
+  allMembers: Member[]; // Added prop for member selection
 }
 
 const creatableMeetingTypes: MeetingType[] = [
@@ -41,7 +45,7 @@ const creatableMeetingTypes: MeetingType[] = [
   "Special_Meeting"
 ];
 
-const meetingTypeTranslations: Record<string, string> = { // Use string index for wider compatibility
+const meetingTypeTranslations: Record<string, string> = {
   General_Service: "Servicio General",
   GDI_Meeting: "Reunión de GDI",
   Obreros_Meeting: "Reunión de Obreros",
@@ -50,29 +54,52 @@ const meetingTypeTranslations: Record<string, string> = { // Use string index fo
   Special_Meeting: "Reunión Especial",
 };
 
-export default function AddMeetingForm({ addMeetingAction, onSuccess }: AddMeetingFormProps) {
+export default function AddMeetingForm({ addMeetingAction, onSuccess, allMembers }: AddMeetingFormProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const [attendeeSearchTerm, setAttendeeSearchTerm] = useState('');
 
   const form = useForm<AddGeneralMeetingFormValues>({
     resolver: zodResolver(AddGeneralMeetingFormSchema),
     defaultValues: {
       name: "",
       type: "General_Service", 
-      time: "10:00", // Default time
+      time: "10:00",
       location: "",
       description: "",
       imageUrl: "",
-      // Date is handled by DatePicker, will be undefined initially if not set
+      attendeeUids: [],
     },
   });
 
+  const watchedMeetingType = form.watch("type");
+
+  const filteredMembersForSelection = useMemo(() => {
+    if (!allMembers) return [];
+    if (!attendeeSearchTerm) return allMembers.filter(m => m.status === 'Active'); // Show active by default
+    return allMembers.filter(member =>
+      member.status === 'Active' &&
+      (`${member.firstName} ${member.lastName}`.toLowerCase().includes(attendeeSearchTerm.toLowerCase()) ||
+       member.email.toLowerCase().includes(attendeeSearchTerm.toLowerCase()))
+    );
+  }, [allMembers, attendeeSearchTerm]);
+
   async function onSubmit(values: AddGeneralMeetingFormValues) {
     startTransition(async () => {
-      const result = await addMeetingAction(values);
+      const dataToSend = { ...values };
+      if (dataToSend.type !== 'Special_Meeting') {
+        // Ensure attendeeUids is empty or not sent if not a special meeting
+        delete dataToSend.attendeeUids; 
+      }
+      
+      const result = await addMeetingAction(dataToSend);
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
-        form.reset();
+        form.reset({
+          name: "", type: "General_Service", time: "10:00", location: "",
+          description: "", imageUrl: "", attendeeUids: [],
+        });
+        setAttendeeSearchTerm('');
         if (onSuccess) {
           onSuccess();
         }
@@ -120,6 +147,55 @@ export default function AddMeetingForm({ addMeetingAction, onSuccess }: AddMeeti
             </FormItem>
           )}
         />
+
+        {watchedMeetingType === "Special_Meeting" && (
+          <FormField
+            control={form.control}
+            name="attendeeUids"
+            render={({ field }) => (
+              <FormItem className="space-y-2">
+                <FormLabel>Seleccionar Asistentes (para Reunión Especial)</FormLabel>
+                <div className="relative">
+                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        type="search"
+                        placeholder="Buscar miembros activos..."
+                        value={attendeeSearchTerm}
+                        onChange={(e) => setAttendeeSearchTerm(e.target.value)}
+                        className="pl-8 mb-2"
+                        disabled={isPending}
+                    />
+                </div>
+                <ScrollArea className="h-48 w-full rounded-md border p-2">
+                  {filteredMembersForSelection.length > 0 ? filteredMembersForSelection.map((member) => (
+                    <div key={member.id} className="flex items-center space-x-3 p-1.5 hover:bg-muted/50 rounded-md">
+                      <Checkbox
+                        id={`attendee-${member.id}`}
+                        checked={field.value?.includes(member.id)}
+                        onCheckedChange={(checked) => {
+                          const currentValue = field.value || [];
+                          return checked
+                            ? field.onChange([...currentValue, member.id])
+                            : field.onChange(currentValue.filter(id => id !== member.id));
+                        }}
+                        disabled={isPending}
+                      />
+                      <Label htmlFor={`attendee-${member.id}`} className="font-normal text-sm cursor-pointer flex-grow">
+                        {member.firstName} {member.lastName} ({member.email})
+                      </Label>
+                    </div>
+                  )) : (
+                     <p className="text-sm text-muted-foreground text-center py-4">
+                        {attendeeSearchTerm ? "No hay miembros que coincidan." : "No hay miembros activos."}
+                    </p>
+                  )}
+                </ScrollArea>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
         <FormField
           control={form.control}
           name="date"
@@ -186,7 +262,7 @@ export default function AddMeetingForm({ addMeetingAction, onSuccess }: AddMeeti
         
         <div className="flex justify-end space-x-2 pt-4 border-t">
            <DialogClose asChild>
-            <Button type="button" variant="outline" disabled={isPending}>
+            <Button type="button" variant="outline" onClick={() => { form.reset(); setAttendeeSearchTerm(''); }} disabled={isPending}>
                 Cancelar
             </Button>
           </DialogClose>

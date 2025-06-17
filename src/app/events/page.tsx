@@ -1,46 +1,15 @@
 
 'use server';
-import type { Meeting, AddGeneralMeetingFormValues, MeetingType, MeetingWriteData } from '@/lib/types';
+import type { Meeting, AddGeneralMeetingFormValues, MeetingType, MeetingWriteData, Member } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from 'next/image';
-import { CalendarDays, Clock, MapPin, Users, Briefcase, Award, PlusCircle, CheckSquare, BookOpen, Sparkles, Building2, HandHelping } from 'lucide-react';
+import { CalendarDays, Clock, MapPin, Users, Briefcase, Award, CheckSquare, Sparkles, Building2, HandHelping } from 'lucide-react';
 import { revalidatePath } from 'next/cache';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import AddMeetingForm from '@/components/events/add-meeting-form';
-import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getAllMeetings, addMeeting as addMeetingSvc } from '@/services/meetingService';
-
-// For stateful dialog on server component page, we need a client component wrapper
-// Or, make this EventsPage itself a client component if state is simple enough.
-// For now, we can move the Dialog and its trigger into a client component,
-// or acknowledge this page might need to be client for the dialog state.
-// The simplest way to handle the dialog state in the page itself is to use client component features
-// Let's make a small client component for the Dialog part.
-
-// Client component for the Add Meeting Dialog Trigger and Content
-// This is not ideal for a server component page. A better approach for server components
-// is often to navigate or use query params to show modals if state is complex.
-// However, for a simple dialog toggle, making the whole page client or a wrapper is common.
-
-// To keep this page as a server component for data fetching,
-// the stateful Dialog logic will be encapsulated.
-// For this specific task, I'll make this page a client component to manage dialog state.
-// This is not always the "best" pattern for Next.js App Router (prefer Server Components),
-// but it's the most direct change for now.
-
-// Let's stick to the plan: EventsPage remains a server component,
-// the button/dialog part on this page will be a new client component.
-
+import { getAllMembersNonPaginated } from '@/services/memberService'; // Added import
 import PageSpecificAddMeetingDialog from '@/components/events/page-specific-add-meeting-dialog';
 
 
@@ -55,7 +24,7 @@ export async function addMeetingAction(
       description: newMeetingData.description || '',
       relatedGdiId: null, 
       relatedAreaId: null,
-      attendeeUids: null,
+      attendeeUids: newMeetingData.type === 'Special_Meeting' ? (newMeetingData.attendeeUids || []) : null,
       minute: null,
     };
 
@@ -105,8 +74,15 @@ const formatDateDisplay = (dateString: string) => {
   }
 };
 
+async function getEventsPageData(): Promise<{ meetings: Meeting[], allMembers: Member[] }> {
+  const meetings = await getAllMeetings();
+  const allMembers = await getAllMembersNonPaginated();
+  return { meetings, allMembers };
+}
+
+
 export default async function EventsPage() {
-  const meetings = await getAllMeetings(); 
+  const { meetings, allMembers } = await getEventsPageData();
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -115,7 +91,7 @@ export default async function EventsPage() {
           <h1 className="font-headline text-4xl font-bold text-primary">Próximas Reuniones</h1>
           <p className="text-muted-foreground mt-2">Administre y manténgase informado sobre todas las actividades.</p>
         </div>
-        <PageSpecificAddMeetingDialog addMeetingAction={addMeetingAction} />
+        <PageSpecificAddMeetingDialog addMeetingAction={addMeetingAction} allMembers={allMembers} />
       </div>
 
       {meetings.length > 0 ? (
@@ -163,6 +139,9 @@ export default async function EventsPage() {
                   )}
                   {meeting.type === 'GDI_Meeting' && meeting.relatedGdiId && (
                      <p className="text-xs text-muted-foreground pt-1">GDI: {meeting.relatedGdiId}</p> 
+                  )}
+                  {meeting.type === 'Special_Meeting' && meeting.attendeeUids && meeting.attendeeUids.length > 0 && (
+                    <p className="text-xs text-muted-foreground pt-1">Asistentes específicos: {meeting.attendeeUids.length}</p>
                   )}
                 </CardContent>
                 <CardFooter>
