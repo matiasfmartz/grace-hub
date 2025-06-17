@@ -1,17 +1,18 @@
 
-import type { Meeting, Member, GDI, MinistryArea, AttendanceRecord } from '@/lib/types';
-import { notFound } from 'next/navigation';
-import { getMeetingById, updateMeetingMinute, getMeetingSeriesById } from '@/services/meetingService';
+import type { Meeting, Member, GDI, MinistryArea, AttendanceRecord, MeetingInstanceFormValues, MeetingSeries } from '@/lib/types';
+import { notFound, useRouter } from 'next/navigation';
+import { getMeetingById, updateMeetingMinute, getMeetingSeriesById, updateMeeting, deleteMeetingInstance } from '@/services/meetingService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
 import { getAllGdis } from '@/services/gdiService';
 import { getAllMinistryAreas } from '@/services/ministryAreaService';
 import { getResolvedAttendees, getAttendanceForMeeting, saveMeetingAttendance } from '@/services/attendanceService';
 import AttendanceManagerView from '@/components/events/attendance-manager-view';
+import ManageMeetingInstanceDialog from '@/components/events/manage-meeting-instance-dialog';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { revalidatePath } from 'next/cache';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowLeft, FileText, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -28,12 +29,11 @@ async function getPageData(meetingId: string) {
   
   const [allMembers, allGdis, allMinistryAreas, currentAttendance] = await Promise.all([
     getAllMembersNonPaginated(),
-    getAllGdis(), // Still needed if getResolvedAttendees uses them as fallback or for other logic
-    getAllMinistryAreas(), // Still needed
+    getAllGdis(),
+    getAllMinistryAreas(),
     getAttendanceForMeeting(meetingId),
   ]);
 
-  // getResolvedAttendees now primarily uses meetingInstance.attendeeUids
   const resolvedAttendees = await getResolvedAttendees(meetingInstance, allMembers);
   return { meetingInstance, meetingSeries, resolvedAttendees, currentAttendance, allMembers };
 }
@@ -63,6 +63,46 @@ async function handleUpdateMinuteAction(meetingId: string, minute: string) {
   }
 }
 
+async function handleUpdateMeetingInstanceAction(
+  instanceId: string,
+  data: MeetingInstanceFormValues
+): Promise<{ success: boolean; message: string; updatedInstance?: Meeting }> {
+  'use server';
+  try {
+    const instanceDataToUpdate = {
+      name: data.name,
+      date: format(data.date, 'yyyy-MM-dd'), // Ensure date is string
+      time: data.time,
+      location: data.location,
+      description: data.description,
+      imageUrl: data.imageUrl,
+    };
+    const updatedInstance = await updateMeeting(instanceId, instanceDataToUpdate);
+    revalidatePath(`/events/${instanceId}/attendance`);
+    revalidatePath(`/events`); // Revalidate main events page as instance details might change there too
+    return { success: true, message: "Instancia de reunión actualizada exitosamente.", updatedInstance };
+  } catch (error: any) {
+    console.error("Error updating meeting instance:", error);
+    return { success: false, message: `Error al actualizar instancia: ${error.message}` };
+  }
+}
+
+async function handleDeleteMeetingInstanceAction(
+  instanceId: string
+): Promise<{ success: boolean; message: string }> {
+  'use server';
+  try {
+    await deleteMeetingInstance(instanceId);
+    revalidatePath(`/events`); // Revalidate main events page as instance will be gone
+    // No need to revalidate `/events/${instanceId}/attendance` as it will 404
+    return { success: true, message: "Instancia de reunión eliminada exitosamente." };
+  } catch (error: any) {
+    console.error("Error deleting meeting instance:", error);
+    return { success: false, message: `Error al eliminar instancia: ${error.message}` };
+  }
+}
+
+
 const formatDateDisplay = (dateString: string) => {
   try {
     return format(parseISO(dateString), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es });
@@ -79,15 +119,39 @@ export default async function MeetingAttendancePage({ params }: MeetingAttendanc
   const meetingDateTime = `${formatDateDisplay(meetingInstance.date)} a las ${meetingInstance.time}`;
   const meetingLocation = meetingInstance.location;
 
+  // For the ManageMeetingInstanceDialog - we need to pass the instance and actions
+  // The redirection on delete will be handled client-side by the dialog or a wrapper.
+  const onInstanceDeletedClientSide = () => {
+    // This function will be called client-side after successful deletion confirmed by server.
+    // In a real app, you'd use `useRouter` from `next/navigation` here.
+    // For a server component, we can't directly use hooks.
+    // The dialog component itself will likely handle client-side redirection using router.push('/events').
+    // This is a placeholder for the concept.
+    // The actual redirection will be managed in ManageMeetingInstanceDialog or its consuming client component.
+  };
+
+
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="mb-6">
+      <div className="mb-6 flex justify-between items-center">
         <Button asChild variant="outline">
           <Link href="/events">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver a Eventos
           </Link>
         </Button>
+        <ManageMeetingInstanceDialog
+            instance={meetingInstance}
+            series={meetingSeries}
+            updateInstanceAction={handleUpdateMeetingInstanceAction}
+            deleteInstanceAction={handleDeleteMeetingInstanceAction}
+            onInstanceDeleted={onInstanceDeletedClientSide} // Placeholder for client-side redirect
+             triggerButton={
+                <Button variant="outline">
+                    <Settings className="mr-2 h-4 w-4" /> Gestionar Reunión
+                </Button>
+            }
+        />
       </div>
 
       <Card className="mb-8 shadow-lg">
@@ -110,10 +174,7 @@ export default async function MeetingAttendancePage({ params }: MeetingAttendanc
         initialAttendanceRecords={currentAttendance}
         saveAttendanceAction={handleSaveAttendance}
       />
-
-      {/* Minute taking can be enabled for any series if desired, or conditioned on series.frequency or other properties */}
-      {/* For now, let's assume minute is applicable if the series allows for it (e.g., not a quick general service) */}
-      {/* This logic can be refined based on series properties if needed */}
+      
       <Card className="mt-8 shadow-lg">
         <CardHeader>
           <CardTitle className="font-headline text-2xl text-primary flex items-center">
@@ -130,7 +191,6 @@ export default async function MeetingAttendancePage({ params }: MeetingAttendanc
             const result = await handleUpdateMinuteAction(meetingInstance.id, minuteContent);
             if (!result.success) {
               console.error("Error updating minute:", result.message);
-              // Potentially show a toast message here for client feedback
             }
           }}>
             <Textarea

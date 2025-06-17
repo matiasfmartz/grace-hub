@@ -1,6 +1,6 @@
 
 'use server';
-import type { Meeting, MeetingWriteData, MeetingSeries, MeetingSeriesWriteData, Member, GDI, MinistryArea, MeetingTargetRoleType, AttendanceRecord, DayOfWeekType, MonthlyRuleType, WeekOrdinalType, MeetingFrequencyType } from '@/lib/types';
+import type { Meeting, MeetingWriteData, MeetingSeries, MeetingSeriesWriteData, Member, GDI, MinistryArea, MeetingTargetRoleType, AttendanceRecord, DayOfWeekType, MonthlyRuleType, WeekOrdinalType, MeetingFrequencyType, MeetingInstanceUpdateData } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
 import { format, parseISO, addWeeks, setDay, addMonths, setDate, getDate, getDaysInMonth, lastDayOfMonth, startOfDay, isSameDay, nextDay, previousDay, getDay, isValid as isValidDateFn } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -464,9 +464,10 @@ export async function updateMeeting(meetingId: string, updates: Partial<MeetingW
   const updatedMeeting: Meeting = {
     ...meetings[meetingIndex],
     ...formattedUpdates,
-    attendeeUids: 'attendeeUids' in updates && Array.isArray(updates.attendeeUids)
-                  ? updates.attendeeUids
-                  : meetings[meetingIndex].attendeeUids,
+    // Attendee UIDs are generally derived from the series and not directly updatable here.
+    // If specific override is needed, it has to be handled carefully.
+    // For now, we preserve existing attendeeUids for the instance.
+    attendeeUids: meetings[meetingIndex].attendeeUids,
   };
 
   meetings[meetingIndex] = updatedMeeting;
@@ -486,4 +487,19 @@ export async function updateMeetingMinute(meetingId: string, minute: string | nu
   meetings[meetingIndex].minute = minute;
   await writeDbFile<Meeting>(MEETINGS_DB_FILE, meetings);
   return meetings[meetingIndex];
+}
+
+export async function deleteMeetingInstance(instanceId: string): Promise<void> {
+  let allMeetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []);
+  const meetingsLeft = allMeetings.filter(m => m.id !== instanceId);
+
+  if (allMeetings.length === meetingsLeft.length) {
+    // No meeting was found/deleted, perhaps an error or already deleted
+    // For now, we'll proceed to ensure attendance records are also handled if any exist for this ID
+  }
+  await writeDbFile<Meeting>(MEETINGS_DB_FILE, meetingsLeft);
+
+  let allAttendanceRecords = await readDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, []);
+  const attendanceRecordsLeft = allAttendanceRecords.filter(ar => ar.meetingId !== instanceId);
+  await writeDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, attendanceRecordsLeft);
 }

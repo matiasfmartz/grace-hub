@@ -10,20 +10,12 @@ import {
   DialogTitle,
   DialogDescription,
   DialogTrigger,
-  DialogFooter,
-  DialogClose
 } from "@/components/ui/dialog";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Controller } from "react-hook-form";
 import type { MeetingSeries, AddOccasionalMeetingFormValues, Meeting } from "@/lib/types";
-import { AddOccasionalMeetingFormSchema } from "@/lib/types";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { DatePicker } from "@/components/ui/date-picker";
-import { Loader2, PlusSquare } from "lucide-react";
+import MeetingInstanceForm from './add-occasional-meeting-form'; // Re-using the adapted form
+import { PlusSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format, isValid } from 'date-fns'; // Added isValid
+import { format } from 'date-fns';
 
 interface AddOccasionalMeetingDialogProps {
   series: MeetingSeries;
@@ -38,34 +30,20 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  const form = useForm<AddOccasionalMeetingFormValues>({
-    resolver: zodResolver(AddOccasionalMeetingFormSchema),
-    defaultValues: {
-      name: "",
-      date: new Date(),
-      time: "00:00",
-      location: "",
-      description: "",
-      imageUrl: "",
-    },
-  });
+  const initialFormValues = useMemo(() => ({
+    name: `${series.name} (Ocasional)`,
+    date: new Date(),
+    time: series.defaultTime,
+    location: series.defaultLocation,
+    description: series.description || "",
+    imageUrl: series.defaultImageUrl || "",
+  }), [series]);
 
-  useEffect(() => {
-    if (open) {
-      form.reset({
-        name: `${series.name} (Ocasional)`,
-        date: new Date(),
-        time: series.defaultTime,
-        location: series.defaultLocation,
-        description: series.description || "",
-        imageUrl: series.defaultImageUrl || "",
-      });
-    }
-  }, [open, series]); 
 
-  const onSubmit = (values: AddOccasionalMeetingFormValues) => {
+  const handleSubmit = async (values: AddOccasionalMeetingFormValues) => {
+    let result: { success: boolean; message: string; newInstance?: Meeting} = { success: false, message: "Error desconocido" };
     startTransition(async () => {
-      const result = await addOccasionalMeetingAction(series.id, values);
+      result = await addOccasionalMeetingAction(series.id, values);
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
         setOpen(false);
@@ -73,6 +51,7 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
         toast({ title: "Error", description: result.message, variant: "destructive" });
       }
     });
+    return result;
   };
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -94,92 +73,14 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
           </DialogDescription>
         </DialogHeader>
         <div className="flex-grow overflow-y-auto p-6">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nombre de la Instancia</FormLabel>
-                    <FormControl><Input {...field} disabled={isPending} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="date"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Fecha</FormLabel>
-                    <DatePicker
-                      date={field.value instanceof Date && isValid(field.value) ? field.value : undefined}
-                      setDate={field.onChange}
-                      placeholder="Seleccionar fecha"
-                      disabled={isPending}
-                    />
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="time"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Hora</FormLabel>
-                      <FormControl><Input type="time" {...field} disabled={isPending} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ubicación</FormLabel>
-                      <FormControl><Input {...field} disabled={isPending} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descripción (Opcional)</FormLabel>
-                    <FormControl><Textarea {...field} value={field.value ?? ''} disabled={isPending} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="imageUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>URL de Imagen (Opcional)</FormLabel>
-                    <FormControl><Input type="url" {...field} value={field.value ?? ''} disabled={isPending} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter className="pt-4 border-t">
-                <DialogClose asChild>
-                  <Button type="button" variant="outline" disabled={isPending}>Cancelar</Button>
-                </DialogClose>
-                <Button type="submit" disabled={isPending}>
-                  {isPending ? <Loader2 className="animate-spin mr-2" /> : null}
-                  {isPending ? "Programando..." : "Programar Instancia"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+          <MeetingInstanceForm
+            onSubmitAction={handleSubmit}
+            initialValues={initialFormValues}
+            isEditing={false}
+            isPending={isPending}
+            onCancel={() => setOpen(false)}
+            onSuccess={() => setOpen(false)}
+          />
         </div>
       </DialogContent>
     </Dialog>

@@ -98,6 +98,7 @@ export interface Meeting {
   minute?: string | null;
 }
 export type MeetingWriteData = Omit<Meeting, 'id' | 'attendeeUids'> & { attendeeUids?: string[] };
+export type MeetingInstanceUpdateData = Partial<Omit<Meeting, 'id' | 'seriesId' | 'attendeeUids'>>;
 
 
 export interface AttendanceRecord {
@@ -210,7 +211,7 @@ export const DefineMeetingSeriesFormSchema = z.object({
 });
 export type DefineMeetingSeriesFormValues = z.infer<typeof DefineMeetingSeriesFormSchema>;
 
-export const AddOccasionalMeetingFormSchema = z.object({
+export const MeetingInstanceFormSchema = z.object({ // Renamed from AddOccasionalMeetingFormSchema for broader use
   name: z.string().min(3, { message: "El nombre de la reunión debe tener al menos 3 caracteres." }),
   date: z.date({ required_error: "La fecha es requerida." }),
   time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Formato de hora inválido (HH:MM)." }),
@@ -218,7 +219,7 @@ export const AddOccasionalMeetingFormSchema = z.object({
   description: z.string().optional(),
   imageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')),
 });
-export type AddOccasionalMeetingFormValues = z.infer<typeof AddOccasionalMeetingFormSchema>;
+export type MeetingInstanceFormValues = z.infer<typeof MeetingInstanceFormSchema>; // Renamed type
 
 
 export const daysOfWeek: { id: DayOfWeekType; label: string }[] = [
@@ -238,3 +239,7 @@ export const weekOrdinals: { id: WeekOrdinalType; label: string }[] = [
     { id: "Fourth", label: "Cuarta" },
     { id: "Last", label: "Última" },
 ];
+
+// Ensure AddOccasionalMeetingFormValues is still exported if used elsewhere for specifically adding occasional meetings
+export type AddOccasionalMeetingFormValues = MeetingInstanceFormValues;
+export const AddOccasionalMeetingFormSchema = MeetingInstanceFormSchema;
