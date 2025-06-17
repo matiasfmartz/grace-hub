@@ -14,11 +14,11 @@ import {
 } from "@/components/ui/dialog";
 import DefineMeetingSeriesForm from '@/components/events/add-meeting-form';
 import DeleteMeetingSeriesAlert from '@/components/events/delete-meeting-series-alert';
-import type { DefineMeetingSeriesFormValues, MeetingSeries, DayOfWeekType, WeekOrdinalType } from '@/lib/types';
+import type { DefineMeetingSeriesFormValues, MeetingSeries, DayOfWeekType, WeekOrdinalType, MeetingTargetRoleType } from '@/lib/types'; // Added MeetingTargetRoleType
 import { daysOfWeek, weekOrdinals } from '@/lib/types';
 import { Settings, Edit2, Trash2, Info, Loader2, CalendarDays, Clock, MapPin, Users, Repeat, Image as ImageIcon } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { format, parseISO, isValid as isValidDate } from 'date-fns'; // Import isValidDate
+import { format, parseISO, isValid as isValidDate } from 'date-fns'; 
 import { es } from 'date-fns/locale';
 
 interface ManageMeetingSeriesDialogProps {
@@ -35,10 +35,19 @@ const getDayLabel = (dayId: DayOfWeekType): string => {
   return day ? day.label : dayId;
 };
 
-const getWeekOrdinalLabel = (ordinalId?: WeekOrdinalType): string => { // Corrected type
+const getWeekOrdinalLabel = (ordinalId?: WeekOrdinalType): string => { 
   if (!ordinalId) return '';
   const ordinal = weekOrdinals.find(o => o.id === ordinalId);
   return ordinal ? ordinal.label : ordinalId;
+};
+
+const getTargetGroupLabel = (groupKey: MeetingTargetRoleType): string => {
+  switch (groupKey) {
+    case "allMembers": return "Todos";
+    case "workers": return "Obreros";
+    case "leaders": return "Líderes";
+    default: return groupKey;
+  }
 };
 
 export default function ManageMeetingSeriesDialog({ 
@@ -155,12 +164,7 @@ export default function ManageMeetingSeriesDialog({
               <InfoItem icon={MapPin} label="Lugar Predeterminado:" value={series.defaultLocation} />
               <InfoItem icon={Repeat} label="Frecuencia:" value={renderFrequencyDetails()} />
               <InfoItem icon={Users} label="Grupos Objetivo:" value={
-                  series.targetAttendeeGroups.map(group => {
-                    if (group === "generalAttendees") return "Asistentes Generales";
-                    if (group === "workers") return "Obreros";
-                    if (group === "leaders") return "Líderes";
-                    return group;
-                  }).join(', ') || "N/A"
+                  series.targetAttendeeGroups.map(group => getTargetGroupLabel(group)).join(', ') || "N/A"
               } />
               {series.defaultImageUrl && (
                 <div>

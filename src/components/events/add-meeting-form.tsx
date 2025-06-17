@@ -64,14 +64,9 @@ const getResolvedDefaultValues = (
   
   let oneTimeDateToSet: Date | undefined = undefined;
   if (currentInitialValues?.oneTimeDate) {
-    // If initialValues.oneTimeDate is already a Date object and valid, use it directly.
-    // This happens when `initialValues` is prepared by `ManageMeetingSeriesDialog`.
     if (currentInitialValues.oneTimeDate instanceof Date && isValid(currentInitialValues.oneTimeDate)) {
       oneTimeDateToSet = currentInitialValues.oneTimeDate;
     } 
-    // If it's a string (e.g., from older state or direct prop), try to parse it.
-    // However, `ManageMeetingSeriesDialog` should already do this parsing.
-    // This block is more of a fallback.
     else if (typeof currentInitialValues.oneTimeDate === 'string') {
         const parsed = parseISO(currentInitialValues.oneTimeDate);
         if (isValid(parsed)) {
@@ -125,7 +120,6 @@ export default function DefineMeetingSeriesForm({
   });
 
   useEffect(() => {
-    // Reset form when initialValues change (e.g., opening dialog for different series)
     form.reset(getResolvedDefaultValues(initialValues));
   }, [initialValues, form]);
 
@@ -134,7 +128,6 @@ export default function DefineMeetingSeriesForm({
   const watchedMonthlyRuleType = form.watch("monthlyRuleType");
 
   useEffect(() => {
-    // This effect manages conditional logic based on frequency.
     if (watchedFrequency !== 'OneTime') {
         form.setValue('oneTimeDate', undefined, { shouldValidate: true });
     }
@@ -147,10 +140,9 @@ export default function DefineMeetingSeriesForm({
       form.setValue('monthlyWeekOrdinal', undefined, { shouldValidate: true });
       form.setValue('monthlyDayOfWeek', undefined, { shouldValidate: true });
     }
-  }, [watchedFrequency, form.setValue]); // form.setValue is stable
+  }, [watchedFrequency, form.setValue]);
 
   useEffect(() => {
-    // This effect manages conditional logic for monthly rules.
     if (watchedFrequency === 'Monthly' && watchedMonthlyRuleType === 'DayOfWeekOfMonth') {
       form.setValue('monthlyDayOfMonth', undefined, { shouldValidate: true });
     }
@@ -203,6 +195,12 @@ export default function DefineMeetingSeriesForm({
       form.reset(getResolvedDefaultValues(undefined));
     }
   };
+
+  const targetGroupOptions = [
+    { id: "allMembers", label: "Todos (Todos los miembros registrados)" },
+    { id: "workers", label: "Obreros (Guías, Líderes de Área, Miembros de Área)" },
+    { id: "leaders", label: "Líderes (Guías de GDI, Líderes de Área)" }
+  ];
 
 
   return (
@@ -282,7 +280,7 @@ export default function DefineMeetingSeriesForm({
               <FormItem className="space-y-3">
                 <FormLabel>Grupos de Asistentes Objetivo</FormLabel>
                 <div className="space-y-2 p-2 border rounded-md">
-                  {[{ id: "generalAttendees", label: "Asistentes Generales (Miembros de GDI)" }, { id: "workers", label: "Obreros (Guías, Líderes de Área, Miembros de Área)" }, { id: "leaders", label: "Líderes (Guías de GDI, Líderes de Área)" }].map((group) => (
+                  {targetGroupOptions.map((group) => (
                     <FormField
                       key={group.id}
                       control={form.control}

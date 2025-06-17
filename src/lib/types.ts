@@ -48,7 +48,7 @@ export interface GDI { // Grupo de Integración
 export type GDIWriteData = Omit<GDI, 'id'>;
 
 // For Meeting Series target roles
-export const MeetingTargetRoleEnum = z.enum(["generalAttendees", "workers", "leaders"]);
+export const MeetingTargetRoleEnum = z.enum(["allMembers", "workers", "leaders"]); // Changed "generalAttendees" to "allMembers"
 export type MeetingTargetRoleType = z.infer<typeof MeetingTargetRoleEnum>;
 
 export const DayOfWeekEnum = z.enum(['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']);
@@ -243,3 +243,4 @@ export const weekOrdinals: { id: WeekOrdinalType; label: string }[] = [
 // Ensure AddOccasionalMeetingFormValues is still exported if used elsewhere for specifically adding occasional meetings
 export type AddOccasionalMeetingFormValues = MeetingInstanceFormValues;
 export const AddOccasionalMeetingFormSchema = MeetingInstanceFormSchema;
+

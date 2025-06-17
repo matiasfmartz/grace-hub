@@ -154,9 +154,9 @@ async function resolveAttendeeUids(targetGroups: MeetingTargetRoleType[]): Promi
     const attendeeSet = new Set<string>();
 
     for (const role of targetGroups) {
-        if (role === 'generalAttendees') {
+        if (role === 'allMembers') { // Changed from 'generalAttendees'
             allMembers.forEach(member => {
-                attendeeSet.add(member.id); // Include all members regardless of status
+                attendeeSet.add(member.id); // Add all members, regardless of status
             });
         } else if (role === 'workers') {
             allGdis.forEach(gdi => {
@@ -213,7 +213,7 @@ export async function addMeetingSeries(
   let newInstances: Meeting[] = [];
   const resolvedUids = await resolveAttendeeUids(newSeries.targetAttendeeGroups);
   const today = startOfDay(new Date());
-  const allExistingMeetingsForSeries = await getMeetingsBySeriesId(newSeries.id); // Needed for checks
+  const allExistingMeetingsForSeries = await getMeetingsBySeriesId(newSeries.id); 
 
   if (newSeries.frequency === "OneTime" && newSeries.oneTimeDate) {
     const oneTimeDateObj = parseISO(newSeries.oneTimeDate);
@@ -291,7 +291,6 @@ export async function updateMeetingSeries(
     ...existingSeries,
     ...updates,
     defaultImageUrl: updates.defaultImageUrl || existingSeries.defaultImageUrl || 'https://placehold.co/600x400',
-    // Ensure correct clearing/setting of frequency-specific fields
     oneTimeDate: updates.frequency === "OneTime" ? (updates.oneTimeDate ?? existingSeries.oneTimeDate) : undefined,
     weeklyDays: updates.frequency === "Weekly" ? (updates.weeklyDays ?? existingSeries.weeklyDays) : undefined,
     monthlyRuleType: updates.frequency === "Monthly" ? (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) : undefined,
@@ -303,7 +302,6 @@ export async function updateMeetingSeries(
   seriesList[seriesIndex] = updatedSeries;
   await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, seriesList);
 
-  // Generate new future instances if recurrence rules changed, without deleting old ones.
   let newlyGeneratedInstances: Meeting[] = [];
   const resolvedUids = await resolveAttendeeUids(updatedSeries.targetAttendeeGroups);
   const today = startOfDay(new Date());
@@ -317,7 +315,7 @@ export async function updateMeetingSeries(
             const instance = await addMeetingInstanceInternal({
                 seriesId: updatedSeries.id,
                 name: `${updatedSeries.name} (${format(oneTimeDateObj, 'd MMM', { locale: es })})`,
-                date: updatedSeries.oneTimeDate, // This is already a string 'yyyy-MM-dd'
+                date: updatedSeries.oneTimeDate, 
                 time: updatedSeries.defaultTime,
                 location: updatedSeries.defaultLocation,
                 description: updatedSeries.description,
@@ -407,7 +405,6 @@ export async function getMeetingById(id: string): Promise<Meeting | undefined> {
   return meetings.find(meeting => meeting.id === id);
 }
 
-// Internal function to add instance without re-resolving UIDs if already known
 async function addMeetingInstanceInternal(meetingInstanceData: Omit<Meeting, 'id'>): Promise<Meeting> {
   const meetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []);
   const newMeetingInstance: Meeting = {
@@ -420,7 +417,6 @@ async function addMeetingInstanceInternal(meetingInstanceData: Omit<Meeting, 'id
   return newMeetingInstance;
 }
 
-// Public function, typically used for one-off additions where UIDs need resolution based on series
 export async function addMeetingInstance(
   seriesId: string,
   instanceDetails: Pick<Meeting, 'name' | 'date' | 'time' | 'location' | 'description' | 'imageUrl' >
@@ -433,7 +429,7 @@ export async function addMeetingInstance(
   return addMeetingInstanceInternal({
     seriesId: series.id,
     name: instanceDetails.name,
-    date: instanceDetails.date, // Expected YYYY-MM-DD
+    date: instanceDetails.date, 
     time: instanceDetails.time,
     location: instanceDetails.location,
     description: instanceDetails.description,
@@ -462,9 +458,6 @@ export async function updateMeeting(meetingId: string, updates: Partial<MeetingW
   const updatedMeeting: Meeting = {
     ...meetings[meetingIndex],
     ...formattedUpdates,
-    // Attendee UIDs are generally derived from the series and not directly updatable here.
-    // If specific override is needed, it has to be handled carefully.
-    // For now, we preserve existing attendeeUids for the instance.
     attendeeUids: meetings[meetingIndex].attendeeUids,
   };
 
@@ -492,8 +485,6 @@ export async function deleteMeetingInstance(instanceId: string): Promise<void> {
   const meetingsLeft = allMeetings.filter(m => m.id !== instanceId);
 
   if (allMeetings.length === meetingsLeft.length) {
-    // No meeting was found/deleted, perhaps an error or already deleted
-    // For now, we'll proceed to ensure attendance records are also handled if any exist for this ID
   }
   await writeDbFile<Meeting>(MEETINGS_DB_FILE, meetingsLeft);
 
