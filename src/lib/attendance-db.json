@@ -199,14 +199,14 @@
     "id": "instance-1750198570442-dsqy77p-0-5-1750201446870",
     "meetingId": "instance-1750198570442-dsqy77p-0",
     "memberId": "5",
-    "attended": true,
+    "attended": false,
     "notes": ""
   },
   {
     "id": "instance-1750198570442-dsqy77p-0-1750198945066-fc3lndo-1750201446870",
     "meetingId": "instance-1750198570442-dsqy77p-0",
     "memberId": "1750198945066-fc3lndo",
-    "attended": true,
+    "attended": false,
     "notes": ""
   },
   {
@@ -234,7 +234,7 @@
     "id": "instance-1750198570442-dsqy77p-0-1749880160940-30020fm-1750201446870",
     "meetingId": "instance-1750198570442-dsqy77p-0",
     "memberId": "1749880160940-30020fm",
-    "attended": true,
+    "attended": false,
     "notes": ""
   },
   {
