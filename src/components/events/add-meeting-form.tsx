@@ -64,8 +64,19 @@ const getResolvedDefaultValues = (
   
   let oneTimeDateToSet: Date | undefined = undefined;
   if (currentInitialValues?.oneTimeDate) {
+    // If initialValues.oneTimeDate is already a Date object and valid, use it directly.
+    // This happens when `initialValues` is prepared by `ManageMeetingSeriesDialog`.
     if (currentInitialValues.oneTimeDate instanceof Date && isValid(currentInitialValues.oneTimeDate)) {
       oneTimeDateToSet = currentInitialValues.oneTimeDate;
+    } 
+    // If it's a string (e.g., from older state or direct prop), try to parse it.
+    // However, `ManageMeetingSeriesDialog` should already do this parsing.
+    // This block is more of a fallback.
+    else if (typeof currentInitialValues.oneTimeDate === 'string') {
+        const parsed = parseISO(currentInitialValues.oneTimeDate);
+        if (isValid(parsed)) {
+            oneTimeDateToSet = parsed;
+        }
     }
   }
   
@@ -78,7 +89,7 @@ const getResolvedDefaultValues = (
     defaultImageUrl: currentInitialValues?.defaultImageUrl ?? baseDefaultFormValues.defaultImageUrl,
     targetAttendeeGroups: currentInitialValues?.targetAttendeeGroups ?? baseDefaultFormValues.targetAttendeeGroups,
     frequency: currentInitialValues?.frequency ?? baseDefaultFormValues.frequency,
-    oneTimeDate: oneTimeDateToSet, // Use the processed date
+    oneTimeDate: oneTimeDateToSet,
     weeklyDays: currentInitialValues?.weeklyDays ?? baseDefaultFormValues.weeklyDays,
     monthlyRuleType: currentInitialValues?.monthlyRuleType ?? baseDefaultFormValues.monthlyRuleType,
     monthlyDayOfMonth: currentInitialValues?.monthlyDayOfMonth ?? baseDefaultFormValues.monthlyDayOfMonth,
@@ -86,7 +97,6 @@ const getResolvedDefaultValues = (
     monthlyDayOfWeek: currentInitialValues?.monthlyDayOfWeek ?? baseDefaultFormValues.monthlyDayOfWeek,
   };
 
-  // Ensure all string fields are indeed strings to prevent uncontrolled -> controlled warning
   resolved.name = resolved.name || "";
   resolved.description = resolved.description || "";
   resolved.defaultImageUrl = resolved.defaultImageUrl || "";
@@ -115,6 +125,7 @@ export default function DefineMeetingSeriesForm({
   });
 
   useEffect(() => {
+    // Reset form when initialValues change (e.g., opening dialog for different series)
     form.reset(getResolvedDefaultValues(initialValues));
   }, [initialValues, form]);
 
@@ -123,17 +134,23 @@ export default function DefineMeetingSeriesForm({
   const watchedMonthlyRuleType = form.watch("monthlyRuleType");
 
   useEffect(() => {
-    if (watchedFrequency !== 'OneTime') form.setValue('oneTimeDate', undefined, { shouldValidate: true });
-    if (watchedFrequency !== 'Weekly') form.setValue('weeklyDays', [], { shouldValidate: true });
+    // This effect manages conditional logic based on frequency.
+    if (watchedFrequency !== 'OneTime') {
+        form.setValue('oneTimeDate', undefined, { shouldValidate: true });
+    }
+    if (watchedFrequency !== 'Weekly') {
+        form.setValue('weeklyDays', [], { shouldValidate: true });
+    }
     if (watchedFrequency !== 'Monthly') {
       form.setValue('monthlyRuleType', undefined, { shouldValidate: true });
       form.setValue('monthlyDayOfMonth', undefined, { shouldValidate: true });
       form.setValue('monthlyWeekOrdinal', undefined, { shouldValidate: true });
       form.setValue('monthlyDayOfWeek', undefined, { shouldValidate: true });
     }
-  }, [watchedFrequency, form.setValue]);
+  }, [watchedFrequency, form.setValue]); // form.setValue is stable
 
   useEffect(() => {
+    // This effect manages conditional logic for monthly rules.
     if (watchedFrequency === 'Monthly' && watchedMonthlyRuleType === 'DayOfWeekOfMonth') {
       form.setValue('monthlyDayOfMonth', undefined, { shouldValidate: true });
     }
@@ -315,7 +332,7 @@ export default function DefineMeetingSeriesForm({
               <Select
                 onValueChange={(value: MeetingFrequencyType) => field.onChange(value)}
                 value={field.value}
-                disabled={isPending || (isEditing && initialValues?.frequency === "OneTime")}
+                disabled={isPending}
                >
                 <FormControl>
                   <SelectTrigger>
@@ -326,16 +343,12 @@ export default function DefineMeetingSeriesForm({
                   {[{ value: "OneTime", label: "Única Vez"}, { value: "Weekly", label: "Semanal"}, { value: "Monthly", label: "Mensual"}].map(opt => (
                     <SelectItem
                         key={opt.value}
-                        value={opt.value}
-                        disabled={isEditing && initialValues?.frequency === "OneTime" && opt.value !== "OneTime"}>
+                        value={opt.value}>
                         {opt.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {isEditing && initialValues?.frequency === "OneTime" &&
-                <FormDescription className="text-xs">La frecuencia de una reunión 'Única Vez' no se puede cambiar después de su creación.</FormDescription>
-              }
               <FormMessage />
             </FormItem>
           )}
@@ -352,11 +365,8 @@ export default function DefineMeetingSeriesForm({
                     date={field.value instanceof Date && isValid(field.value) ? field.value : undefined}
                     setDate={field.onChange}
                     placeholder="Seleccionar fecha"
-                    disabled={isPending || (isEditing && initialValues?.frequency === "OneTime")}
+                    disabled={isPending || watchedFrequency !== 'OneTime'}
                 />
-                 {isEditing && initialValues?.frequency === "OneTime" &&
-                    <FormDescription className="text-xs mt-1">La fecha de la instancia única no es editable aquí.</FormDescription>
-                 }
                 <FormMessage />
                 </FormItem>
             )}

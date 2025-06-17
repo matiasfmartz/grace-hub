@@ -17,8 +17,8 @@
     ]
   },
   {
-    "id": "series-1750132452525-87ebv",
-    "name": "asd",
+    "id": "series-1750132608775-k2yqg",
+    "name": "Especial",
     "description": "",
     "defaultTime": "10:00",
     "defaultLocation": "Santuario Principal",
@@ -27,11 +27,11 @@
       "leaders"
     ],
     "frequency": "OneTime",
-    "oneTimeDate": "2025-06-16T03:00:00.000Z"
+    "oneTimeDate": "2025-06-22"
   },
   {
-    "id": "series-1750132463455-qeikh",
-    "name": "asd",
+    "id": "series-1750132687953-5a1t7",
+    "name": "Entrenamiento Lideres",
     "description": "",
     "defaultTime": "10:00",
     "defaultLocation": "Santuario Principal",
@@ -39,7 +39,9 @@
     "targetAttendeeGroups": [
       "leaders"
     ],
-    "frequency": "OneTime",
-    "oneTimeDate": "2025-06-16T03:00:00.000Z"
+    "frequency": "Monthly",
+    "monthlyRuleType": "DayOfWeekOfMonth",
+    "monthlyWeekOrdinal": "Third",
+    "monthlyDayOfWeek": "Friday"
   }
 ]

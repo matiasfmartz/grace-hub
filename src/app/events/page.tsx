@@ -80,9 +80,13 @@ export async function updateMeetingSeriesAction(
         monthlyWeekOrdinal: updatedData.monthlyWeekOrdinal,
         monthlyDayOfWeek: updatedData.monthlyDayOfWeek,
     };
-    const updatedSeries = await updateMeetingSeries(seriesId, seriesToWrite);
+    const result = await updateMeetingSeries(seriesId, seriesToWrite);
     revalidatePath('/events');
-    return { success: true, message: `Serie de reuniones "${updatedSeries.name}" actualizada exitosamente.`, updatedSeries };
+    let message = `Serie de reuniones "${result.updatedSeries.name}" actualizada exitosamente.`;
+    if (result.newlyGeneratedInstances && result.newlyGeneratedInstances.length > 0) {
+        message += ` ${result.newlyGeneratedInstances.length} nueva(s) instancia(s) futura(s) generada(s).`;
+    }
+    return { success: true, message, updatedSeries: result.updatedSeries };
   } catch (error: any) {
     console.error("Error updating meeting series:", error);
     return { success: false, message: `Error al actualizar serie de reuniones: ${error.message}` };
@@ -271,12 +275,10 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                         </div>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
-                        {series.frequency !== "OneTime" && (
-                             <AddOccasionalMeetingDialog
-                                series={series}
-                                addOccasionalMeetingAction={addOccasionalMeetingAction}
-                             />
-                        )}
+                         <AddOccasionalMeetingDialog
+                            series={series}
+                            addOccasionalMeetingAction={addOccasionalMeetingAction}
+                         />
                         <ManageMeetingSeriesDialog
                             series={series}
                             updateMeetingSeriesAction={updateMeetingSeriesAction}

@@ -2,7 +2,7 @@
 'use server';
 import type { Meeting, MeetingWriteData, MeetingSeries, MeetingSeriesWriteData, Member, GDI, MinistryArea, MeetingTargetRoleType, AttendanceRecord, DayOfWeekType, MonthlyRuleType, WeekOrdinalType, MeetingFrequencyType } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
-import { format, parseISO, addWeeks, setDay, addMonths, setDate, getDate, getDaysInMonth, lastDayOfMonth, startOfDay, isSameDay, nextDay, previousDay, getDay } from 'date-fns';
+import { format, parseISO, addWeeks, setDay, addMonths, setDate, getDate, getDaysInMonth, lastDayOfMonth, startOfDay, isSameDay, nextDay, previousDay, getDay, isValid as isValidDateFn } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 
@@ -29,15 +29,11 @@ function getNextWeeklyOccurrences(series: MeetingSeries, startDate: Date, count:
             const targetDayNumber = dayOfWeekMapping[dayStr];
             let nextOccurrence = nextDay(currentDate, targetDayNumber);
             
-            // If nextDay returns a date in the past or same day but we've already processed today
-            // advance current_date to the start of next week before finding nextDay
             if (isSameDay(nextOccurrence, currentDate) || nextOccurrence < currentDate) {
                  nextOccurrence = nextDay(addWeeks(currentDate,1), targetDayNumber);
             }
             
-            // Ensure we don't add duplicates and only add if it's after or on start_date
             if (occurrences.length < count && !occurrences.some(d => isSameDay(d, nextOccurrence)) && nextOccurrence >= startDate) {
-                 // Only add if it's truly in the future or on the start date
                  if(nextOccurrence > startDate || (isSameDay(nextOccurrence, startDate) && !occurrences.some(d => isSameDay(d,nextOccurrence)))) {
                     occurrences.push(startOfDay(nextOccurrence));
                  } else if(nextOccurrence.getTime() === startDate.getTime() && !occurrences.some(d => isSameDay(d,nextOccurrence))) {
@@ -45,9 +41,9 @@ function getNextWeeklyOccurrences(series: MeetingSeries, startDate: Date, count:
                  }
             }
         }
-        currentDate = addWeeks(currentDate, 1); // Move to the next week to find more occurrences
-        currentDate = setDay(currentDate, 0, { weekStartsOn: 0 }); // Start of that week (Sunday)
-        occurrences.sort((a,b) => a.getTime() - b.getTime()); // Keep sorted
+        currentDate = addWeeks(currentDate, 1); 
+        currentDate = setDay(currentDate, 0, { weekStartsOn: 0 }); 
+        occurrences.sort((a,b) => a.getTime() - b.getTime()); 
          if (occurrences.length >= count) break;
     }
     return occurrences.slice(0, count).sort((a,b) => a.getTime() - b.getTime());
@@ -74,10 +70,8 @@ function getNthDayOfMonth(year: number, month: number, dayOfWeek: number, ordina
 function getLastDayOfWeekInMonth(year: number, month: number, dayOfWeek: number): Date | null {
     let current = lastDayOfMonth(new Date(year, month));
     while (getDay(current) !== dayOfWeek) {
-        current = previousDay(current, dayOfWeek); // previousDay is not in date-fns v2. For v3 use subDays or similar.
-                                                // For simplicity, assuming a manual loop or correct previousDay equivalent
-        current = new Date(current.setDate(current.getDate()-1)); // Simple way to go back one day.
-         if(current.getMonth() !== month) return null; // safety break
+        current = new Date(current.setDate(current.getDate()-1)); 
+         if(current.getMonth() !== month) return null; 
     }
      return (current.getMonth() === month) ? current : null;
 }
@@ -100,16 +94,15 @@ function getNextMonthlyOccurrences(series: MeetingSeries, startDate: Date, count
         }
     } else if (series.monthlyRuleType === 'DayOfWeekOfMonth' && series.monthlyWeekOrdinal && series.monthlyDayOfWeek) {
         const targetDayNumber = dayOfWeekMapping[series.monthlyDayOfWeek];
-        const ordinalMap: Record<WeekOrdinalType, number> = { First: 1, Second: 2, Third: 3, Fourth: 4, Last: 5 }; // 5 for 'Last'
+        const ordinalMap: Record<WeekOrdinalType, number> = { First: 1, Second: 2, Third: 3, Fourth: 4, Last: 5 }; 
         
         while (occurrences.length < count) {
             let potentialDate: Date | null = null;
             if (series.monthlyWeekOrdinal === 'Last') {
-                // Custom logic for "Last X day of month"
                 let testDate = lastDayOfMonth(currentMonthDate);
                 while(getDay(testDate) !== targetDayNumber) {
                     testDate = setDate(testDate, getDate(testDate) - 1);
-                    if(testDate.getMonth() !== currentMonthDate.getMonth()) { // Gone too far back
+                    if(testDate.getMonth() !== currentMonthDate.getMonth()) { 
                         testDate = null;
                         break;
                     }
@@ -222,58 +215,73 @@ export async function addMeetingSeries(
   let newInstances: Meeting[] = [];
   const resolvedUids = await resolveAttendeeUids(newSeries.targetAttendeeGroups);
   const today = startOfDay(new Date());
+  const allExistingMeetingsForSeries = await getMeetingsBySeriesId(newSeries.id); // Needed for checks
 
   if (newSeries.frequency === "OneTime" && newSeries.oneTimeDate) {
     const oneTimeDateObj = parseISO(newSeries.oneTimeDate);
-    const instance = await addMeetingInstanceInternal({
-        seriesId: newSeries.id,
-        name: `${newSeries.name} (${format(oneTimeDateObj, 'd MMM', { locale: es })})`,
-        date: newSeries.oneTimeDate,
-        time: newSeries.defaultTime,
-        location: newSeries.defaultLocation,
-        description: newSeries.description,
-        imageUrl: newSeries.defaultImageUrl,
-        attendeeUids: resolvedUids,
-        minute: null,
-    });
-    newInstances.push(instance);
+     if (isValidDateFn(oneTimeDateObj)) {
+        const alreadyExists = allExistingMeetingsForSeries.some(m => isSameDay(parseISO(m.date), oneTimeDateObj));
+        if (!alreadyExists) {
+            const instance = await addMeetingInstanceInternal({
+                seriesId: newSeries.id,
+                name: `${newSeries.name} (${format(oneTimeDateObj, 'd MMM', { locale: es })})`,
+                date: newSeries.oneTimeDate,
+                time: newSeries.defaultTime,
+                location: newSeries.defaultLocation,
+                description: newSeries.description,
+                imageUrl: newSeries.defaultImageUrl,
+                attendeeUids: resolvedUids,
+                minute: null,
+            });
+            newInstances.push(instance);
+        }
+    }
   } else if (newSeries.frequency === "Weekly") {
-    const occurrenceDates = getNextWeeklyOccurrences(newSeries, today, 4); // Generate next 4 weeks
+    const occurrenceDates = getNextWeeklyOccurrences(newSeries, today, 4); 
     for (const date of occurrenceDates) {
-      const instance = await addMeetingInstanceInternal({
-        seriesId: newSeries.id,
-        name: `${newSeries.name} (${format(date, 'd MMM', { locale: es })})`,
-        date: format(date, 'yyyy-MM-dd'),
-        time: newSeries.defaultTime,
-        location: newSeries.defaultLocation,
-        description: newSeries.description,
-        imageUrl: newSeries.defaultImageUrl,
-        attendeeUids: resolvedUids,
-        minute: null,
-      });
-      newInstances.push(instance);
+        const alreadyExists = allExistingMeetingsForSeries.some(m => isSameDay(parseISO(m.date), date));
+        if (!alreadyExists) {
+            const instance = await addMeetingInstanceInternal({
+                seriesId: newSeries.id,
+                name: `${newSeries.name} (${format(date, 'd MMM', { locale: es })})`,
+                date: format(date, 'yyyy-MM-dd'),
+                time: newSeries.defaultTime,
+                location: newSeries.defaultLocation,
+                description: newSeries.description,
+                imageUrl: newSeries.defaultImageUrl,
+                attendeeUids: resolvedUids,
+                minute: null,
+            });
+            newInstances.push(instance);
+        }
     }
   } else if (newSeries.frequency === "Monthly") {
-    const occurrenceDates = getNextMonthlyOccurrences(newSeries, today, 2); // Generate next 2 months
+    const occurrenceDates = getNextMonthlyOccurrences(newSeries, today, 2); 
      for (const date of occurrenceDates) {
-      const instance = await addMeetingInstanceInternal({
-        seriesId: newSeries.id,
-        name: `${newSeries.name} (${format(date, 'd MMM', { locale: es })})`,
-        date: format(date, 'yyyy-MM-dd'),
-        time: newSeries.defaultTime,
-        location: newSeries.defaultLocation,
-        description: newSeries.description,
-        imageUrl: newSeries.defaultImageUrl,
-        attendeeUids: resolvedUids,
-        minute: null,
-      });
-      newInstances.push(instance);
+        const alreadyExists = allExistingMeetingsForSeries.some(m => isSameDay(parseISO(m.date), date));
+        if (!alreadyExists) {
+            const instance = await addMeetingInstanceInternal({
+                seriesId: newSeries.id,
+                name: `${newSeries.name} (${format(date, 'd MMM', { locale: es })})`,
+                date: format(date, 'yyyy-MM-dd'),
+                time: newSeries.defaultTime,
+                location: newSeries.defaultLocation,
+                description: newSeries.description,
+                imageUrl: newSeries.defaultImageUrl,
+                attendeeUids: resolvedUids,
+                minute: null,
+            });
+            newInstances.push(instance);
+        }
     }
   }
   return {series: newSeries, newInstances: newInstances.length > 0 ? newInstances : undefined };
 }
 
-export async function updateMeetingSeries(seriesId: string, updates: Partial<MeetingSeriesWriteData>): Promise<MeetingSeries> {
+export async function updateMeetingSeries(
+    seriesId: string, 
+    updates: Partial<MeetingSeriesWriteData>
+): Promise<{ updatedSeries: MeetingSeries; newlyGeneratedInstances?: Meeting[] }> {
   const seriesList = await getAllMeetingSeries();
   const seriesIndex = seriesList.findIndex(s => s.id === seriesId);
   if (seriesIndex === -1) {
@@ -285,32 +293,84 @@ export async function updateMeetingSeries(seriesId: string, updates: Partial<Mee
     ...existingSeries,
     ...updates,
     defaultImageUrl: updates.defaultImageUrl || existingSeries.defaultImageUrl || 'https://placehold.co/600x400',
-    oneTimeDate: updates.frequency === "OneTime" ? updates.oneTimeDate ?? existingSeries.oneTimeDate : undefined,
-    weeklyDays: updates.frequency === "Weekly" ? updates.weeklyDays ?? existingSeries.weeklyDays : undefined,
-    monthlyRuleType: updates.frequency === "Monthly" ? updates.monthlyRuleType ?? existingSeries.monthlyRuleType : undefined,
-    monthlyDayOfMonth: updates.frequency === "Monthly" && (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) === "DayOfMonth" ? updates.monthlyDayOfMonth ?? existingSeries.monthlyDayOfMonth : undefined,
-    monthlyWeekOrdinal: updates.frequency === "Monthly" && (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) === "DayOfWeekOfMonth" ? updates.monthlyWeekOrdinal ?? existingSeries.monthlyWeekOrdinal : undefined,
-    monthlyDayOfWeek: updates.frequency === "Monthly" && (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) === "DayOfWeekOfMonth" ? updates.monthlyDayOfWeek ?? existingSeries.monthlyDayOfWeek : undefined,
+    // Ensure correct clearing/setting of frequency-specific fields
+    oneTimeDate: updates.frequency === "OneTime" ? (updates.oneTimeDate ?? existingSeries.oneTimeDate) : undefined,
+    weeklyDays: updates.frequency === "Weekly" ? (updates.weeklyDays ?? existingSeries.weeklyDays) : undefined,
+    monthlyRuleType: updates.frequency === "Monthly" ? (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) : undefined,
+    monthlyDayOfMonth: (updates.frequency === "Monthly" && (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) === "DayOfMonth") ? (updates.monthlyDayOfMonth ?? existingSeries.monthlyDayOfMonth) : undefined,
+    monthlyWeekOrdinal: (updates.frequency === "Monthly" && (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) === "DayOfWeekOfMonth") ? (updates.monthlyWeekOrdinal ?? existingSeries.monthlyWeekOrdinal) : undefined,
+    monthlyDayOfWeek: (updates.frequency === "Monthly" && (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) === "DayOfWeekOfMonth") ? (updates.monthlyDayOfWeek ?? existingSeries.monthlyDayOfWeek) : undefined,
   };
-
-  if (existingSeries.frequency === "OneTime" && updates.frequency && updates.frequency !== "OneTime") {
-    updatedSeries.oneTimeDate = undefined;
-  }
-  if (existingSeries.frequency === "Weekly" && updates.frequency && updates.frequency !== "Weekly") {
-    updatedSeries.weeklyDays = undefined;
-  }
-  if (existingSeries.frequency === "Monthly" && updates.frequency && updates.frequency !== "Monthly") {
-    updatedSeries.monthlyRuleType = undefined;
-    updatedSeries.monthlyDayOfMonth = undefined;
-    updatedSeries.monthlyWeekOrdinal = undefined;
-    updatedSeries.monthlyDayOfWeek = undefined;
-  }
-
+  
   seriesList[seriesIndex] = updatedSeries;
   await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, seriesList);
-  // Note: Updating recurrence rules here does NOT automatically regenerate or delete existing future instances.
-  // That would require more complex logic (e.g., comparing old and new rules, deciding update strategy).
-  return updatedSeries;
+
+  // Generate new future instances if recurrence rules changed, without deleting old ones.
+  let newlyGeneratedInstances: Meeting[] = [];
+  const resolvedUids = await resolveAttendeeUids(updatedSeries.targetAttendeeGroups);
+  const today = startOfDay(new Date());
+  const allExistingMeetingsForSeries = await getMeetingsBySeriesId(updatedSeries.id);
+
+  if (updatedSeries.frequency === "OneTime" && updatedSeries.oneTimeDate) {
+    const oneTimeDateObj = parseISO(updatedSeries.oneTimeDate);
+    if (isValidDateFn(oneTimeDateObj)) {
+        const alreadyExists = allExistingMeetingsForSeries.some(m => isSameDay(parseISO(m.date), oneTimeDateObj));
+        if (!alreadyExists) {
+            const instance = await addMeetingInstanceInternal({
+                seriesId: updatedSeries.id,
+                name: `${updatedSeries.name} (${format(oneTimeDateObj, 'd MMM', { locale: es })})`,
+                date: updatedSeries.oneTimeDate, // This is already a string 'yyyy-MM-dd'
+                time: updatedSeries.defaultTime,
+                location: updatedSeries.defaultLocation,
+                description: updatedSeries.description,
+                imageUrl: updatedSeries.defaultImageUrl,
+                attendeeUids: resolvedUids,
+                minute: null,
+            });
+            newlyGeneratedInstances.push(instance);
+        }
+    }
+  } else if (updatedSeries.frequency === "Weekly") {
+    const occurrenceDates = getNextWeeklyOccurrences(updatedSeries, today, 4);
+    for (const date of occurrenceDates) {
+        const alreadyExists = allExistingMeetingsForSeries.some(m => isSameDay(parseISO(m.date), date));
+        if (!alreadyExists) {
+            const instance = await addMeetingInstanceInternal({
+                seriesId: updatedSeries.id,
+                name: `${updatedSeries.name} (${format(date, 'd MMM', { locale: es })})`,
+                date: format(date, 'yyyy-MM-dd'),
+                time: updatedSeries.defaultTime,
+                location: updatedSeries.defaultLocation,
+                description: updatedSeries.description,
+                imageUrl: updatedSeries.defaultImageUrl,
+                attendeeUids: resolvedUids,
+                minute: null,
+            });
+            newlyGeneratedInstances.push(instance);
+        }
+    }
+  } else if (updatedSeries.frequency === "Monthly") {
+    const occurrenceDates = getNextMonthlyOccurrences(updatedSeries, today, 2);
+    for (const date of occurrenceDates) {
+        const alreadyExists = allExistingMeetingsForSeries.some(m => isSameDay(parseISO(m.date), date));
+        if (!alreadyExists) {
+            const instance = await addMeetingInstanceInternal({
+                seriesId: updatedSeries.id,
+                name: `${updatedSeries.name} (${format(date, 'd MMM', { locale: es })})`,
+                date: format(date, 'yyyy-MM-dd'),
+                time: updatedSeries.defaultTime,
+                location: updatedSeries.defaultLocation,
+                description: updatedSeries.description,
+                imageUrl: updatedSeries.defaultImageUrl,
+                attendeeUids: resolvedUids,
+                minute: null,
+            });
+            newlyGeneratedInstances.push(instance);
+        }
+    }
+  }
+
+  return { updatedSeries, newlyGeneratedInstances: newlyGeneratedInstances.length > 0 ? newlyGeneratedInstances : undefined };
 }
 
 export async function deleteMeetingSeries(seriesId: string): Promise<void> {

@@ -110,5 +110,59 @@
       "1749877175613-ls6oqv6"
     ],
     "minute": null
+  },
+  {
+    "id": "instance-1750132608777-u7t9h4g-7",
+    "seriesId": "series-1750132608775-k2yqg",
+    "name": "Especial (22 jun)",
+    "date": "2025-06-22",
+    "time": "10:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "7",
+      "2",
+      "1749877175613-ls6oqv6",
+      "1749880160940-30020fm",
+      "8"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750132687956-bm5ffqc-8",
+    "seriesId": "series-1750132687953-5a1t7",
+    "name": "Entrenamiento Lideres (15 jul)",
+    "date": "2025-07-15",
+    "time": "10:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "7",
+      "2",
+      "1749877175613-ls6oqv6",
+      "1749880160940-30020fm",
+      "8"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750132687957-nx0zo4v-9",
+    "seriesId": "series-1750132687953-5a1t7",
+    "name": "Entrenamiento Lideres (15 ago)",
+    "date": "2025-08-15",
+    "time": "10:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "7",
+      "2",
+      "1749877175613-ls6oqv6",
+      "1749880160940-30020fm",
+      "8"
+    ],
+    "minute": null
   }
 ]
