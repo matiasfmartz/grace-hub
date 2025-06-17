@@ -59,7 +59,7 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
       const result = await addOccasionalMeetingAction(series.id, values);
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
-        setOpen(false); // This will trigger handleOpenChange(false)
+        setOpen(false); 
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
       }
@@ -69,10 +69,6 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
-      // When opening, reset the form to the latest defaults based on the current series
-      form.reset(calculatedDefaultFormValues);
-    } else {
-      // When closing, also reset to clean up form state for next open
       form.reset(calculatedDefaultFormValues);
     }
   };
@@ -92,7 +88,7 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
           </DialogDescription>
         </DialogHeader>
         <div className="flex-grow overflow-y-auto p-6">
-          <Form {...form}>
+          <Form {...form} key={series.id}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
@@ -111,7 +107,12 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Fecha</FormLabel>
-                    <DatePicker date={field.value} setDate={field.onChange} placeholder="Seleccionar fecha" />
+                    <DatePicker 
+                      date={field.value} 
+                      setDate={field.onChange} 
+                      placeholder="Seleccionar fecha" 
+                      disabled={isPending}
+                    />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -178,3 +179,4 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
     </Dialog>
   );
 }
+
