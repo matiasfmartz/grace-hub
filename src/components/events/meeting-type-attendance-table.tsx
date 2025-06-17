@@ -1,12 +1,11 @@
 
 import type { Meeting, Member, GDI, MinistryArea, AttendanceRecord } from '@/lib/types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getResolvedAttendees } from '@/services/attendanceService';
 import Link from 'next/link';
-import { CheckCircle2, XCircle, HelpCircle, MinusCircle, ArrowRight, CalendarRange } from 'lucide-react';
+import { CheckCircle2, XCircle, HelpCircle, MinusCircle, CalendarRange } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 interface MeetingTypeAttendanceTableProps {
@@ -15,7 +14,7 @@ interface MeetingTypeAttendanceTableProps {
   allGdis: GDI[];
   allMinistryAreas: MinistryArea[];
   allAttendanceRecords: AttendanceRecord[];
-  meetingTypeLabel: string;
+  meetingTypeLabel: string; // Still passed but not used in caption directly
   filterStartDate?: string;
   filterEndDate?: string;
 }
@@ -47,7 +46,7 @@ export default async function MeetingTypeAttendanceTable({
   allGdis,
   allMinistryAreas,
   allAttendanceRecords,
-  meetingTypeLabel,
+  meetingTypeLabel, // Kept for potential future use, but not in caption
   filterStartDate,
   filterEndDate,
 }: MeetingTypeAttendanceTableProps) {
@@ -80,10 +79,7 @@ export default async function MeetingTypeAttendanceTable({
     <div className="border rounded-lg shadow-md">
       <ScrollArea className="w-full whitespace-nowrap">
         <Table className="min-w-full">
-          <TableCaption className="my-4 text-sm flex items-center justify-center text-muted-foreground">
-            <CalendarRange className="mr-2 h-4 w-4 text-primary" />
-            {captionDateRangeText}
-          </TableCaption>
+          {/* TableCaption removed from here */}
           <TableHeader>
             <TableRow>
               <TableHead className="sticky left-0 bg-card z-10 w-[200px] min-w-[200px] border-r p-2">Miembro</TableHead>
@@ -142,7 +138,12 @@ export default async function MeetingTypeAttendanceTable({
         </Table>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
+      {(filterStartDate || filterEndDate) && (
+        <div className="mt-3 px-4 pb-2 text-left text-sm text-muted-foreground flex items-center">
+          <CalendarRange className="mr-2 h-4 w-4 text-primary/80" />
+          {captionDateRangeText}
+        </div>
+      )}
     </div>
   );
 }
-
