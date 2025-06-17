@@ -51,6 +51,23 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+// Moved function definition before its use in useMemo
+const formatMeetingDisplayForChart = (dateString: string, timeString: string, name: string, isDuplicateDate: boolean): string => {
+  try {
+    const parsedDate = parseISO(dateString);
+    if (!isValid(parsedDate)) {
+        return isDuplicateDate ? `${name.substring(0,10)}..(${dateString} ${timeString})` : `${name.substring(0,10)}..(${dateString})`;
+    }
+    const datePart = format(parsedDate, "d MMM yy", { locale: es });
+    if (isDuplicateDate) {
+      return `${name.substring(0,10)}..(${datePart} ${timeString})`;
+    }
+    return `${name.substring(0,10)}..(${datePart})`;
+  } catch (error) {
+    return isDuplicateDate ? `${name.substring(0,10)}..(${dateString} ${timeString})` : `${name.substring(0,10)}..(${dateString})`;
+  }
+};
+
 export default function MemberAttendanceLineChart({
   memberId,
   memberName,
@@ -141,22 +158,6 @@ export default function MemberAttendanceLineChart({
   const clearDateFilters = () => {
     setStartDate(undefined);
     setEndDate(undefined);
-  };
-
-  const formatMeetingDisplayForChart = (dateString: string, timeString: string, name: string, isDuplicateDate: boolean): string => {
-    try {
-      const parsedDate = parseISO(dateString);
-      if (!isValid(parsedDate)) {
-          return isDuplicateDate ? `${name.substring(0,10)}..(${dateString} ${timeString})` : `${name.substring(0,10)}..(${dateString})`;
-      }
-      const datePart = format(parsedDate, "d MMM yy", { locale: es });
-      if (isDuplicateDate) {
-        return `${name.substring(0,10)}..(${datePart} ${timeString})`;
-      }
-      return `${name.substring(0,10)}..(${datePart})`;
-    } catch (error) {
-      return isDuplicateDate ? `${name.substring(0,10)}..(${dateString} ${timeString})` : `${name.substring(0,10)}..(${dateString})`;
-    }
   };
 
   const yAxisTickFormatter = (value: number) => {
@@ -278,4 +279,3 @@ export default function MemberAttendanceLineChart({
     </Card>
   );
 }
-
