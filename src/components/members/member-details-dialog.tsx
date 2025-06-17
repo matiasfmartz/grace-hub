@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberRoleType, Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
@@ -11,7 +10,7 @@ import AddMemberForm from './add-member-form';
 import MemberAttendanceSummary from './member-attendance-chart';
 import MemberAttendanceLineChart from './member-attendance-line-chart'; // New import
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useMemo } from 'react'; // Added useMemo
 import { useToast } from "@/hooks/use-toast";
 
 interface MemberDetailsDialogProps {
@@ -53,8 +52,6 @@ export default function MemberDetailsDialog({
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("details");
 
-  if (!member) return null;
-
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
     try {
@@ -65,14 +62,25 @@ export default function MemberDetailsDialog({
     }
   };
   
-  const baptismDate = member.baptismDate || 'N/A';
+  const memberGDIInfo = useMemo(() => {
+    if (!member || !member.assignedGDIId) return { gdiName: 'No asignado', guideName: 'N/A' };
+    const gdi = allGDIs.find(g => g.id === member.assignedGDIId);
+    if (!gdi) return { gdiName: 'GDI no encontrado', guideName: 'N/A' };
+    const guide = allMembers.find(m => m.id === gdi.guideId);
+    return {
+      gdiName: gdi.name,
+      guideName: guide ? `${guide.firstName} ${guide.lastName}` : 'Guía no encontrado'
+    };
+  }, [member, allGDIs, allMembers]);
 
-  const memberGDI = member.assignedGDIId ? allGDIs.find(g => g.id === member.assignedGDIId) : null;
-  const gdiGuide = memberGDI ? allMembers.find(m => m.id === memberGDI.guideId) : null;
+  const memberAreaNames = useMemo(() => {
+    if (!member || !member.assignedAreaIds || member.assignedAreaIds.length === 0) return ['Ninguna'];
+    return member.assignedAreaIds
+      .map(areaId => allMinistryAreas.find(area => area.id === areaId)?.name)
+      .filter(Boolean) as string[];
+  }, [member, allMinistryAreas]);
 
-  const memberAreas = member.assignedAreaIds
-    ? member.assignedAreaIds.map(areaId => allMinistryAreas.find(area => area.id === areaId)?.name).filter(Boolean)
-    : [];
+  const baptismDate = member?.baptismDate || 'N/A';
 
   const displayStatus = (status: Member['status']) => {
     switch (status) {
@@ -91,7 +99,7 @@ export default function MemberDetailsDialog({
   };
 
   const handleFormSubmit = async (data: AddMemberFormValues, memberId?: string) => {
-    if (!memberId) return; 
+    if (!memberId || !member) return; 
 
     const updatedMemberData: Member = {
       ...member, 
@@ -128,6 +136,7 @@ export default function MemberDetailsDialog({
     onClose();
   };
 
+  if (!member) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCloseDialog}>
@@ -226,15 +235,14 @@ export default function MemberDetailsDialog({
                   <div className="grid grid-cols-3 gap-2">
                     <span className="font-semibold text-muted-foreground">GDI:</span>
                     <span className="col-span-2">
-                      {memberGDI 
-                        ? `${memberGDI.name} (Guía: ${gdiGuide ? `${gdiGuide.firstName} ${gdiGuide.lastName}` : 'N/A'})` 
-                        : 'No asignado'}
+                      {memberGDIInfo.gdiName} 
+                      {member.assignedGDIId && ` (Guía: ${memberGDIInfo.guideName})`}
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <span className="font-semibold text-muted-foreground">Áreas de Ministerio:</span>
                     <span className="col-span-2">
-                      {memberAreas.length > 0 ? memberAreas.join(', ') : 'Ninguna'}
+                      {memberAreaNames.join(', ')}
                     </span>
                   </div>
                 </div>
