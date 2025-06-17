@@ -125,19 +125,11 @@ async function getEventsPageData(startDateParam?: string, endDateParam?: string)
       appliedStartDate = startDateParam;
       appliedEndDate = endDateParam;
     }
-  } else if (!startDateParam && !endDateParam) {
-    // Default to current month if no params are provided
-    const today = new Date();
-    const firstDayOfMonth = startOfMonth(today);
-    const lastDayOfMonth = endOfMonth(today);
-    allMeetingsList = allMeetingsList.filter(meeting => {
-      const meetingDate = parseISO(meeting.date);
-      return isValid(meetingDate) && isWithinInterval(meetingDate, { start: firstDayOfMonth, end: lastDayOfMonth });
-    });
-    appliedStartDate = format(firstDayOfMonth, 'yyyy-MM-dd');
-    appliedEndDate = format(lastDayOfMonth, 'yyyy-MM-dd');
+    // If date params are present but invalid, no filter is applied, all meetings are shown.
+    // appliedStartDate and appliedEndDate remain undefined.
   }
-  // If only one param is provided, or params are invalid, we might show all or handle error - for now, showing filtered or default.
+  // If no date params are provided, allMeetingsList remains unfiltered.
+  // appliedStartDate and appliedEndDate remain undefined.
 
   const meetingsByType: Record<string, Meeting[]> = {};
   allMeetingsList.forEach(meeting => {
@@ -188,9 +180,13 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
       {sortedMeetingTypesPresent.length > 0 ? (
         <Tabs defaultValue={defaultTabValue} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 mb-6 pb-2">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 mb-6 pb-2 overflow-x-auto">
             {sortedMeetingTypesPresent.map((type) => (
-              <TabsTrigger key={type} value={type} className="whitespace-normal text-xs sm:text-sm h-auto py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <TabsTrigger 
+                key={type} 
+                value={type} 
+                className="whitespace-normal text-xs sm:text-sm h-auto py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
                 {meetingTypeTranslations[type as MeetingType] || type} ({meetingsByType[type].length})
               </TabsTrigger>
             ))}
@@ -212,10 +208,14 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               ) : (
                 <div className="text-center py-10">
                   <CalendarDays className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <h2 className="text-xl font-semibold text-muted-foreground">No Hay Reuniones Programadas para este Tipo</h2>
+                  <h2 className="text-xl font-semibold text-muted-foreground">
+                    {appliedStartDate && appliedEndDate 
+                      ? `No hay reuniones para ${meetingTypeTranslations[type as MeetingType]} en el rango seleccionado`
+                      : `No hay reuniones programadas para ${meetingTypeTranslations[type as MeetingType]}`}
+                  </h2>
                   <p className="text-muted-foreground mt-2">
                     {appliedStartDate && appliedEndDate 
-                      ? `No hay reuniones para el rango de fechas seleccionado (${format(parseISO(appliedStartDate), 'dd/MM/yy', {locale: es})} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', {locale: es})}).`
+                      ? `(${format(parseISO(appliedStartDate), 'dd/MM/yy', { locale: es })} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', { locale: es })})`
                       : "Agregue una nueva reunión de este tipo para comenzar."}
                   </p>
                 </div>
@@ -229,7 +229,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           <h2 className="text-xl font-semibold text-muted-foreground">No Hay Reuniones Programadas</h2>
            <p className="text-muted-foreground mt-2">
             {appliedStartDate && appliedEndDate 
-              ? `No hay reuniones para el rango de fechas seleccionado (${format(parseISO(appliedStartDate), 'dd/MM/yy', {locale: es})} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', {locale: es})}).`
+              ? `No hay reuniones para el rango de fechas seleccionado (${format(parseISO(appliedStartDate), 'dd/MM/yy', { locale: es })} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', { locale: es })})`
               : "Agregue una nueva reunión para comenzar."}
           </p>
         </div>
@@ -237,3 +237,4 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     </div>
   );
 }
+

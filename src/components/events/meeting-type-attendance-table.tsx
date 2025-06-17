@@ -28,15 +28,11 @@ const formatDateDisplay = (dateString: string) => {
   }
 };
 
-const formatDateRange = (startDate?: string, endDate?: string): string => {
+const formatDateRangeText = (startDate?: string, endDate?: string): string => {
   if (startDate && endDate) {
     return `Mostrando reuniones entre ${format(parseISO(startDate), "dd/MM/yyyy", { locale: es })} y ${format(parseISO(endDate), "dd/MM/yyyy", { locale: es })}`;
-  } else if (startDate) {
-    return `Mostrando reuniones desde ${format(parseISO(startDate), "dd/MM/yyyy", { locale: es })}`;
-  } else if (endDate) {
-    return `Mostrando reuniones hasta ${format(parseISO(endDate), "dd/MM/yyyy", { locale: es })}`;
   }
-  return "Mostrando todas las reuniones disponibles para este tipo.";
+  return ""; // No text if no specific range is applied
 };
 
 export default async function MeetingTypeAttendanceTable({
@@ -51,10 +47,10 @@ export default async function MeetingTypeAttendanceTable({
 }: MeetingTypeAttendanceTableProps) {
 
   if (!meetingsForType || meetingsForType.length === 0) {
-     const dateRangeText = filterStartDate && filterEndDate ? 
+     const dateRangeInfo = filterStartDate && filterEndDate ? 
       ` para el rango de ${format(parseISO(filterStartDate), 'dd/MM/yy', {locale: es})} a ${format(parseISO(filterEndDate), 'dd/MM/yy', {locale: es})}` :
       "";
-    return <p className="text-muted-foreground py-4 text-center">No hay reuniones de {meetingTypeLabel.toLowerCase()}{dateRangeText}.</p>;
+    return <p className="text-muted-foreground py-4 text-center">No hay reuniones de {meetingTypeLabel.toLowerCase()}{dateRangeInfo}.</p>;
   }
 
   const rowMemberIds = new Set<string>();
@@ -72,7 +68,7 @@ export default async function MeetingTypeAttendanceTable({
 
   const columnMeetings = meetingsForType; 
 
-  const tableCaptionText = formatDateRange(filterStartDate, filterEndDate);
+  const captionDateRangeText = formatDateRangeText(filterStartDate, filterEndDate);
 
   return (
     <div className="border rounded-lg shadow-md">
@@ -80,13 +76,13 @@ export default async function MeetingTypeAttendanceTable({
         <Table className="min-w-full">
           <TableCaption className="my-4 text-lg font-semibold flex items-center justify-center">
             <CalendarRange className="mr-2 h-5 w-5 text-primary" />
-            {meetingTypeLabel} - {tableCaptionText}
+            {meetingTypeLabel}{captionDateRangeText ? ` - ${captionDateRangeText}` : ""}
           </TableCaption>
           <TableHeader>
             <TableRow>
-              <TableHead className="sticky left-0 bg-card z-10 w-[200px] min-w-[200px] border-r">Miembro</TableHead>
+              <TableHead className="sticky left-0 bg-card z-10 w-[200px] min-w-[200px] border-r p-2">Miembro</TableHead>
               {columnMeetings.map(meeting => (
-                <TableHead key={meeting.id} className="text-center min-w-[100px] p-2">
+                <TableHead key={meeting.id} className="text-center min-w-[80px] p-2">
                   <Link href={`/events/${meeting.id}/attendance`} className="hover:underline text-primary font-medium block">
                     {formatDateDisplay(meeting.date)}
                   </Link>
@@ -131,7 +127,8 @@ export default async function MeetingTypeAttendanceTable({
             {rowMembers.length === 0 && (
               <TableRow>
                 <TableCell colSpan={columnMeetings.length + 1} className="text-center text-muted-foreground py-8">
-                  No hay miembros esperados para las reuniones de este tipo o no se pudieron determinar los asistentes para el rango seleccionado.
+                  No hay miembros esperados para las reuniones de este tipo
+                  {filterStartDate && filterEndDate ? ` en el rango de fechas seleccionado` : ""}.
                 </TableCell>
               </TableRow>
             )}
@@ -139,7 +136,7 @@ export default async function MeetingTypeAttendanceTable({
         </Table>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
-      {/* Removing the "Ver Todas las Reuniones" button as the filter controls will handle this */}
     </div>
   );
 }
+
