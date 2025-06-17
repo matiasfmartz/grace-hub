@@ -38,9 +38,9 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  // Initial minimal default values, to be overridden by form.reset via useEffect
   const form = useForm<AddOccasionalMeetingFormValues>({
     resolver: zodResolver(AddOccasionalMeetingFormSchema),
+    // Default values are set in useEffect to ensure they are fresh when dialog opens
     defaultValues: {
       name: "",
       date: new Date(),
@@ -62,7 +62,7 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
         imageUrl: series.defaultImageUrl || "",
       });
     }
-  }, [open, series, form]);
+  }, [open, series, form]); // form is stable, dependencies are effectively open and series
 
   const onSubmit = (values: AddOccasionalMeetingFormValues) => {
     startTransition(async () => {
@@ -76,9 +76,9 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
     });
   };
 
-  // Removed form.reset from handleOpenChange, now handled by useEffect
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
+    // No form.reset here, useEffect handles it based on 'open' state
   };
 
   return (
@@ -96,7 +96,7 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
           </DialogDescription>
         </DialogHeader>
         <div className="flex-grow overflow-y-auto p-6">
-          <Form {...form} key={series.id}> {/* Keying the form helps ensure it's fresh if series changes */}
+          <Form {...form}> {/* Removed key={series.id} */}
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
