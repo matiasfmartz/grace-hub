@@ -3,8 +3,8 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { AddGeneralMeetingFormValues, MeetingType, Member } from "@/lib/types";
-import { AddGeneralMeetingFormSchema } from "@/lib/types";
+import type { AddGeneralMeetingFormValues, MeetingType, Member, MeetingRoleType } from "@/lib/types";
+import { AddGeneralMeetingFormSchema, MeetingRoleEnum } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -24,18 +24,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker"; 
-import { Loader2, Search } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition } from "react";
 import { DialogClose } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
+// Removed Search and ScrollArea as individual member selection is removed for roles
 
 interface AddMeetingFormProps {
   addMeetingAction: (data: AddGeneralMeetingFormValues) => Promise<{ success: boolean; message: string; newMeeting?: any }>;
   onSuccess?: () => void;
-  allMembers: Member[]; // Added prop for member selection
+  allMembers: Member[]; // Still needed if other parts of the form use it, but not for role selection logic here.
 }
 
 const creatableMeetingTypes: MeetingType[] = [
@@ -54,10 +54,16 @@ const meetingTypeTranslations: Record<string, string> = {
   Special_Meeting: "Reunión Especial",
 };
 
+const meetingRoles: { id: MeetingRoleType; label: string }[] = [
+  { id: "generalAttendees", label: "Asistentes Generales (Miembros de GDI)" },
+  { id: "workers", label: "Obreros (Guías, Líderes de Área, Miembros de Área)" },
+  { id: "leaders", label: "Líderes (Guías de GDI, Líderes de Área)" },
+];
+
+
 export default function AddMeetingForm({ addMeetingAction, onSuccess, allMembers }: AddMeetingFormProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
-  const [attendeeSearchTerm, setAttendeeSearchTerm] = useState('');
 
   const form = useForm<AddGeneralMeetingFormValues>({
     resolver: zodResolver(AddGeneralMeetingFormSchema),
@@ -68,28 +74,17 @@ export default function AddMeetingForm({ addMeetingAction, onSuccess, allMembers
       location: "",
       description: "",
       imageUrl: "",
-      attendeeUids: [],
+      selectedRoles: [],
     },
   });
 
   const watchedMeetingType = form.watch("type");
 
-  const filteredMembersForSelection = useMemo(() => {
-    if (!allMembers) return [];
-    if (!attendeeSearchTerm) return allMembers.filter(m => m.status === 'Active'); // Show active by default
-    return allMembers.filter(member =>
-      member.status === 'Active' &&
-      (`${member.firstName} ${member.lastName}`.toLowerCase().includes(attendeeSearchTerm.toLowerCase()) ||
-       member.email.toLowerCase().includes(attendeeSearchTerm.toLowerCase()))
-    );
-  }, [allMembers, attendeeSearchTerm]);
-
   async function onSubmit(values: AddGeneralMeetingFormValues) {
     startTransition(async () => {
       const dataToSend = { ...values };
       if (dataToSend.type !== 'Special_Meeting') {
-        // Ensure attendeeUids is empty or not sent if not a special meeting
-        delete dataToSend.attendeeUids; 
+        delete dataToSend.selectedRoles; 
       }
       
       const result = await addMeetingAction(dataToSend);
@@ -97,9 +92,8 @@ export default function AddMeetingForm({ addMeetingAction, onSuccess, allMembers
         toast({ title: "Éxito", description: result.message });
         form.reset({
           name: "", type: "General_Service", time: "10:00", location: "",
-          description: "", imageUrl: "", attendeeUids: [],
+          description: "", imageUrl: "", selectedRoles: [],
         });
-        setAttendeeSearchTerm('');
         if (onSuccess) {
           onSuccess();
         }
@@ -131,7 +125,16 @@ export default function AddMeetingForm({ addMeetingAction, onSuccess, allMembers
           render={({ field }) => (
             <FormItem>
               <FormLabel>Tipo de Reunión</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
+              <Select 
+                onValueChange={(value) => {
+                    field.onChange(value);
+                    if (value !== 'Special_Meeting') {
+                        form.setValue('selectedRoles', []); // Clear roles if not special meeting
+                    }
+                }} 
+                defaultValue={field.value} 
+                disabled={isPending}
+               >
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar tipo de reunión" />
@@ -151,50 +154,53 @@ export default function AddMeetingForm({ addMeetingAction, onSuccess, allMembers
         {watchedMeetingType === "Special_Meeting" && (
           <FormField
             control={form.control}
-            name="attendeeUids"
-            render={({ field }) => (
-              <FormItem className="space-y-2">
-                <FormLabel>Seleccionar Asistentes (para Reunión Especial)</FormLabel>
-                <div className="relative">
-                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        type="search"
-                        placeholder="Buscar miembros activos..."
-                        value={attendeeSearchTerm}
-                        onChange={(e) => setAttendeeSearchTerm(e.target.value)}
-                        className="pl-8 mb-2"
-                        disabled={isPending}
+            name="selectedRoles"
+            render={() => ( // Outer render for FormItem structure
+              <FormItem className="space-y-3">
+                <FormLabel>Seleccionar Grupos de Asistentes (para Reunión Especial)</FormLabel>
+                <div className="space-y-2 p-2 border rounded-md">
+                  {meetingRoles.map((role) => (
+                    <FormField
+                      key={role.id}
+                      control={form.control}
+                      name="selectedRoles"
+                      render={({ field }) => { // Inner render for each checkbox field
+                        return (
+                          <FormItem
+                            key={role.id}
+                            className="flex flex-row items-start space-x-3 space-y-0"
+                          >
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes(role.id)}
+                                onCheckedChange={(checked) => {
+                                  const currentRoles = field.value || [];
+                                  return checked
+                                    ? field.onChange([...currentRoles, role.id])
+                                    : field.onChange(
+                                        currentRoles.filter(
+                                          (value) => value !== role.id
+                                        )
+                                      );
+                                }}
+                                disabled={isPending}
+                              />
+                            </FormControl>
+                            <Label className="font-normal cursor-pointer">
+                              {role.label}
+                            </Label>
+                          </FormItem>
+                        );
+                      }}
                     />
+                  ))}
                 </div>
-                <ScrollArea className="h-48 w-full rounded-md border p-2">
-                  {filteredMembersForSelection.length > 0 ? filteredMembersForSelection.map((member) => (
-                    <div key={member.id} className="flex items-center space-x-3 p-1.5 hover:bg-muted/50 rounded-md">
-                      <Checkbox
-                        id={`attendee-${member.id}`}
-                        checked={field.value?.includes(member.id)}
-                        onCheckedChange={(checked) => {
-                          const currentValue = field.value || [];
-                          return checked
-                            ? field.onChange([...currentValue, member.id])
-                            : field.onChange(currentValue.filter(id => id !== member.id));
-                        }}
-                        disabled={isPending}
-                      />
-                      <Label htmlFor={`attendee-${member.id}`} className="font-normal text-sm cursor-pointer flex-grow">
-                        {member.firstName} {member.lastName} ({member.email})
-                      </Label>
-                    </div>
-                  )) : (
-                     <p className="text-sm text-muted-foreground text-center py-4">
-                        {attendeeSearchTerm ? "No hay miembros que coincidan." : "No hay miembros activos."}
-                    </p>
-                  )}
-                </ScrollArea>
                 <FormMessage />
               </FormItem>
             )}
           />
         )}
+
 
         <FormField
           control={form.control}
@@ -262,7 +268,12 @@ export default function AddMeetingForm({ addMeetingAction, onSuccess, allMembers
         
         <div className="flex justify-end space-x-2 pt-4 border-t">
            <DialogClose asChild>
-            <Button type="button" variant="outline" onClick={() => { form.reset(); setAttendeeSearchTerm(''); }} disabled={isPending}>
+            <Button type="button" variant="outline" onClick={() => { 
+                form.reset({
+                    name: "", type: "General_Service", time: "10:00", location: "",
+                    description: "", imageUrl: "", selectedRoles: [],
+                });
+            }} disabled={isPending}>
                 Cancelar
             </Button>
           </DialogClose>

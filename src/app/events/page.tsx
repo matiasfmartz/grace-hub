@@ -11,13 +11,53 @@ import { es } from 'date-fns/locale';
 import { getAllMeetings, addMeeting as addMeetingSvc } from '@/services/meetingService';
 import { getAllMembersNonPaginated } from '@/services/memberService'; 
 import PageSpecificAddMeetingDialog from '@/components/events/page-specific-add-meeting-dialog';
-import { Badge } from '@/components/ui/badge'; // Added import for Badge
+import { Badge } from '@/components/ui/badge';
+import { getAllGdis } from '@/services/gdiService'; // For role resolution
+import { getAllMinistryAreas } from '@/services/ministryAreaService'; // For role resolution
 
 
 export async function addMeetingAction(
   newMeetingData: AddGeneralMeetingFormValues
 ): Promise<{ success: boolean; message: string; newMeeting?: Meeting }> {
   try {
+    let resolvedAttendeeUids: string[] | null = null;
+
+    if (newMeetingData.type === 'Special_Meeting' && newMeetingData.selectedRoles && newMeetingData.selectedRoles.length > 0) {
+      const allMembers = await getAllMembersNonPaginated();
+      const allGdis = await getAllGdis();
+      const allMinistryAreas = await getAllMinistryAreas();
+      const attendeeSet = new Set<string>();
+
+      for (const role of newMeetingData.selectedRoles) {
+        if (role === 'generalAttendees') {
+          allMembers.forEach(member => {
+            if (member.assignedGDIId) { // Member is in any GDI
+              attendeeSet.add(member.id);
+            }
+          });
+        } else if (role === 'workers') {
+          // GDI Guides
+          allGdis.forEach(gdi => attendeeSet.add(gdi.guideId));
+          // Ministry Area Leaders
+          allMinistryAreas.forEach(area => attendeeSet.add(area.leaderId));
+          // Ministry Area Members (excluding leaders already added)
+          allMinistryAreas.forEach(area => {
+            area.memberIds.forEach(memberId => {
+              if (memberId !== area.leaderId) { // Avoid double-adding if a member is also a leader of the same area
+                attendeeSet.add(memberId);
+              }
+            });
+          });
+        } else if (role === 'leaders') {
+          // GDI Guides
+          allGdis.forEach(gdi => attendeeSet.add(gdi.guideId));
+          // Ministry Area Leaders
+          allMinistryAreas.forEach(area => attendeeSet.add(area.leaderId));
+        }
+      }
+      resolvedAttendeeUids = Array.from(attendeeSet);
+    }
+
     const meetingToWrite: MeetingWriteData = {
       name: newMeetingData.name,
       type: newMeetingData.type,
@@ -28,7 +68,7 @@ export async function addMeetingAction(
       description: newMeetingData.description || '',
       relatedGdiId: null, 
       relatedAreaId: null,
-      attendeeUids: newMeetingData.type === 'Special_Meeting' ? (newMeetingData.attendeeUids || []) : null,
+      attendeeUids: resolvedAttendeeUids,
       minute: null,
     };
 
@@ -145,7 +185,7 @@ export default async function EventsPage() {
                      <p className="text-xs text-muted-foreground pt-1">GDI: {meeting.relatedGdiId}</p> 
                   )}
                   {meeting.type === 'Special_Meeting' && meeting.attendeeUids && meeting.attendeeUids.length > 0 && (
-                    <p className="text-xs text-muted-foreground pt-1">Asistentes específicos: {meeting.attendeeUids.length}</p>
+                    <p className="text-xs text-muted-foreground pt-1">Asistentes resueltos: {meeting.attendeeUids.length}</p>
                   )}
                 </CardContent>
                 <CardFooter>
@@ -168,4 +208,3 @@ export default async function EventsPage() {
     </div>
   );
 }
-

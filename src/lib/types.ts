@@ -139,6 +139,8 @@ export const AssignMinistryAreaMembersFormSchema = z.object({
 });
 export type AssignMinistryAreaMembersFormValues = z.infer<typeof AssignMinistryAreaMembersFormSchema>;
 
+export const MeetingRoleEnum = z.enum(["generalAttendees", "workers", "leaders"]);
+export type MeetingRoleType = z.infer<typeof MeetingRoleEnum>;
 
 // Schema for adding meetings from the general /events page
 // GDI_Meeting and Area_Meeting are typically created from their respective management pages.
@@ -155,9 +157,8 @@ export const AddGeneralMeetingFormSchema = z.object({
   location: z.string().min(3, { message: "La ubicación es requerida." }),
   description: z.string().optional(),
   imageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')),
-  attendeeUids: z.array(z.string()).optional(), // For "Special_Meeting"
+  selectedRoles: z.array(MeetingRoleEnum).optional(), // For "Special_Meeting" to select roles
   // relatedGdiId, relatedAreaId, minute are part of Meeting type but not set in this specific form
 });
 
 export type AddGeneralMeetingFormValues = z.infer<typeof AddGeneralMeetingFormSchema>;
-
