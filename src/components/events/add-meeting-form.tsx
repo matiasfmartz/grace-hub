@@ -83,10 +83,10 @@ export default function DefineMeetingSeriesForm({
   const form = useForm<DefineMeetingSeriesFormValues>({
     resolver: zodResolver(DefineMeetingSeriesFormSchema),
     defaultValues: initialValues ? {
-      ...defaultFormValues, // Start with defaults
-      ...initialValues, // Override with initial values
-      oneTimeDate: initialValues.oneTimeDate ? new Date(initialValues.oneTimeDate + 'T00:00:00Z') : undefined, // Ensure date is Date object
-      weeklyDays: initialValues.weeklyDays || [], // Ensure arrays are initialized
+      ...defaultFormValues, 
+      ...initialValues, 
+      oneTimeDate: initialValues.oneTimeDate, // Directly use if already Date object
+      weeklyDays: initialValues.weeklyDays || [], 
       targetAttendeeGroups: initialValues.targetAttendeeGroups || [],
     } : defaultFormValues,
   });
@@ -97,7 +97,7 @@ export default function DefineMeetingSeriesForm({
       form.reset({
         ...defaultFormValues,
         ...initialValues,
-        oneTimeDate: initialValues.oneTimeDate ? new Date(initialValues.oneTimeDate + 'T00:00:00Z') : undefined,
+        oneTimeDate: initialValues.oneTimeDate, // Directly use if already Date object
         weeklyDays: initialValues.weeklyDays || [],
         targetAttendeeGroups: initialValues.targetAttendeeGroups || [],
       });
@@ -110,7 +110,6 @@ export default function DefineMeetingSeriesForm({
   const watchedMonthlyRuleType = form.watch("monthlyRuleType");
 
   useEffect(() => {
-    // Clear conditional fields when frequency changes
     if (watchedFrequency !== 'OneTime') form.setValue('oneTimeDate', undefined);
     if (watchedFrequency !== 'Weekly') form.setValue('weeklyDays', []);
     if (watchedFrequency !== 'Monthly') {
@@ -135,9 +134,8 @@ export default function DefineMeetingSeriesForm({
   async function onSubmit(values: DefineMeetingSeriesFormValues) {
     startTransition(async () => {
       const dataToSend = { ...values };
-      // Format date for submission if it exists
       if (dataToSend.oneTimeDate) {
-        dataToSend.oneTimeDate = dataToSend.oneTimeDate.toISOString().split('T')[0] as any; // Type casting for submission
+        dataToSend.oneTimeDate = dataToSend.oneTimeDate.toISOString().split('T')[0] as any; 
       } else {
         delete dataToSend.oneTimeDate;
       }
@@ -156,7 +154,7 @@ export default function DefineMeetingSeriesForm({
         }
       }
       
-      const result = await defineMeetingSeriesAction(dataToSend as any); // Cast because oneTimeDate format changed
+      const result = await defineMeetingSeriesAction(dataToSend as any); 
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
         if (onSuccess) {
@@ -174,7 +172,13 @@ export default function DefineMeetingSeriesForm({
   const handleCancel = () => {
     if (isEditing && onCancelEdit) {
       onCancelEdit(); 
-      form.reset(initialValues || defaultFormValues); 
+      form.reset(initialValues ? {
+        ...defaultFormValues,
+        ...initialValues,
+        oneTimeDate: initialValues.oneTimeDate, // Ensure reset uses potentially Date object
+        weeklyDays: initialValues.weeklyDays || [],
+        targetAttendeeGroups: initialValues.targetAttendeeGroups || [],
+      } : defaultFormValues);
     } else {
       form.reset(defaultFormValues);
     }
@@ -504,7 +508,7 @@ export default function DefineMeetingSeriesForm({
                 </Button>
             </DialogClose>
            )}
-           {isEditing && onCancelEdit && ( // Specific cancel for edit mode inside ManageDialog
+           {isEditing && onCancelEdit && ( 
                 <Button type="button" variant="outline" onClick={handleCancel} disabled={isPending}>
                     Cancelar Edición
                 </Button>
