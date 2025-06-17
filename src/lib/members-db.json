@@ -1,4 +1,3 @@
-
 [
   {
     "id": "1",
@@ -18,7 +17,10 @@
     "assignedAreaIds": [
       "1749880199537-cvuyxy3"
     ],
-    "roles": ["GeneralAttendee", "Worker"]
+    "roles": [
+      "GeneralAttendee",
+      "Worker"
+    ]
   },
   {
     "id": "2",
@@ -39,7 +41,10 @@
       "ma2",
       "1749880199537-cvuyxy3"
     ],
-    "roles": ["Worker", "Leader"]
+    "roles": [
+      "Worker",
+      "Leader"
+    ]
   },
   {
     "id": "3",
@@ -57,7 +62,9 @@
     "assignedGDIId": "gdi2",
     "assignedAreaIds": [],
     "baptismDate": "",
-    "roles": ["GeneralAttendee"]
+    "roles": [
+      "GeneralAttendee"
+    ]
   },
   {
     "id": "4",
@@ -77,7 +84,9 @@
     "assignedAreaIds": [
       "ma3"
     ],
-    "roles": ["Worker"]
+    "roles": [
+      "Worker"
+    ]
   },
   {
     "id": "5",
@@ -97,7 +106,10 @@
     "assignedAreaIds": [
       "1749880199537-cvuyxy3"
     ],
-    "roles": ["GeneralAttendee", "Worker"]
+    "roles": [
+      "GeneralAttendee",
+      "Worker"
+    ]
   },
   {
     "id": "6",
@@ -115,7 +127,9 @@
     "fromAnotherChurch": false,
     "assignedGDIId": "gdi1",
     "assignedAreaIds": [],
-    "roles": ["GeneralAttendee"]
+    "roles": [
+      "GeneralAttendee"
+    ]
   },
   {
     "id": "7",
@@ -133,7 +147,10 @@
     "fromAnotherChurch": true,
     "assignedGDIId": null,
     "assignedAreaIds": [],
-    "roles": ["Worker", "Leader"] 
+    "roles": [
+      "Worker",
+      "Leader"
+    ]
   },
   {
     "id": "8",
@@ -151,7 +168,10 @@
     "fromAnotherChurch": false,
     "assignedGDIId": null,
     "assignedAreaIds": [],
-    "roles": ["Worker", "Leader"] 
+    "roles": [
+      "Worker",
+      "Leader"
+    ]
   },
   {
     "firstName": "Matias",
@@ -173,7 +193,11 @@
       "ma2"
     ],
     "id": "1749877175613-ls6oqv6",
-    "roles": ["GeneralAttendee", "Worker", "Leader"]
+    "roles": [
+      "GeneralAttendee",
+      "Worker",
+      "Leader"
+    ]
   },
   {
     "firstName": "Juan",
@@ -194,7 +218,10 @@
       "ma3"
     ],
     "id": "1749877205345-hd6yhu7",
-    "roles": ["GeneralAttendee", "Worker"]
+    "roles": [
+      "GeneralAttendee",
+      "Worker"
+    ]
   },
   {
     "firstName": "Maximo",
@@ -214,6 +241,27 @@
       "ma1"
     ],
     "id": "1749880160940-30020fm",
-    "roles": ["Worker", "Leader"]
+    "roles": [
+      "Worker",
+      "Leader"
+    ]
+  },
+  {
+    "firstName": "Florencia",
+    "lastName": "Dominguez Lopez",
+    "email": "flor@flor.com",
+    "phone": "12321321",
+    "birthDate": "2025-06-01",
+    "churchJoinDate": "2025-06-17",
+    "baptismDate": "",
+    "attendsLifeSchool": true,
+    "attendsBibleInstitute": true,
+    "fromAnotherChurch": true,
+    "status": "New",
+    "avatarUrl": "https://placehold.co/100x100",
+    "assignedGDIId": null,
+    "assignedAreaIds": [],
+    "roles": [],
+    "id": "1750198945066-fc3lndo"
   }
 ]

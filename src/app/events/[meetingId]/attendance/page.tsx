@@ -16,6 +16,7 @@ import { ArrowLeft, FileText, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { getAllMeetingSeries } from '@/services/meetingService'; // For passing allMeetingSeries
 
 interface MeetingAttendancePageProps {
   params: { meetingId: string };
@@ -25,7 +26,8 @@ async function getPageData(meetingId: string) {
   const meetingInstance = await getMeetingById(meetingId);
   if (!meetingInstance) notFound();
 
-  const meetingSeries = await getMeetingSeriesById(meetingInstance.seriesId);
+  const allMeetingSeriesData = await getAllMeetingSeries(); // Fetch all series
+  const meetingSeries = allMeetingSeriesData.find(s => s.id === meetingInstance.seriesId); // Find specific series
   
   const [allMembers, allGdis, allMinistryAreas, currentAttendance] = await Promise.all([
     getAllMembersNonPaginated(),
@@ -34,7 +36,8 @@ async function getPageData(meetingId: string) {
     getAttendanceForMeeting(meetingId),
   ]);
 
-  const resolvedAttendees = await getResolvedAttendees(meetingInstance, allMembers);
+  // Pass allMembers and allMeetingSeriesData to getResolvedAttendees
+  const resolvedAttendees = await getResolvedAttendees(meetingInstance, allMembers, allMeetingSeriesData);
   return { meetingInstance, meetingSeries, resolvedAttendees, currentAttendance, allMembers };
 }
 
@@ -71,7 +74,7 @@ async function handleUpdateMeetingInstanceAction(
   try {
     const instanceDataToUpdate = {
       name: data.name,
-      date: format(data.date, 'yyyy-MM-dd'), // Ensure date is string
+      date: format(data.date, 'yyyy-MM-dd'), 
       time: data.time,
       location: data.location,
       description: data.description,
@@ -79,7 +82,7 @@ async function handleUpdateMeetingInstanceAction(
     };
     const updatedInstance = await updateMeeting(instanceId, instanceDataToUpdate);
     revalidatePath(`/events/${instanceId}/attendance`);
-    revalidatePath(`/events`); // Revalidate main events page as instance details might change there too
+    revalidatePath(`/events`); 
     return { success: true, message: "Instancia de reunión actualizada exitosamente.", updatedInstance };
   } catch (error: any) {
     console.error("Error updating meeting instance:", error);
@@ -93,8 +96,7 @@ async function handleDeleteMeetingInstanceAction(
   'use server';
   try {
     await deleteMeetingInstance(instanceId);
-    revalidatePath(`/events`); // Revalidate main events page as instance will be gone
-    // No need to revalidate `/events/${instanceId}/attendance` as it will 404 after deletion
+    revalidatePath(`/events`); 
     return { success: true, message: "Instancia de reunión eliminada exitosamente." };
   } catch (error: any) {
     console.error("Error deleting meeting instance:", error);

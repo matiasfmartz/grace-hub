@@ -1,5 +1,5 @@
 
-import type { Meeting, Member, GDI, MinistryArea, AttendanceRecord } from '@/lib/types';
+import type { Meeting, Member, GDI, MinistryArea, AttendanceRecord, MeetingSeries } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getResolvedAttendees } from '@/services/attendanceService';
 import Link from 'next/link';
@@ -10,6 +10,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 interface MeetingTypeAttendanceTableProps {
   meetingsForSeries: Meeting[];
+  allMeetingSeries: MeetingSeries[]; // Added this prop
   allMembers: Member[];
   allGdis: GDI[];
   allMinistryAreas: MinistryArea[];
@@ -26,16 +27,14 @@ const formatMeetingHeader = (dateString: string, timeString: string, isDuplicate
 
     const datePart = format(parsedDate, "d MMM yy", { locale: es });
     if (isDuplicateDate) {
-      // Ensure timeString is valid HH:MM before trying to format, or use as is.
       const timeParts = timeString.split(':');
       if (timeParts.length === 2 && parseInt(timeParts[0]) >= 0 && parseInt(timeParts[0]) <= 23 && parseInt(timeParts[1]) >= 0 && parseInt(timeParts[1]) <= 59) {
-        return `${datePart} ${timeString}`; // Example: 15 Jun 24 10:00
+        return `${datePart} ${timeString}`; 
       }
-      return `${datePart} (Hora: ${timeString})`; // Fallback if time format is unexpected
+      return `${datePart} (Hora: ${timeString})`; 
     }
     return datePart;
   } catch (error) {
-    // Fallback for any parsing/formatting error
     return isDuplicateDate ? `${dateString} ${timeString}` : dateString;
   }
 };
@@ -59,6 +58,7 @@ const formatDateRangeText = (startDate?: string, endDate?: string): string => {
 
 export default async function MeetingTypeAttendanceTable({
   meetingsForSeries,
+  allMeetingSeries, // Use this prop
   allMembers,
   allGdis,
   allMinistryAreas,
@@ -69,18 +69,18 @@ export default async function MeetingTypeAttendanceTable({
 }: MeetingTypeAttendanceTableProps) {
 
   if (!meetingsForSeries || meetingsForSeries.length === 0) {
-     const dateRangeInfo = filterStartDate && endDate ? 
+     const dateRangeInfo = filterStartDate && filterEndDate ? 
       ` para el rango de ${format(parseISO(filterStartDate), 'dd/MM/yy', {locale: es})} a ${format(parseISO(filterEndDate), 'dd/MM/yy', {locale: es})}` :
       "";
     return <p className="text-muted-foreground py-4 text-center">No hay instancias de reunión para la serie "{seriesName}"{dateRangeInfo}.</p>;
   }
 
-  // Determine unique members expected across all meetings in this series
   const rowMemberIds = new Set<string>();
   const expectedAttendeesByMeetingId: Record<string, Set<string>> = {}; 
 
   for (const meeting of meetingsForSeries) {
-    const expectedForThisInstance = await getResolvedAttendees(meeting, allMembers);
+    // Pass allMembers and allMeetingSeries to getResolvedAttendees
+    const expectedForThisInstance = await getResolvedAttendees(meeting, allMembers, allMeetingSeries);
     expectedAttendeesByMeetingId[meeting.id] = new Set(expectedForThisInstance.map(m => m.id));
     expectedForThisInstance.forEach(member => rowMemberIds.add(member.id));
   }
@@ -89,10 +89,8 @@ export default async function MeetingTypeAttendanceTable({
     .filter(member => rowMemberIds.has(member.id))
     .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
 
-  // columnMeetings are already sorted ascendingly by date by the parent (EventsPage)
   const columnMeetings = meetingsForSeries; 
 
-  // Check for duplicate dates to decide if time should be shown in header
   const dateCounts = new Map<string, number>();
   columnMeetings.forEach(meeting => {
       dateCounts.set(meeting.date, (dateCounts.get(meeting.date) || 0) + 1);

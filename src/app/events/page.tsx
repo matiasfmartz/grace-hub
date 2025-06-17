@@ -22,7 +22,7 @@ import { getAllGdis } from '@/services/gdiService';
 import { getAllMinistryAreas } from '@/services/ministryAreaService';
 import { getAllAttendanceRecords } from '@/services/attendanceService';
 import MeetingTypeAttendanceTable from '@/components/events/meeting-type-attendance-table';
-import AttendanceLineChart from '@/components/events/AttendanceFrequencySummaryTable'; // Updated import name
+import AttendanceLineChart from '@/components/events/AttendanceFrequencySummaryTable'; 
 import DateRangeFilter from '@/components/events/date-range-filter';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -32,7 +32,6 @@ export async function defineMeetingSeriesAction(
   newSeriesData: DefineMeetingSeriesFormValues
 ): Promise<{ success: boolean; message: string; newSeries?: MeetingSeries, newInstances?: Meeting[] }> {
   try {
-    // Ensure oneTimeDate is formatted correctly if it exists
     const dataForService: DefineMeetingSeriesFormValues = {
       ...newSeriesData,
       oneTimeDate: newSeriesData.oneTimeDate instanceof Date && isValid(newSeriesData.oneTimeDate)
@@ -199,7 +198,6 @@ async function getEventsPageData(startDateParam?: string, endDateParam?: string)
   allSeries.forEach(series => {
     meetingsBySeries[series.id] = filteredMeetingInstances
       .filter(instance => instance.seriesId === series.id)
-      // Sort ascending: oldest first on the left, newest on the right
       .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
   });
 
@@ -248,7 +246,6 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       </div>
 
       <div className="flex flex-col md:flex-row gap-6 lg:gap-8">
-        {/* Left Panel */}
         <aside className="md:w-72 lg:w-80 flex-shrink-0 space-y-6">
           <PageSpecificAddMeetingDialog
             defineMeetingSeriesAction={defineMeetingSeriesAction}
@@ -295,7 +292,6 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           </div>
         </aside>
 
-        {/* Right Panel (Main Content) */}
         <main className="flex-1 min-w-0">
           {selectedSeriesObject ? (
             <>
@@ -324,7 +320,6 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                 </div>
               </div>
 
-              {/* Gráfico de Líneas de Resumen de Frecuencia de Asistencia */}
               {meetingsBySeries[selectedSeriesObject.id] && meetingsBySeries[selectedSeriesObject.id].length > 0 && (
                 <AttendanceLineChart
                   meetingsForSeries={meetingsBySeries[selectedSeriesObject.id]}
@@ -338,6 +333,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               {meetingsBySeries[selectedSeriesObject.id] && meetingsBySeries[selectedSeriesObject.id].length > 0 ? (
                 <MeetingTypeAttendanceTable
                   meetingsForSeries={meetingsBySeries[selectedSeriesObject.id]}
+                  allMeetingSeries={allSeries} 
                   allMembers={allMembers}
                   allGdis={allGdis}
                   allMinistryAreas={allMinistryAreas}
@@ -363,7 +359,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               )}
             </>
           ) : (
-             <div className="text-center py-10 flex flex-col items-center justify-center"> {/* Removed h-full */}
+             <div className="text-center py-10 flex flex-col items-center justify-center">
               <CalendarDays className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
               <h2 className="text-2xl font-semibold text-muted-foreground">
                 {seriesPresentInFilter.length > 0 ? "Seleccione una Serie" : 
@@ -382,4 +378,3 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     </div>
   );
 }
-

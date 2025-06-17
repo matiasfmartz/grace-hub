@@ -147,18 +147,24 @@ export async function getMeetingSeriesById(id: string): Promise<MeetingSeries | 
   return seriesList.find(series => series.id === id);
 }
 
-async function resolveAttendeeUids(targetGroups: MeetingTargetRoleType[]): Promise<string[]> {
-    const allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, []);
-    const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, []);
-    const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
+async function resolveAttendeeUids(
+  targetGroups: MeetingTargetRoleType[],
+  allMembers: Member[],
+  allGdis: GDI[],
+  allMinistryAreas: MinistryArea[]
+): Promise<string[]> {
     const attendeeSet = new Set<string>();
 
+    // If "allMembers" is a target, this series is for everyone dynamically.
+    // Instances will store an empty attendeeUids array.
+    // getResolvedAttendees will handle fetching all members at display time.
+    if (targetGroups.includes("allMembers")) {
+        return []; 
+    }
+
+    // Logic for 'workers' and 'leaders'
     for (const role of targetGroups) {
-        if (role === 'allMembers') { // Changed from 'generalAttendees'
-            allMembers.forEach(member => {
-                attendeeSet.add(member.id); // Add all members, regardless of status
-            });
-        } else if (role === 'workers') {
+        if (role === 'workers') {
             allGdis.forEach(gdi => {
                 const guide = allMembers.find(m => m.id === gdi.guideId && m.status === 'Active');
                 if(guide) attendeeSet.add(gdi.guideId);
@@ -211,7 +217,18 @@ export async function addMeetingSeries(
   await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, [...seriesList, newSeries]);
 
   let newInstances: Meeting[] = [];
-  const resolvedUids = await resolveAttendeeUids(newSeries.targetAttendeeGroups);
+  
+  const allMembersForResolve = await readDbFile<Member>(MEMBERS_DB_FILE, []);
+  const allGdisForResolve = await readDbFile<GDI>(GDIS_DB_FILE, []);
+  const allMinistryAreasForResolve = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
+  
+  const resolvedUids = await resolveAttendeeUids(
+    newSeries.targetAttendeeGroups,
+    allMembersForResolve,
+    allGdisForResolve,
+    allMinistryAreasForResolve
+  );
+
   const today = startOfDay(new Date());
   const allExistingMeetingsForSeries = await getMeetingsBySeriesId(newSeries.id); 
 
@@ -228,7 +245,7 @@ export async function addMeetingSeries(
                 location: newSeries.defaultLocation,
                 description: newSeries.description,
                 imageUrl: newSeries.defaultImageUrl,
-                attendeeUids: resolvedUids,
+                attendeeUids: resolvedUids, // Will be [] if series targets "allMembers"
                 minute: null,
             });
             newInstances.push(instance);
@@ -303,7 +320,18 @@ export async function updateMeetingSeries(
   await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, seriesList);
 
   let newlyGeneratedInstances: Meeting[] = [];
-  const resolvedUids = await resolveAttendeeUids(updatedSeries.targetAttendeeGroups);
+  
+  const allMembersForResolve = await readDbFile<Member>(MEMBERS_DB_FILE, []);
+  const allGdisForResolve = await readDbFile<GDI>(GDIS_DB_FILE, []);
+  const allMinistryAreasForResolve = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
+
+  const resolvedUids = await resolveAttendeeUids(
+    updatedSeries.targetAttendeeGroups,
+    allMembersForResolve,
+    allGdisForResolve,
+    allMinistryAreasForResolve
+  );
+
   const today = startOfDay(new Date());
   const allExistingMeetingsForSeries = await getMeetingsBySeriesId(updatedSeries.id);
 
@@ -410,7 +438,7 @@ async function addMeetingInstanceInternal(meetingInstanceData: Omit<Meeting, 'id
   const newMeetingInstance: Meeting = {
     id: `instance-${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}-${meetings.length}`,
     ...meetingInstanceData,
-    attendeeUids: meetingInstanceData.attendeeUids || []
+    // attendeeUids are already set by the caller based on resolveAttendeeUids logic
   };
   const updatedMeetings = [...meetings, newMeetingInstance];
   await writeDbFile<Meeting>(MEETINGS_DB_FILE, updatedMeetings);
@@ -425,7 +453,18 @@ export async function addMeetingInstance(
   if (!series) {
     throw new Error(`MeetingSeries with ID ${seriesId} not found.`);
   }
-  const resolvedUids = await resolveAttendeeUids(series.targetAttendeeGroups);
+  
+  const allMembersForResolve = await readDbFile<Member>(MEMBERS_DB_FILE, []);
+  const allGdisForResolve = await readDbFile<GDI>(GDIS_DB_FILE, []);
+  const allMinistryAreasForResolve = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
+
+  const resolvedUids = await resolveAttendeeUids(
+    series.targetAttendeeGroups,
+    allMembersForResolve,
+    allGdisForResolve,
+    allMinistryAreasForResolve
+  );
+
   return addMeetingInstanceInternal({
     seriesId: series.id,
     name: instanceDetails.name,
@@ -447,6 +486,8 @@ export async function updateMeeting(meetingId: string, updates: Partial<MeetingW
   if (meetingIndex === -1) {
     throw new Error(`Meeting with ID ${meetingId} not found.`);
   }
+  
+  const originalMeeting = meetings[meetingIndex];
 
   let formattedUpdates = { ...updates } as Partial<Meeting>;
   if (updates.date && typeof updates.date === 'string' && !isNaN(parseISO(updates.date).getTime())) {
@@ -456,9 +497,13 @@ export async function updateMeeting(meetingId: string, updates: Partial<MeetingW
   }
 
   const updatedMeeting: Meeting = {
-    ...meetings[meetingIndex],
+    ...originalMeeting,
     ...formattedUpdates,
-    attendeeUids: meetings[meetingIndex].attendeeUids,
+    // AttendeeUids are generally set at instance creation based on series rules
+    // If target groups change, the series update logic should handle regenerating instances if needed
+    // For direct instance update, we typically don't change attendeeUids unless specifically asked.
+    // Here, we preserve the original attendeeUids unless 'attendeeUids' is explicitly in 'updates'.
+    attendeeUids: updates.attendeeUids !== undefined ? updates.attendeeUids : originalMeeting.attendeeUids,
   };
 
   meetings[meetingIndex] = updatedMeeting;
@@ -485,6 +530,7 @@ export async function deleteMeetingInstance(instanceId: string): Promise<void> {
   const meetingsLeft = allMeetings.filter(m => m.id !== instanceId);
 
   if (allMeetings.length === meetingsLeft.length) {
+    // No meeting was found/deleted, could log this.
   }
   await writeDbFile<Meeting>(MEETINGS_DB_FILE, meetingsLeft);
 
@@ -492,4 +538,3 @@ export async function deleteMeetingInstance(instanceId: string): Promise<void> {
   const attendanceRecordsLeft = allAttendanceRecords.filter(ar => ar.meetingId !== instanceId);
   await writeDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, attendanceRecordsLeft);
 }
-
