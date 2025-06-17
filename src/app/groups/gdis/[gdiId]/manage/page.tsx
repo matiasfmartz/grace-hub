@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { getGdiById, getAllGdis, updateGdiAndSyncMembers } from '@/services/gdiService';
-import { getAllMembersNonPaginated, placeholderMembers } from '@/services/memberService';
+import { getAllMembersNonPaginated, bulkRecalculateAndUpdateRoles } from '@/services/memberService';
 
 
 export async function updateGdiDetailsAction(
@@ -24,13 +24,18 @@ export async function updateGdiDetailsAction(
       memberIds: finalMemberIds,
     };
     
-    const updatedGdi = await updateGdiAndSyncMembers(gdiIdToUpdate, finalDataToUpdate);
+    const { updatedGdi, affectedMemberIds } = await updateGdiAndSyncMembers(gdiIdToUpdate, finalDataToUpdate);
+
+    // Recalculate roles for all affected members
+    if (affectedMemberIds && affectedMemberIds.length > 0) {
+      await bulkRecalculateAndUpdateRoles(affectedMemberIds);
+    }
 
     revalidatePath(`/groups/gdis/${gdiIdToUpdate}/manage`);
     revalidatePath('/groups');
     revalidatePath('/members');
 
-    return { success: true, message: `GDI "${updatedGdi.name}" actualizado exitosamente.`, updatedGdi };
+    return { success: true, message: `GDI "${updatedGdi.name}" actualizado exitosamente. Roles actualizados.`, updatedGdi };
   } catch (error: any) {
     console.error("Error actualizando GDI y asignaciones de miembros:", error);
     return { success: false, message: `Error actualizando GDI: ${error.message}` };

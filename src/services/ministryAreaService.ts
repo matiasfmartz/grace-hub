@@ -18,25 +18,47 @@ export async function getMinistryAreaById(id: string): Promise<MinistryArea | un
 
 export async function addMinistryArea(areaData: MinistryAreaWriteData): Promise<MinistryArea> {
   const areas = await getAllMinistryAreas();
+  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
+
+  const leaderMemberIndex = allMembers.findIndex(m => m.id === areaData.leaderId);
+  if (leaderMemberIndex !== -1) {
+    if(!allMembers[leaderMemberIndex].assignedAreaIds){
+      allMembers[leaderMemberIndex].assignedAreaIds = [];
+    }
+    // A leader could lead multiple areas, so we just add, not replace.
+    // However, ensure the assignedAreaIds itself exists
+    if (!allMembers[leaderMemberIndex].assignedAreaIds!.includes(`${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}` /* temp will be replaced */)) {
+        // Placeholder for ID, will be replaced after area is created
+    }
+  }
+
+
   const newArea: MinistryArea = {
     ...areaData,
     id: `${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}`,
-    memberIds: [], // Initially no members except implicitly the leader
+    memberIds: [], // Initially no members other than the leader (leader is not in memberIds array)
     imageUrl: areaData.imageUrl || 'https://placehold.co/600x400',
   };
+
+  if (leaderMemberIndex !== -1) {
+    if (!allMembers[leaderMemberIndex].assignedAreaIds!.includes(newArea.id)) {
+         allMembers[leaderMemberIndex].assignedAreaIds!.push(newArea.id);
+    }
+  }
+  await writeDbFile<Member>(MEMBERS_DB_FILE, allMembers);
+
   const updatedAreas = [...areas, newArea];
   await writeDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, updatedAreas);
-  // Leader's assignedAreaIds in members-db should be updated if this is the primary way leaders are set.
-  // For now, assuming member update action or area update action handles sync.
   return newArea;
 }
 
 export async function updateMinistryAreaAndSyncMembers(
   areaId: string,
   updatedAreaData: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description' | 'imageUrl'>>
-): Promise<MinistryArea> {
+): Promise<{ updatedArea: MinistryArea; affectedMemberIds: string[] }> {
   let allCurrentAreas = await getAllMinistryAreas();
   let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
+  let affectedMemberIds = new Set<string>();
 
   const areaIndex = allCurrentAreas.findIndex(area => area.id === areaId);
   if (areaIndex === -1) {
@@ -44,26 +66,55 @@ export async function updateMinistryAreaAndSyncMembers(
   }
 
   const currentAreaBeforeUpdate = { ...allCurrentAreas[areaIndex] };
+  const newLeaderId = updatedAreaData.leaderId ?? currentAreaBeforeUpdate.leaderId;
+  
+  // Ensure newMemberIdsFromClient does not contain the newLeaderId
+  const newMemberIdsFromClient = (updatedAreaData.memberIds ?? currentAreaBeforeUpdate.memberIds).filter(id => id !== newLeaderId);
+
+  affectedMemberIds.add(newLeaderId); // New leader's roles might change
+  if(currentAreaBeforeUpdate.leaderId) affectedMemberIds.add(currentAreaBeforeUpdate.leaderId); // Old leader's roles might change
+
   const areaAfterClientUpdate: MinistryArea = {
     ...currentAreaBeforeUpdate,
     ...updatedAreaData,
+    leaderId: newLeaderId,
+    memberIds: newMemberIdsFromClient, // Use the filtered list
     imageUrl: updatedAreaData.imageUrl || currentAreaBeforeUpdate.imageUrl || 'https://placehold.co/600x400',
-    // Ensure memberIds does not contain the leaderId after update
-    memberIds: (updatedAreaData.memberIds || currentAreaBeforeUpdate.memberIds).filter(mId => mId !== (updatedAreaData.leaderId || currentAreaBeforeUpdate.leaderId))
   };
   
   allCurrentAreas[areaIndex] = areaAfterClientUpdate;
   await writeDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, allCurrentAreas);
 
-  // Synchronize member assignments in members-db.json
-  const oldMemberAndLeaderSet = new Set([currentAreaBeforeUpdate.leaderId, ...(currentAreaBeforeUpdate.memberIds || [])].filter(Boolean));
-  const newMemberAndLeaderSet = new Set([areaAfterClientUpdate.leaderId, ...(areaAfterClientUpdate.memberIds || [])].filter(Boolean));
+  // --- Member DB Sync Logic ---
+  // 1. Handle Leader Change
+  if (newLeaderId && newLeaderId !== currentAreaBeforeUpdate.leaderId) {
+    // Unassign old leader from this specific area in their assignedAreaIds
+    if (currentAreaBeforeUpdate.leaderId) {
+      const oldLeaderIdx = allMembers.findIndex(m => m.id === currentAreaBeforeUpdate.leaderId);
+      if (oldLeaderIdx !== -1 && allMembers[oldLeaderIdx].assignedAreaIds) {
+        allMembers[oldLeaderIdx].assignedAreaIds = allMembers[oldLeaderIdx].assignedAreaIds!.filter(id => id !== areaId);
+      }
+    }
+    // Assign new leader to this area in their assignedAreaIds
+    const newLeaderIdx = allMembers.findIndex(m => m.id === newLeaderId);
+    if (newLeaderIdx !== -1) {
+      if (!allMembers[newLeaderIdx].assignedAreaIds) {
+        allMembers[newLeaderIdx].assignedAreaIds = [];
+      }
+      if (!allMembers[newLeaderIdx].assignedAreaIds!.includes(areaId)) {
+        allMembers[newLeaderIdx].assignedAreaIds!.push(areaId);
+      }
+    }
+  }
 
-  const membersAddedToArea = Array.from(newMemberAndLeaderSet).filter(id => !oldMemberAndLeaderSet.has(id));
-  const membersRemovedFromArea = Array.from(oldMemberAndLeaderSet).filter(id => !newMemberAndLeaderSet.has(id));
+  // 2. Handle Member List Changes for this Area
+  const originalMemberIdsInArea = currentAreaBeforeUpdate.memberIds.filter(id => id !== currentAreaBeforeUpdate.leaderId);
 
-  let membersDbChanged = false;
-  membersAddedToArea.forEach(memberId => {
+  const membersAddedToAreaList = newMemberIdsFromClient.filter(id => !originalMemberIdsInArea.includes(id));
+  const membersRemovedFromAreaList = originalMemberIdsInArea.filter(id => !newMemberIdsFromClient.includes(id));
+
+  membersAddedToAreaList.forEach(memberId => {
+    affectedMemberIds.add(memberId);
     const memberIndex = allMembers.findIndex(m => m.id === memberId);
     if (memberIndex !== -1) {
       if (!allMembers[memberIndex].assignedAreaIds) {
@@ -71,24 +122,19 @@ export async function updateMinistryAreaAndSyncMembers(
       }
       if (!allMembers[memberIndex].assignedAreaIds!.includes(areaId)) {
         allMembers[memberIndex].assignedAreaIds!.push(areaId);
-        membersDbChanged = true;
       }
     }
   });
 
-  membersRemovedFromArea.forEach(memberId => {
+  membersRemovedFromAreaList.forEach(memberId => {
+    affectedMemberIds.add(memberId);
     const memberIndex = allMembers.findIndex(m => m.id === memberId);
     if (memberIndex !== -1 && allMembers[memberIndex].assignedAreaIds) {
-      const initialLength = allMembers[memberIndex].assignedAreaIds!.length;
       allMembers[memberIndex].assignedAreaIds = allMembers[memberIndex].assignedAreaIds!.filter(id => id !== areaId);
-      if (allMembers[memberIndex].assignedAreaIds!.length !== initialLength) {
-        membersDbChanged = true;
-      }
     }
   });
+  
+  await writeDbFile<Member>(MEMBERS_DB_FILE, allMembers);
 
-  if (membersDbChanged) {
-    await writeDbFile<Member>(MEMBERS_DB_FILE, allMembers);
-  }
-  return areaAfterClientUpdate;
+  return { updatedArea: areaAfterClientUpdate, affectedMemberIds: Array.from(affectedMemberIds).filter(Boolean) as string[] };
 }

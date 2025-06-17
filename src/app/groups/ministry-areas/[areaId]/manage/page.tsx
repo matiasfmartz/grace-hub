@@ -8,20 +8,25 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { getMinistryAreaById, updateMinistryAreaAndSyncMembers } from '@/services/ministryAreaService';
-import { getAllMembersNonPaginated } from '@/services/memberService';
+import { getAllMembersNonPaginated, bulkRecalculateAndUpdateRoles } from '@/services/memberService';
 
 export async function updateMinistryAreaDetailsAction(
   areaId: string,
   updatedData: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description' | 'imageUrl'>>
 ): Promise<{ success: boolean; message: string; updatedArea?: MinistryArea }> {
   try {
-    const updatedArea = await updateMinistryAreaAndSyncMembers(areaId, updatedData);
+    const { updatedArea, affectedMemberIds } = await updateMinistryAreaAndSyncMembers(areaId, updatedData);
+    
+    // Recalculate roles for all affected members
+    if (affectedMemberIds && affectedMemberIds.length > 0) {
+      await bulkRecalculateAndUpdateRoles(affectedMemberIds);
+    }
     
     revalidatePath(`/groups/ministry-areas/${areaId}/manage`);
     revalidatePath('/groups');
     revalidatePath('/members'); 
 
-    return { success: true, message: `Ministry Area "${updatedArea.name}" updated successfully. Member assignments synchronized.`, updatedArea };
+    return { success: true, message: `Ministry Area "${updatedArea.name}" updated successfully. Member assignments and roles synchronized.`, updatedArea };
   } catch (error: any) {
     console.error("Error updating ministry area and member assignments:", error);
     return { success: false, message: `Error updating ministry area: ${error.message}` };
