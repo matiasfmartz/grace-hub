@@ -164,7 +164,7 @@ export default function MemberAttendanceChart({
               />
               <Line
                 dataKey="attended"
-                type="step" // Changed from "monotone" to "step"
+                type="step" 
                 stroke="var(--color-attended)"
                 strokeWidth={2}
                 dot={{
