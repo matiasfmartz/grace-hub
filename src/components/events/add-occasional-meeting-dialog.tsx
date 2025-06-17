@@ -40,7 +40,6 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
 
   const form = useForm<AddOccasionalMeetingFormValues>({
     resolver: zodResolver(AddOccasionalMeetingFormSchema),
-    // Default values are set in useEffect to ensure they are fresh when dialog opens
     defaultValues: {
       name: "",
       date: new Date(),
@@ -55,14 +54,14 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
     if (open) {
       form.reset({
         name: `${series.name} (Ocasional)`,
-        date: new Date(), 
+        date: new Date(),
         time: series.defaultTime,
         location: series.defaultLocation,
         description: series.description || "",
         imageUrl: series.defaultImageUrl || "",
       });
     }
-  }, [open, series, form.reset]); // form.reset is stable
+  }, [open, series]); // form.reset es estable y no necesita estar en el array de dependencias
 
   const onSubmit = (values: AddOccasionalMeetingFormValues) => {
     startTransition(async () => {
@@ -154,7 +153,7 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Descripción (Opcional)</FormLabel>
-                    <FormControl><Textarea {...field} disabled={isPending} /></FormControl>
+                    <FormControl><Textarea {...field} value={field.value ?? ''} disabled={isPending} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -186,5 +185,3 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
     </Dialog>
   );
 }
-
-    
