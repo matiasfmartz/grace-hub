@@ -1,6 +1,6 @@
 
 import type { Meeting, Member, GDI, MinistryArea, AttendanceRecord, MeetingInstanceFormValues, MeetingSeries } from '@/lib/types';
-import { notFound, useRouter } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { getMeetingById, updateMeetingMinute, getMeetingSeriesById, updateMeeting, deleteMeetingInstance } from '@/services/meetingService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
 import { getAllGdis } from '@/services/gdiService';
@@ -123,11 +123,7 @@ export default async function MeetingAttendancePage({ params }: MeetingAttendanc
   // The redirection on delete will be handled client-side by the dialog or a wrapper.
   const onInstanceDeletedClientSide = () => {
     // This function will be called client-side after successful deletion confirmed by server.
-    // In a real app, you'd use `useRouter` from `next/navigation` here.
-    // For a server component, we can't directly use hooks.
-    // The dialog component itself will likely handle client-side redirection using router.push('/events').
-    // This is a placeholder for the concept.
-    // The actual redirection will be managed in ManageMeetingInstanceDialog or its consuming client component.
+    // The ManageMeetingInstanceDialog component itself will likely handle client-side redirection using router.push('/events').
   };
 
 
@@ -145,7 +141,7 @@ export default async function MeetingAttendancePage({ params }: MeetingAttendanc
             series={meetingSeries}
             updateInstanceAction={handleUpdateMeetingInstanceAction}
             deleteInstanceAction={handleDeleteMeetingInstanceAction}
-            onInstanceDeleted={onInstanceDeletedClientSide} // Placeholder for client-side redirect
+            onInstanceDeleted={onInstanceDeletedClientSide} 
              triggerButton={
                 <Button variant="outline">
                     <Settings className="mr-2 h-4 w-4" /> Gestionar Reunión
@@ -190,6 +186,8 @@ export default async function MeetingAttendancePage({ params }: MeetingAttendanc
             const minuteContent = formData.get('minuteContent') as string;
             const result = await handleUpdateMinuteAction(meetingInstance.id, minuteContent);
             if (!result.success) {
+              // For server actions, we typically rely on toast notifications triggered by the client
+              // or revalidation to show updates. Direct console.error is fine for server logs.
               console.error("Error updating minute:", result.message);
             }
           }}>
