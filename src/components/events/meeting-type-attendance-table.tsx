@@ -20,6 +20,7 @@ interface MeetingTypeAttendanceTableProps {
 
 const formatDateDisplay = (dateString: string) => {
   try {
+    // Using a more compact format like "28 Jul 24"
     return format(parseISO(dateString), "d MMM yy", { locale: es });
   } catch (error) {
     return dateString; 
@@ -65,10 +66,9 @@ export default async function MeetingTypeAttendanceTable({
             <TableRow>
               <TableHead className="sticky left-0 bg-card z-10 w-[200px] min-w-[200px] border-r">Miembro</TableHead>
               {columnMeetings.map(meeting => (
-                <TableHead key={meeting.id} className="text-center min-w-[150px]">
-                  <Link href={`/events/${meeting.id}/attendance`} className="hover:underline text-primary font-medium block">
-                    {meeting.name}
-                    <span className="block text-xs text-muted-foreground">{formatDateDisplay(meeting.date)}</span>
+                <TableHead key={meeting.id} className="text-center min-w-[100px]">
+                  <Link href={`/events/${meeting.id}/attendance`} className="hover:underline text-primary font-medium block p-2">
+                    {formatDateDisplay(meeting.date)}
                   </Link>
                 </TableHead>
               ))}
@@ -132,3 +132,4 @@ export default async function MeetingTypeAttendanceTable({
     </div>
   );
 }
+
