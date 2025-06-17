@@ -1,6 +1,9 @@
 
 import { z } from 'zod';
 
+export const MemberRoleEnum = z.enum(['Leader', 'Worker', 'GeneralAttendee']);
+export type MemberRoleType = z.infer<typeof MemberRoleEnum>;
+
 export interface Member {
   id: string;
   firstName: string;
@@ -17,6 +20,7 @@ export interface Member {
   assignedAreaIds?: string[]; // IDs of MinistryAreas the member is part of
   status: 'Active' | 'Inactive' | 'New';
   avatarUrl?: string;
+  roles?: MemberRoleType[];
 }
 
 // Type for data sent to server action for CREATING (ID will be generated server-side)
@@ -111,6 +115,7 @@ export const AddMemberFormSchema = z.object({
   avatarUrl: z.string().url({ message: "URL inválida." }).optional().or(z.literal('')),
   assignedGDIId: z.string().nullable().optional(),
   assignedAreaIds: z.array(z.string()).optional(),
+  // roles is not directly editable in this form, it's derived
 });
 export type AddMemberFormValues = z.infer<typeof AddMemberFormSchema>;
 
@@ -139,8 +144,8 @@ export const AssignMinistryAreaMembersFormSchema = z.object({
 });
 export type AssignMinistryAreaMembersFormValues = z.infer<typeof AssignMinistryAreaMembersFormSchema>;
 
-export const MeetingRoleEnum = z.enum(["generalAttendees", "workers", "leaders"]);
-export type MeetingRoleType = z.infer<typeof MeetingRoleEnum>;
+export const MeetingInviteeRoleEnum = z.enum(["generalAttendees", "workers", "leaders"]);
+export type MeetingInviteeRoleType = z.infer<typeof MeetingInviteeRoleEnum>;
 
 // Schema for adding meetings from the general /events page
 // GDI_Meeting and Area_Meeting are typically created from their respective management pages.
@@ -157,7 +162,7 @@ export const AddGeneralMeetingFormSchema = z.object({
   location: z.string().min(3, { message: "La ubicación es requerida." }),
   description: z.string().optional(),
   imageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')),
-  selectedRoles: z.array(MeetingRoleEnum).optional(), // For "Special_Meeting" to select roles
+  selectedRoles: z.array(MeetingInviteeRoleEnum).optional(), // For "Special_Meeting" to select invitee roles
   // relatedGdiId, relatedAreaId, minute are part of Meeting type but not set in this specific form
 });
 

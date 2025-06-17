@@ -9,19 +9,20 @@ import {
     addMember, 
     updateMember, 
     updateMemberAssignments, 
-    addMemberToAssignments,
-    getAllMembersNonPaginated // Added for dropdowns needing all members
+    // addMemberToAssignments, // This is now called within addMember
+    getAllMembersNonPaginated,
+    bulkRecalculateAndUpdateRoles // Added for role updates
 } from '@/services/memberService';
 import { getAllGdis } from '@/services/gdiService';
 import { getAllMinistryAreas } from '@/services/ministryAreaService';
 
 export async function addSingleMemberAction(newMemberData: MemberWriteData): Promise<{ success: boolean; message: string; newMember?: Member }> {
   try {
+    // addMember now handles initial role calculation and calls addMemberToAssignments internally.
     const newMember = await addMember(newMemberData);
-    await addMemberToAssignments(newMember);
     
     revalidatePath('/members');
-    revalidatePath('/groups');
+    revalidatePath('/groups'); // Groups page might show leader/guide names
     if (newMember.assignedAreaIds) {
       newMember.assignedAreaIds.forEach(areaId => {
         revalidatePath(`/groups/ministry-areas/${areaId}/manage`);
@@ -31,7 +32,7 @@ export async function addSingleMemberAction(newMemberData: MemberWriteData): Pro
         revalidatePath(`/groups/gdis/${newMember.assignedGDIId}/manage`);
     }
     
-    return { success: true, message: `Miembro ${newMember.firstName} ${newMember.lastName} agregado exitosamente.`, newMember };
+    return { success: true, message: `Miembro ${newMember.firstName} ${newMember.lastName} agregado exitosamente. Roles calculados.`, newMember };
   } catch (error: any) {
     console.error("Error saving single member:", error);
     return { success: false, message: `Error al guardar miembro: ${error.message}` };
@@ -48,22 +49,36 @@ export async function updateMemberAction(updatedMemberData: Member): Promise<{ s
       return { success: false, message: `Error: Miembro con ID ${updatedMemberData.id} no encontrado.` };
     }
 
+    // updateMember will apply basic updates AND recalculate roles based on submitted assignedGDIId/assignedAreaIds
     const memberToUpdate = await updateMember(updatedMemberData.id, updatedMemberData);
     
-    await updateMemberAssignments(
+    // updateMemberAssignments updates GDI/Area lists and returns IDs of members whose roles might change due to those list changes
+    // (e.g., if an old guide was replaced, that old guide's roles need re-check)
+    const affectedIdsFromAssignments = await updateMemberAssignments(
       memberToUpdate.id,
       originalMemberData, 
-      memberToUpdate
+      memberToUpdate // Pass the already updated member from updateMember
     );
 
+    // Recalculate roles for the main member and any indirectly affected members.
+    // Using a Set to ensure unique IDs.
+    const allAffectedIds = Array.from(new Set([memberToUpdate.id, ...affectedIdsFromAssignments]));
+    if (allAffectedIds.length > 0) {
+        await bulkRecalculateAndUpdateRoles(allAffectedIds);
+    }
+    
+    // Revalidate paths
     revalidatePath('/members');
     revalidatePath('/groups');
-    const allAffectedAreaIds = new Set([...(originalMemberData.assignedAreaIds || []), ...(memberToUpdate.assignedAreaIds || [])]);
-    allAffectedAreaIds.forEach(areaId => revalidatePath(`/groups/ministry-areas/${areaId}/manage`));
+    const allPotentiallyAffectedAreaIds = new Set([...(originalMemberData.assignedAreaIds || []), ...(memberToUpdate.assignedAreaIds || [])]);
+    allPotentiallyAffectedAreaIds.forEach(areaId => revalidatePath(`/groups/ministry-areas/${areaId}/manage`));
     if (originalMemberData.assignedGDIId) revalidatePath(`/groups/gdis/${originalMemberData.assignedGDIId}/manage`);
     if (memberToUpdate.assignedGDIId && memberToUpdate.assignedGDIId !== originalMemberData.assignedGDIId) revalidatePath(`/groups/gdis/${memberToUpdate.assignedGDIId}/manage`);
     
-    return { success: true, message: `Miembro ${memberToUpdate.firstName} ${memberToUpdate.lastName} actualizado exitosamente.`, updatedMember: memberToUpdate };
+    // Fetch the member again to return the fully updated version with potentially re-recalculated roles
+    const finalUpdatedMember = await getMemberById(memberToUpdate.id);
+
+    return { success: true, message: `Miembro ${memberToUpdate.firstName} ${memberToUpdate.lastName} actualizado exitosamente. Roles actualizados.`, updatedMember: finalUpdatedMember };
   } catch (error: any) {
     console.error("Error updating member:", error);
     return { success: false, message: `Error al actualizar miembro: ${error.message}` };

@@ -1,3 +1,4 @@
+
 [
   {
     "id": "1",
@@ -16,7 +17,8 @@
     "assignedGDIId": "gdi2",
     "assignedAreaIds": [
       "1749880199537-cvuyxy3"
-    ]
+    ],
+    "roles": []
   },
   {
     "id": "2",
@@ -36,7 +38,8 @@
     "assignedAreaIds": [
       "ma2",
       "1749880199537-cvuyxy3"
-    ]
+    ],
+    "roles": []
   },
   {
     "id": "3",
@@ -53,7 +56,8 @@
     "fromAnotherChurch": false,
     "assignedGDIId": "gdi2",
     "assignedAreaIds": [],
-    "baptismDate": ""
+    "baptismDate": "",
+    "roles": []
   },
   {
     "id": "4",
@@ -72,7 +76,8 @@
     "assignedGDIId": null,
     "assignedAreaIds": [
       "ma3"
-    ]
+    ],
+    "roles": []
   },
   {
     "id": "5",
@@ -91,7 +96,8 @@
     "assignedGDIId": "gdi1",
     "assignedAreaIds": [
       "1749880199537-cvuyxy3"
-    ]
+    ],
+    "roles": []
   },
   {
     "id": "6",
@@ -108,7 +114,8 @@
     "attendsBibleInstitute": true,
     "fromAnotherChurch": false,
     "assignedGDIId": "gdi1",
-    "assignedAreaIds": []
+    "assignedAreaIds": [],
+    "roles": []
   },
   {
     "id": "7",
@@ -125,7 +132,8 @@
     "attendsBibleInstitute": false,
     "fromAnotherChurch": true,
     "assignedGDIId": null,
-    "assignedAreaIds": []
+    "assignedAreaIds": [],
+    "roles": []
   },
   {
     "id": "8",
@@ -142,7 +150,8 @@
     "attendsBibleInstitute": true,
     "fromAnotherChurch": false,
     "assignedGDIId": null,
-    "assignedAreaIds": []
+    "assignedAreaIds": [],
+    "roles": []
   },
   {
     "firstName": "Matias",
@@ -163,7 +172,8 @@
       "1749880199537-cvuyxy3",
       "ma2"
     ],
-    "id": "1749877175613-ls6oqv6"
+    "id": "1749877175613-ls6oqv6",
+    "roles": []
   },
   {
     "firstName": "Juan",
@@ -183,7 +193,8 @@
       "1749880199537-cvuyxy3",
       "ma3"
     ],
-    "id": "1749877205345-hd6yhu7"
+    "id": "1749877205345-hd6yhu7",
+    "roles": []
   },
   {
     "firstName": "Maximo",
@@ -202,6 +213,7 @@
       "ma2",
       "ma1"
     ],
-    "id": "1749880160940-30020fm"
+    "id": "1749880160940-30020fm",
+    "roles": []
   }
 ]
