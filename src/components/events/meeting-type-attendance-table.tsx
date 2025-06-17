@@ -15,7 +15,7 @@ interface MeetingTypeAttendanceTableProps {
   allGdis: GDI[];
   allMinistryAreas: MinistryArea[];
   allAttendanceRecords: AttendanceRecord[];
-  meetingTypeLabel: string; // Still useful for placeholder text if no meetings
+  meetingTypeLabel: string;
   filterStartDate?: string;
   filterEndDate?: string;
 }
@@ -80,7 +80,7 @@ export default async function MeetingTypeAttendanceTable({
     <div className="border rounded-lg shadow-md">
       <ScrollArea className="w-full whitespace-nowrap">
         <Table className="min-w-full">
-          <TableCaption className="my-4 text-sm flex items-center justify-center">
+          <TableCaption className="my-4 text-sm flex items-center justify-center text-muted-foreground">
             <CalendarRange className="mr-2 h-4 w-4 text-primary" />
             {captionDateRangeText}
           </TableCaption>
