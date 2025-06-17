@@ -164,7 +164,7 @@ export default function MemberAttendanceChart({
               />
               <Line
                 dataKey="attended"
-                type="step" 
+                type="step" // Changed from "monotone" to "step"
                 stroke="var(--color-attended)"
                 strokeWidth={2}
                 dot={{
@@ -174,7 +174,7 @@ export default function MemberAttendanceChart({
                 activeDot={{
                   r: 6,
                 }}
-                name="Asistencia" // This name appears in default tooltip legend if not customized
+                name="Asistencia"
               />
             </RechartsLineChart>
           </ChartContainer>
