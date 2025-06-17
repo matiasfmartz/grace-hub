@@ -2,7 +2,7 @@
 'use server';
 import type { Meeting, DefineMeetingSeriesFormValues, MeetingSeries, Member, GDI, MinistryArea, AttendanceRecord, AddOccasionalMeetingFormValues } from '@/lib/types';
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Filter, Settings, PlusSquare } from 'lucide-react';
+import { CalendarDays, Filter, Settings, PlusSquare, LayoutGrid, ListFilter } from 'lucide-react';
 import { revalidatePath } from 'next/cache';
 import { format, parseISO, isValid, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -12,24 +12,25 @@ import {
     updateMeetingSeries,
     deleteMeetingSeries,
     getAllMeetings,
-    addMeetingInstance // Added for occasional meetings
+    addMeetingInstance
 } from '@/services/meetingService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
 import PageSpecificAddMeetingDialog from '@/components/events/page-specific-add-meeting-dialog';
 import ManageMeetingSeriesDialog from '@/components/events/manage-meeting-series-dialog';
-import AddOccasionalMeetingDialog from '@/components/events/add-occasional-meeting-dialog'; // New Dialog
+import AddOccasionalMeetingDialog from '@/components/events/add-occasional-meeting-dialog';
 import { getAllGdis } from '@/services/gdiService';
 import { getAllMinistryAreas } from '@/services/ministryAreaService';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAllAttendanceRecords } from '@/services/attendanceService';
 import MeetingTypeAttendanceTable from '@/components/events/meeting-type-attendance-table';
 import DateRangeFilter from '@/components/events/date-range-filter';
+import Link from 'next/link';
+import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export async function defineMeetingSeriesAction(
   newSeriesData: DefineMeetingSeriesFormValues
 ): Promise<{ success: boolean; message: string; newSeries?: MeetingSeries, newInstances?: Meeting[] }> {
   try {
-    // Prepare data for the service, ensuring oneTimeDate is a string if present
     const dataForService: DefineMeetingSeriesFormValues = {
       ...newSeriesData,
       oneTimeDate: newSeriesData.oneTimeDate instanceof Date && isValid(newSeriesData.oneTimeDate)
@@ -37,14 +38,13 @@ export async function defineMeetingSeriesAction(
         : undefined,
     };
 
-    const result = await addMeetingSeries(dataForService as any); // Cast as any because service expects string date
+    const result = await addMeetingSeries(dataForService as any); 
 
     revalidatePath('/events');
     let message = `Serie de reuniones "${result.series.name}" agregada exitosamente.`;
     if (result.newInstances && result.newInstances.length > 0) {
         message += ` ${result.newInstances.length} instancia(s) inicial(es) creada(s).`
     } else if (result.series.frequency === "OneTime" && result.newInstances && result.newInstances.length === 1) {
-        // Ensure newInstances[0].date is a string for formatting
         const instanceDateStr = result.newInstances[0].date;
         const parsedInstanceDate = parseISO(instanceDateStr);
         if (isValid(parsedInstanceDate)) {
@@ -63,7 +63,7 @@ export async function defineMeetingSeriesAction(
 export async function updateMeetingSeriesAction(
   seriesId: string,
   updatedData: DefineMeetingSeriesFormValues
-): Promise<{ success: boolean; message: string; updatedSeries?: MeetingSeries }> {
+): Promise<{ success: boolean; message: string; updatedSeries?: MeetingSeries, newlyGeneratedInstances?: Meeting[] }> {
   try {
     const seriesToWrite = {
         name: updatedData.name,
@@ -86,7 +86,7 @@ export async function updateMeetingSeriesAction(
     if (result.newlyGeneratedInstances && result.newlyGeneratedInstances.length > 0) {
         message += ` ${result.newlyGeneratedInstances.length} nueva(s) instancia(s) futura(s) generada(s).`;
     }
-    return { success: true, message, updatedSeries: result.updatedSeries };
+    return { success: true, message, updatedSeries: result.updatedSeries, newlyGeneratedInstances: result.newlyGeneratedInstances };
   } catch (error: any) {
     console.error("Error updating meeting series:", error);
     return { success: false, message: `Error al actualizar serie de reuniones: ${error.message}` };
@@ -184,18 +184,17 @@ async function getEventsPageData(startDateParam?: string, endDateParam?: string)
       appliedStartDate = undefined;
       appliedEndDate = undefined;
     }
-  } else if (startDateParam || endDateParam) { // Only one is provided or one is invalid
+  } else if (startDateParam || endDateParam) { 
       appliedStartDate = undefined;
       appliedEndDate = undefined;
   }
-  // If no valid date filter, allMeetingInstancesList is used as is (all meetings)
-
 
   const meetingsBySeries: MeetingInstancesBySeries = {};
   allSeries.forEach(series => {
     meetingsBySeries[series.id] = filteredMeetingInstances
       .filter(instance => instance.seriesId === series.id)
-      .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+      // Sort ascending: oldest first on the left, newest on the right
+      .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
   });
 
   return {
@@ -227,60 +226,93 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     meetingsBySeries[series.id]?.length > 0 || series.frequency === "Weekly" || series.frequency === "Monthly" || series.frequency === "OneTime"
   ).sort((a,b) => a.name.localeCompare(b.name));
 
+  const selectedSeriesId = searchParams?.series && seriesPresentInFilter.some(s => s.id === searchParams.series)
+    ? searchParams.series
+    : seriesPresentInFilter.length > 0
+      ? seriesPresentInFilter[0].id
+      : undefined;
 
-  const defaultTabValue =
-    searchParams?.series && seriesPresentInFilter.some(s => s.id === searchParams.series)
-      ? searchParams.series
-      : seriesPresentInFilter.length > 0
-        ? seriesPresentInFilter[0].id
-        : '';
+  const selectedSeriesObject = selectedSeriesId ? seriesPresentInFilter.find(s => s.id === selectedSeriesId) : undefined;
 
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div className="flex-grow">
           <h1 className="font-headline text-4xl font-bold text-primary">Administración de Reuniones</h1>
-          <p className="text-muted-foreground mt-1">Defina series de reuniones, programe instancias y vea el historial de asistencia.</p>
+          <p className="text-muted-foreground mt-1">Defina series, programe instancias y vea el historial de asistencia.</p>
         </div>
         <PageSpecificAddMeetingDialog
           defineMeetingSeriesAction={defineMeetingSeriesAction}
         />
       </div>
 
-      {seriesPresentInFilter.length > 0 ? (
-        <Tabs defaultValue={defaultTabValue} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 mb-6 pb-2 overflow-x-auto h-auto">
-            {seriesPresentInFilter.map((series) => (
-              <TabsTrigger
-                key={series.id}
-                value={series.id}
-                className="whitespace-normal text-xs sm:text-sm h-auto py-2 px-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-              >
-                {series.name} ({meetingsBySeries[series.id]?.length || 0})
-              </TabsTrigger>
-            ))}
-          </TabsList>
+      <div className="flex flex-col md:flex-row gap-6 lg:gap-8">
+        {/* Left Panel */}
+        <aside className="md:w-72 lg:w-80 flex-shrink-0 space-y-6">
+          <div className="p-4 border rounded-lg shadow-sm bg-card">
+            <h2 className="text-lg font-semibold mb-3 flex items-center">
+              <LayoutGrid className="mr-2 h-5 w-5 text-primary" />
+              Series de Reuniones
+            </h2>
+            {seriesPresentInFilter.length > 0 ? (
+              <ScrollArea className="h-[calc(50vh-120px)] sm:h-auto sm:max-h-[300px] md:max-h-[calc(100vh-450px)] pr-3">
+                <div className="space-y-1">
+                  {seriesPresentInFilter.map((series) => (
+                    <Button
+                      key={series.id}
+                      variant={selectedSeriesId === series.id ? "default" : "ghost"}
+                      className={cn(
+                        "w-full justify-start text-left h-auto py-2 px-3 text-sm",
+                        selectedSeriesId === series.id && "bg-primary text-primary-foreground hover:bg-primary/90"
+                      )}
+                      asChild
+                    >
+                      <Link href={`/events?series=${series.id}${appliedStartDate ? `&startDate=${appliedStartDate}` : ''}${appliedEndDate ? `&endDate=${appliedEndDate}` : ''}`}>
+                        {series.name} ({meetingsBySeries[series.id]?.length || 0})
+                      </Link>
+                    </Button>
+                  ))}
+                </div>
+              </ScrollArea>
+            ) : (
+              <p className="text-sm text-muted-foreground py-2">No hay series definidas.</p>
+            )}
+          </div>
 
-          {seriesPresentInFilter.map((series) => (
-            <TabsContent key={series.id} value={series.id}>
-              <div className="mb-4 p-4 border rounded-lg bg-card shadow">
+          <div className="p-4 border rounded-lg shadow-sm bg-card">
+            <h2 className="text-lg font-semibold mb-3 flex items-center">
+              <ListFilter className="mr-2 h-5 w-5 text-primary" />
+              Filtrar Instancias
+            </h2>
+            <DateRangeFilter
+              initialStartDate={appliedStartDate}
+              initialEndDate={appliedEndDate}
+            />
+          </div>
+        </aside>
+
+        {/* Right Panel (Main Content) */}
+        <main className="flex-1 min-w-0">
+          {selectedSeriesObject ? (
+            <>
+              <div className="mb-6 p-4 border rounded-lg bg-card shadow-md">
                 <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                     <div className="flex-grow">
-                        <h2 className="text-xl font-semibold text-primary">{series.name}</h2>
-                        {series.description && <p className="text-sm text-muted-foreground mt-1 max-w-prose">{series.description}</p>}
+                        <h2 className="text-2xl font-semibold text-primary">{selectedSeriesObject.name}</h2>
+                        {selectedSeriesObject.description && <p className="text-sm text-muted-foreground mt-1 max-w-prose">{selectedSeriesObject.description}</p>}
                         <div className="text-xs text-muted-foreground mt-2">
-                        <span>Hora Pred.: {series.defaultTime} | </span>
-                        <span>Lugar Pred.: {series.defaultLocation} | </span>
-                        <span>Frecuencia: {series.frequency === "OneTime" ? "Única Vez" : series.frequency === "Weekly" ? "Semanal" : "Mensual"}</span>
+                        <span>Hora Pred.: {selectedSeriesObject.defaultTime} | </span>
+                        <span>Lugar Pred.: {selectedSeriesObject.defaultLocation} | </span>
+                        <span>Frecuencia: {selectedSeriesObject.frequency === "OneTime" ? "Única Vez" : selectedSeriesObject.frequency === "Weekly" ? "Semanal" : "Mensual"}</span>
                         </div>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                    <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0 mt-2 sm:mt-0">
                          <AddOccasionalMeetingDialog
-                            series={series}
+                            series={selectedSeriesObject}
                             addOccasionalMeetingAction={addOccasionalMeetingAction}
                          />
                         <ManageMeetingSeriesDialog
-                            series={series}
+                            series={selectedSeriesObject}
                             updateMeetingSeriesAction={updateMeetingSeriesAction}
                             deleteMeetingSeriesAction={deleteMeetingSeriesAction}
                          />
@@ -288,14 +320,14 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                 </div>
               </div>
 
-              {meetingsBySeries[series.id] && meetingsBySeries[series.id].length > 0 ? (
+              {meetingsBySeries[selectedSeriesObject.id] && meetingsBySeries[selectedSeriesObject.id].length > 0 ? (
                 <MeetingTypeAttendanceTable
-                  meetingsForSeries={meetingsBySeries[series.id]}
+                  meetingsForSeries={meetingsBySeries[selectedSeriesObject.id]}
                   allMembers={allMembers}
                   allGdis={allGdis}
                   allMinistryAreas={allMinistryAreas}
                   allAttendanceRecords={allAttendanceRecords}
-                  seriesName={series.name}
+                  seriesName={selectedSeriesObject.name}
                   filterStartDate={appliedStartDate}
                   filterEndDate={appliedEndDate}
                 />
@@ -304,8 +336,8 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                   <CalendarDays className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                   <h2 className="text-xl font-semibold text-muted-foreground">
                     {appliedStartDate && appliedEndDate
-                      ? `No hay instancias para "${series.name}" en el rango seleccionado`
-                      : `No hay instancias programadas para "${series.name}"`}
+                      ? `No hay instancias para "${selectedSeriesObject.name}" en el rango seleccionado`
+                      : `No hay instancias programadas para "${selectedSeriesObject.name}"`}
                   </h2>
                    <p className="text-muted-foreground mt-2">
                     {appliedStartDate && appliedEndDate
@@ -314,34 +346,23 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                   </p>
                 </div>
               )}
-            </TabsContent>
-          ))}
-        </Tabs>
-      ) : (
-         <div className="text-center py-10">
-          <CalendarDays className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold text-muted-foreground">
-            {appliedStartDate && appliedEndDate
-              ? `No hay reuniones para el rango de fechas seleccionado`
-              : "No Hay Series de Reuniones Definidas"}
-          </h2>
-           <p className="text-muted-foreground mt-2">
-            {appliedStartDate && appliedEndDate
-              ? `(${format(parseISO(appliedStartDate), 'dd/MM/yy', { locale: es })} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', { locale: es })})`
-              : "Defina una nueva serie de reuniones o ajuste los filtros de fecha para comenzar."}
-          </p>
-        </div>
-      )}
-
-      <div className="mt-8 mb-8 p-4 border rounded-lg shadow-sm bg-card">
-        <h2 className="text-lg font-semibold mb-3 flex items-center">
-          <Filter className="mr-2 h-5 w-5 text-primary" />
-          Filtrar Instancias de Reunión por Fecha
-        </h2>
-        <DateRangeFilter
-          initialStartDate={appliedStartDate}
-          initialEndDate={appliedEndDate}
-        />
+            </>
+          ) : (
+             <div className="text-center py-10 flex flex-col items-center justify-center h-full">
+              <CalendarDays className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
+              <h2 className="text-2xl font-semibold text-muted-foreground">
+                {seriesPresentInFilter.length > 0 ? "Seleccione una Serie" : 
+                  (appliedStartDate && appliedEndDate ? "No hay reuniones para el rango seleccionado" : "No hay Series de Reuniones Definidas")
+                }
+              </h2>
+               <p className="text-muted-foreground mt-3 max-w-md">
+                {seriesPresentInFilter.length > 0 ? "Elija una serie de la lista de la izquierda para ver sus instancias y gestionar la asistencia." :
+                  (appliedStartDate && appliedEndDate ? `(${format(parseISO(appliedStartDate), 'dd/MM/yy', { locale: es })} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', { locale: es })})` : "Defina una nueva serie de reuniones o ajuste los filtros de fecha para comenzar.")
+                }
+              </p>
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );

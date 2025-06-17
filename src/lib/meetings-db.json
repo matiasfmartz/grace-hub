@@ -164,5 +164,95 @@
       "8"
     ],
     "minute": null
+  },
+  {
+    "id": "instance-1750133022968-zimlba1-10",
+    "seriesId": "series-1750132608775-k2yqg",
+    "name": "Especial (Ocasional)",
+    "date": "2025-06-30",
+    "time": "10:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "7",
+      "2",
+      "1749877175613-ls6oqv6",
+      "1749880160940-30020fm",
+      "8"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750133084562-shvhjel-11",
+    "seriesId": "series-1750132687953-5a1t7",
+    "name": "Entrenamiento Lideres (19 jun)",
+    "date": "2025-06-19",
+    "time": "10:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "7",
+      "2",
+      "1749877175613-ls6oqv6",
+      "1749880160940-30020fm",
+      "8"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750133084564-hafr7n2-12",
+    "seriesId": "series-1750132687953-5a1t7",
+    "name": "Entrenamiento Lideres (26 jun)",
+    "date": "2025-06-26",
+    "time": "10:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "7",
+      "2",
+      "1749877175613-ls6oqv6",
+      "1749880160940-30020fm",
+      "8"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750133084565-iv7auoz-13",
+    "seriesId": "series-1750132687953-5a1t7",
+    "name": "Entrenamiento Lideres (3 jul)",
+    "date": "2025-07-03",
+    "time": "10:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "7",
+      "2",
+      "1749877175613-ls6oqv6",
+      "1749880160940-30020fm",
+      "8"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750133084567-axke84u-14",
+    "seriesId": "series-1750132687953-5a1t7",
+    "name": "Entrenamiento Lideres (10 jul)",
+    "date": "2025-07-10",
+    "time": "10:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "7",
+      "2",
+      "1749877175613-ls6oqv6",
+      "1749880160940-30020fm",
+      "8"
+    ],
+    "minute": null
   }
 ]

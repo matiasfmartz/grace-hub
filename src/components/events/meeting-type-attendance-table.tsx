@@ -4,34 +4,51 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getResolvedAttendees } from '@/services/attendanceService';
 import Link from 'next/link';
 import { CheckCircle2, XCircle, HelpCircle, MinusCircle, CalendarRange } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 interface MeetingTypeAttendanceTableProps {
-  meetingsForSeries: Meeting[]; // Changed from meetingsForType
+  meetingsForSeries: Meeting[];
   allMembers: Member[];
-  allGdis: GDI[]; // Kept for now, might be removed if getResolvedAttendees simplifies
-  allMinistryAreas: MinistryArea[]; // Kept for now
+  allGdis: GDI[];
+  allMinistryAreas: MinistryArea[];
   allAttendanceRecords: AttendanceRecord[];
-  seriesName: string; // Changed from meetingTypeLabel
+  seriesName: string;
   filterStartDate?: string;
   filterEndDate?: string;
 }
 
-const formatDateDisplay = (dateString: string) => {
+const formatMeetingHeader = (dateString: string, timeString: string, isDuplicateDate: boolean): string => {
   try {
-    return format(parseISO(dateString), "d MMM yy", { locale: es });
+    const parsedDate = parseISO(dateString);
+    if (!isValid(parsedDate)) return isDuplicateDate ? `${dateString} ${timeString}` : dateString;
+
+    const datePart = format(parsedDate, "d MMM yy", { locale: es });
+    if (isDuplicateDate) {
+      // Ensure timeString is valid HH:MM before trying to format, or use as is.
+      const timeParts = timeString.split(':');
+      if (timeParts.length === 2 && parseInt(timeParts[0]) >= 0 && parseInt(timeParts[0]) <= 23 && parseInt(timeParts[1]) >= 0 && parseInt(timeParts[1]) <= 59) {
+        return `${datePart} ${timeString}`; // Example: 15 Jun 24 10:00
+      }
+      return `${datePart} (Hora: ${timeString})`; // Fallback if time format is unexpected
+    }
+    return datePart;
   } catch (error) {
-    return dateString; 
+    // Fallback for any parsing/formatting error
+    return isDuplicateDate ? `${dateString} ${timeString}` : dateString;
   }
 };
+
 
 const formatDateRangeText = (startDate?: string, endDate?: string): string => {
   if (startDate && endDate) {
     try {
-      const formattedStart = format(parseISO(startDate), "dd/MM/yyyy", { locale: es });
-      const formattedEnd = format(parseISO(endDate), "dd/MM/yyyy", { locale: es });
+      const parsedStart = parseISO(startDate);
+      const parsedEnd = parseISO(endDate);
+       if (!isValid(parsedStart) || !isValid(parsedEnd)) return "Rango de fechas inválido";
+      const formattedStart = format(parsedStart, "dd/MM/yyyy", { locale: es });
+      const formattedEnd = format(parsedEnd, "dd/MM/yyyy", { locale: es });
       return `Mostrando instancias entre ${formattedStart} y ${formattedEnd}`;
     } catch (e) {
         return "Rango de fechas inválido";
@@ -43,8 +60,8 @@ const formatDateRangeText = (startDate?: string, endDate?: string): string => {
 export default async function MeetingTypeAttendanceTable({
   meetingsForSeries,
   allMembers,
-  allGdis, // To be passed to getResolvedAttendees if needed
-  allMinistryAreas, // To be passed to getResolvedAttendees if needed
+  allGdis,
+  allMinistryAreas,
   allAttendanceRecords,
   seriesName,
   filterStartDate,
@@ -52,7 +69,7 @@ export default async function MeetingTypeAttendanceTable({
 }: MeetingTypeAttendanceTableProps) {
 
   if (!meetingsForSeries || meetingsForSeries.length === 0) {
-     const dateRangeInfo = filterStartDate && filterEndDate ? 
+     const dateRangeInfo = filterStartDate && endDate ? 
       ` para el rango de ${format(parseISO(filterStartDate), 'dd/MM/yy', {locale: es})} a ${format(parseISO(filterEndDate), 'dd/MM/yy', {locale: es})}` :
       "";
     return <p className="text-muted-foreground py-4 text-center">No hay instancias de reunión para la serie "{seriesName}"{dateRangeInfo}.</p>;
@@ -60,11 +77,9 @@ export default async function MeetingTypeAttendanceTable({
 
   // Determine unique members expected across all meetings in this series
   const rowMemberIds = new Set<string>();
-  // Store expected UIDs per meeting instance to avoid re-resolving if getResolvedAttendees is slow
   const expectedAttendeesByMeetingId: Record<string, Set<string>> = {}; 
 
   for (const meeting of meetingsForSeries) {
-    // getResolvedAttendees now directly uses meeting.attendeeUids, which should be populated.
     const expectedForThisInstance = await getResolvedAttendees(meeting, allMembers);
     expectedAttendeesByMeetingId[meeting.id] = new Set(expectedForThisInstance.map(m => m.id));
     expectedForThisInstance.forEach(member => rowMemberIds.add(member.id));
@@ -74,7 +89,14 @@ export default async function MeetingTypeAttendanceTable({
     .filter(member => rowMemberIds.has(member.id))
     .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
 
-  const columnMeetings = meetingsForSeries; // Already sorted by parent
+  // columnMeetings are already sorted ascendingly by date by the parent (EventsPage)
+  const columnMeetings = meetingsForSeries; 
+
+  // Check for duplicate dates to decide if time should be shown in header
+  const dateCounts = new Map<string, number>();
+  columnMeetings.forEach(meeting => {
+      dateCounts.set(meeting.date, (dateCounts.get(meeting.date) || 0) + 1);
+  });
 
   const captionDateRangeText = formatDateRangeText(filterStartDate, filterEndDate);
 
@@ -85,13 +107,16 @@ export default async function MeetingTypeAttendanceTable({
           <TableHeader>
             <TableRow>
               <TableHead className="sticky left-0 bg-card z-10 w-[200px] min-w-[200px] border-r p-2">Miembro</TableHead>
-              {columnMeetings.map(meeting => (
-                <TableHead key={meeting.id} className="text-center min-w-[80px] p-2">
-                  <Link href={`/events/${meeting.id}/attendance`} className="hover:underline text-primary font-medium block" title={meeting.name}>
-                    {formatDateDisplay(meeting.date)}
-                  </Link>
-                </TableHead>
-              ))}
+              {columnMeetings.map(meeting => {
+                const isDuplicateDate = (dateCounts.get(meeting.date) || 0) > 1;
+                return (
+                  <TableHead key={meeting.id} className="text-center min-w-[100px] p-2 whitespace-normal">
+                    <Link href={`/events/${meeting.id}/attendance`} className="hover:underline text-primary font-medium block" title={meeting.name}>
+                      {formatMeetingHeader(meeting.date, meeting.time, isDuplicateDate)}
+                    </Link>
+                  </TableHead>
+                );
+              })}
             </TableRow>
           </TableHeader>
           <TableBody>

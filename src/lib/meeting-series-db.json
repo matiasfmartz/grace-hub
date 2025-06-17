@@ -39,9 +39,9 @@
     "targetAttendeeGroups": [
       "leaders"
     ],
-    "frequency": "Monthly",
-    "monthlyRuleType": "DayOfWeekOfMonth",
-    "monthlyWeekOrdinal": "Third",
-    "monthlyDayOfWeek": "Friday"
+    "frequency": "Weekly",
+    "weeklyDays": [
+      "Thursday"
+    ]
   }
 ]
