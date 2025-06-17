@@ -6,9 +6,10 @@ import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogDescription, D
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, ShieldCheck, BarChart3, ListChecks } from 'lucide-react';
+import { Pencil, ShieldCheck, BarChart3, ListChecks, LineChart } from 'lucide-react'; // Added LineChart icon
 import AddMemberForm from './add-member-form';
-import MemberAttendanceSummary from './member-attendance-chart'; // Corrected import path, points to the file with summary logic
+import MemberAttendanceSummary from './member-attendance-chart';
+import MemberAttendanceLineChart from './member-attendance-line-chart'; // New import
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useTransition } from 'react';
 import { useToast } from "@/hooks/use-toast";
@@ -238,7 +239,14 @@ export default function MemberDetailsDialog({
                   </div>
                 </div>
             </TabsContent>
-            <TabsContent value="attendance" className="flex-grow overflow-y-auto p-6 min-h-0">
+            <TabsContent value="attendance" className="flex-grow overflow-y-auto p-6 space-y-6 min-h-0">
+                <MemberAttendanceLineChart
+                    memberId={member.id}
+                    memberName={`${member.firstName} ${member.lastName}`}
+                    allMeetings={allMeetings}
+                    allMeetingSeries={allMeetingSeries}
+                    allAttendanceRecords={allAttendanceRecords}
+                />
                 <MemberAttendanceSummary
                     memberId={member.id}
                     memberName={`${member.firstName} ${member.lastName}`}
