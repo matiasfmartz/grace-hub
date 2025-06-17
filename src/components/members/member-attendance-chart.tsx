@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Filter, CalendarRange, Users, CheckCircle2, XCircle, ListChecks, UserX, HelpCircle, Clock, PieChart } from 'lucide-react';
-import { format, parseISO, isValid, isWithinInterval, startOfDay, endOfDay, isPast, isFuture, isToday } from 'date-fns';
+import { format, parseISO, isValid, isWithinInterval, startOfDay, endOfDay, isPast, isToday } from 'date-fns'; // Removed isFuture as isPast/isToday covers it
 import { es } from 'date-fns/locale';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -29,7 +29,7 @@ type AttendanceStatus = 'attended' | 'absent' | 'pending_past' | 'pending_future
 interface FilteredMeetingInfo {
   meetingId: string;
   meetingName: string;
-  meetingDate: string; 
+  meetingDate: string;
   seriesName: string;
   status: AttendanceStatus;
 }
@@ -46,9 +46,14 @@ export default function MemberAttendanceSummary({
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
   const processedMeetingData = useMemo(() => {
-    const memberExpectedMeetings = allMeetings.filter(meeting =>
-      meeting.attendeeUids && meeting.attendeeUids.includes(memberId)
-    );
+    const memberExpectedMeetings = allMeetings.filter(meeting => {
+      const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
+      if (series && series.targetAttendeeGroups.includes('allMembers')) {
+        return true; // If series targets "allMembers", this meeting is relevant for everyone
+      }
+      // Otherwise, rely on the specific UIDs stored in the meeting instance (which might be empty for non-"allMembers" series too)
+      return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
+    });
 
     let meetingsFilteredBySeries = selectedSeriesId === 'all'
       ? memberExpectedMeetings
@@ -58,7 +63,7 @@ export default function MemberAttendanceSummary({
     if (startDate && endDate && startDate <= endDate) {
       meetingsFilteredByDate = meetingsFilteredBySeries.filter(meeting => {
         const meetingDateObj = parseISO(meeting.date);
-        return isValid(meetingDateObj) && 
+        return isValid(meetingDateObj) &&
                isWithinInterval(meetingDateObj, { start: startOfDay(startDate), end: endOfDay(endDate) });
       });
     } else if (startDate) {
@@ -72,12 +77,12 @@ export default function MemberAttendanceSummary({
             return isValid(meetingDateObj) && meetingDateObj <= endOfDay(endDate);
         });
     }
-    
-    const sortedMeetings = meetingsFilteredByDate.sort((a, b) => 
+
+    const sortedMeetings = meetingsFilteredByDate.sort((a, b) =>
       parseISO(b.date).getTime() - parseISO(a.date).getTime()
     );
 
-    const today = startOfDay(new Date());
+    const todayDate = startOfDay(new Date());
 
     const detailedInfo: FilteredMeetingInfo[] = sortedMeetings.map(meeting => {
       const attendanceRecord = allAttendanceRecords.find(
@@ -87,14 +92,20 @@ export default function MemberAttendanceSummary({
       const meetingDateObj = parseISO(meeting.date);
       let currentStatus: AttendanceStatus;
 
-      if (isFuture(meetingDateObj) && !isToday(meetingDateObj)) {
-        currentStatus = 'pending_future';
-      } else if (attendanceRecord) {
-        currentStatus = attendanceRecord.attended ? 'attended' : 'absent';
-      } else { // Meeting is past or today, and no record
-        currentStatus = 'pending_past';
+      if (isPast(meetingDateObj) && !isToday(meetingDateObj)) {
+        if (attendanceRecord) {
+          currentStatus = attendanceRecord.attended ? 'attended' : 'absent';
+        } else {
+          currentStatus = 'pending_past';
+        }
+      } else { // Meeting is today or in the future
+        if (attendanceRecord) { // Allow pre-marking attendance for future/today meetings
+            currentStatus = attendanceRecord.attended ? 'attended' : 'absent';
+        } else {
+            currentStatus = 'pending_future'; // Includes today if no record
+        }
       }
-      
+
       return {
         meetingId: meeting.id,
         meetingName: meeting.name,
@@ -107,7 +118,7 @@ export default function MemberAttendanceSummary({
     const totalConvocations = detailedInfo.length;
     const totalAttendances = detailedInfo.filter(info => info.status === 'attended').length;
     const totalReportedAbsences = detailedInfo.filter(info => info.status === 'absent').length;
-    
+
     const reportedMeetingsCount = totalAttendances + totalReportedAbsences;
     const reportedAbsenceRate = reportedMeetingsCount > 0 ? (totalReportedAbsences / reportedMeetingsCount) * 100 : 0;
 
@@ -127,7 +138,7 @@ export default function MemberAttendanceSummary({
     setStartDate(undefined);
     setEndDate(undefined);
   };
-  
+
   const formatDateDisplay = (dateString: string) => {
     try {
       const dateObj = parseISO(dateString);
@@ -152,7 +163,7 @@ export default function MemberAttendanceSummary({
         return null;
     }
   };
-  
+
   const getAttendanceStatusTooltip = (status: AttendanceStatus) => {
      switch (status) {
       case 'attended':
@@ -162,7 +173,7 @@ export default function MemberAttendanceSummary({
       case 'pending_past':
         return "Pendiente (Pasada - No informado)";
       case 'pending_future':
-        return "Pendiente (Futura)";
+        return "Pendiente (Futura/Hoy)";
       default:
         return "";
     }
@@ -179,7 +190,7 @@ export default function MemberAttendanceSummary({
         <CardDescription className="text-xs text-muted-foreground pt-1">
           Filtre y vea el historial de participación del miembro.
         </CardDescription>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
           <div>
             <Label htmlFor="seriesFilterSummaryChart" className="text-xs font-medium">Filtrar por Serie:</Label>
@@ -283,4 +294,3 @@ export default function MemberAttendanceSummary({
     </Card>
   );
 }
-

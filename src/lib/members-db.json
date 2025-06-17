@@ -263,5 +263,41 @@
     "assignedAreaIds": [],
     "roles": [],
     "id": "1750198945066-fc3lndo"
+  },
+  {
+    "firstName": "Ciro",
+    "lastName": "Martinez",
+    "email": "crio@ciro.com",
+    "phone": "1232131",
+    "birthDate": "2025-06-04",
+    "churchJoinDate": "2025-06-09",
+    "baptismDate": "",
+    "attendsLifeSchool": true,
+    "attendsBibleInstitute": false,
+    "fromAnotherChurch": true,
+    "status": "New",
+    "avatarUrl": "https://placehold.co/100x100",
+    "assignedGDIId": null,
+    "assignedAreaIds": [],
+    "id": "1750199260231-8n65jh5",
+    "roles": []
+  },
+  {
+    "firstName": "Alan",
+    "lastName": "Velazco`",
+    "email": "alan@alan.com",
+    "phone": "1231231",
+    "birthDate": "2025-06-04",
+    "churchJoinDate": "2025-06-11",
+    "baptismDate": "",
+    "attendsLifeSchool": false,
+    "attendsBibleInstitute": false,
+    "fromAnotherChurch": false,
+    "status": "New",
+    "avatarUrl": "https://placehold.co/100x100",
+    "assignedGDIId": null,
+    "assignedAreaIds": [],
+    "id": "1750199260236-c2fxpbe",
+    "roles": []
   }
 ]
