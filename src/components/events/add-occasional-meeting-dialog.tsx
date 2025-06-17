@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useTransition, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,18 +38,20 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  const defaultFormValues: AddOccasionalMeetingFormValues = {
-    name: `${series.name} (Ocasional)`,
-    date: new Date(),
-    time: series.defaultTime,
-    location: series.defaultLocation,
-    description: series.description || "",
-    imageUrl: series.defaultImageUrl || "",
-  };
+  const calculatedDefaultFormValues = useMemo(() => {
+    return {
+      name: `${series.name} (Ocasional)`,
+      date: new Date(), // Fresh date each time defaults are calculated
+      time: series.defaultTime,
+      location: series.defaultLocation,
+      description: series.description || "",
+      imageUrl: series.defaultImageUrl || "",
+    };
+  }, [series]);
 
   const form = useForm<AddOccasionalMeetingFormValues>({
     resolver: zodResolver(AddOccasionalMeetingFormSchema),
-    defaultValues: defaultFormValues,
+    defaultValues: calculatedDefaultFormValues,
   });
 
   const onSubmit = (values: AddOccasionalMeetingFormValues) => {
@@ -57,8 +59,7 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
       const result = await addOccasionalMeetingAction(series.id, values);
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
-        setOpen(false);
-        form.reset(defaultFormValues); // Reset form for next use
+        setOpen(false); // This will trigger handleOpenChange(false)
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
       }
@@ -67,10 +68,14 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
 
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
-    if (!isOpen) {
-      form.reset(defaultFormValues); // Reset form when dialog closes
+    if (isOpen) {
+      // When opening, reset the form to the latest defaults based on the current series
+      form.reset(calculatedDefaultFormValues);
+    } else {
+      // When closing, also reset to clean up form state for next open
+      form.reset(calculatedDefaultFormValues);
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
