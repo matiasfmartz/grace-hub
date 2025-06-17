@@ -156,7 +156,7 @@ async function resolveAttendeeUids(targetGroups: MeetingTargetRoleType[]): Promi
     for (const role of targetGroups) {
         if (role === 'generalAttendees') {
             allMembers.forEach(member => {
-                if (member.assignedGDIId && member.status === 'Active') {
+                if (member.status === 'Active') { // Changed: All active members
                     attendeeSet.add(member.id);
                 }
             });
@@ -503,3 +503,4 @@ export async function deleteMeetingInstance(instanceId: string): Promise<void> {
   const attendanceRecordsLeft = allAttendanceRecords.filter(ar => ar.meetingId !== instanceId);
   await writeDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, attendanceRecordsLeft);
 }
+
