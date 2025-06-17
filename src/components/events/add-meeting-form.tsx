@@ -27,12 +27,12 @@ import {
 import { DatePicker } from "@/components/ui/date-picker";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import React, { useTransition, useEffect, useMemo } from "react"; // Added React for useMemo
+import React, { useTransition, useEffect, useMemo } from "react";
 import { DialogClose } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { isValid as isValidDate } from 'date-fns';
+import { isValid as isValidDate, format } from 'date-fns';
 
 interface DefineMeetingSeriesFormProps {
   defineMeetingSeriesAction: (data: DefineMeetingSeriesFormValues) => Promise<{ success: boolean; message: string; newSeries?: any, newInstance?: any, updatedSeries?: MeetingSeries }>;
@@ -58,19 +58,27 @@ const baseDefaultFormValues: DefineMeetingSeriesFormValues = {
   monthlyDayOfWeek: undefined,
 };
 
-// Helper function to resolve default values for the form
 const getResolvedDefaultValues = (
   currentInitialValues?: DefineMeetingSeriesFormValues,
 ): DefineMeetingSeriesFormValues => {
+  
   let oneTimeDateToSet: Date | undefined = undefined;
   if (currentInitialValues?.oneTimeDate) {
-    const dateCandidate = currentInitialValues.oneTimeDate;
-    if (dateCandidate instanceof Date && isValidDate(dateCandidate)) {
-      oneTimeDateToSet = dateCandidate;
+    // Ensure it's a Date object and valid before assigning
+    if (currentInitialValues.oneTimeDate instanceof Date && isValidDate(currentInitialValues.oneTimeDate)) {
+      oneTimeDateToSet = currentInitialValues.oneTimeDate;
+    }
+    // If it's a string (from older data or direct JSON), try to parse it
+    else if (typeof currentInitialValues.oneTimeDate === 'string') {
+      const parsedDate = new Date(currentInitialValues.oneTimeDate); // More lenient parsing
+      if (isValidDate(parsedDate)) {
+        oneTimeDateToSet = parsedDate;
+      }
     }
   }
-
-  const defaultVals: DefineMeetingSeriesFormValues = {
+  
+  const resolved: DefineMeetingSeriesFormValues = {
+    ...baseDefaultFormValues, // Start with base defaults
     name: currentInitialValues?.name ?? baseDefaultFormValues.name,
     description: currentInitialValues?.description ?? baseDefaultFormValues.description,
     defaultTime: currentInitialValues?.defaultTime ?? baseDefaultFormValues.defaultTime,
@@ -78,21 +86,22 @@ const getResolvedDefaultValues = (
     defaultImageUrl: currentInitialValues?.defaultImageUrl ?? baseDefaultFormValues.defaultImageUrl,
     targetAttendeeGroups: currentInitialValues?.targetAttendeeGroups ?? baseDefaultFormValues.targetAttendeeGroups,
     frequency: currentInitialValues?.frequency ?? baseDefaultFormValues.frequency,
-    oneTimeDate: oneTimeDateToSet, // Correctly typed Date | undefined
+    oneTimeDate: oneTimeDateToSet,
     weeklyDays: currentInitialValues?.weeklyDays ?? baseDefaultFormValues.weeklyDays,
-    monthlyRuleType: currentInitialValues?.monthlyRuleType, // Can be undefined, not direct text input
-    monthlyDayOfMonth: currentInitialValues?.monthlyDayOfMonth, // Can be undefined
-    monthlyWeekOrdinal: currentInitialValues?.monthlyWeekOrdinal, // Can be undefined
-    monthlyDayOfWeek: currentInitialValues?.monthlyDayOfWeek, // Can be undefined
+    monthlyRuleType: currentInitialValues?.monthlyRuleType ?? baseDefaultFormValues.monthlyRuleType,
+    monthlyDayOfMonth: currentInitialValues?.monthlyDayOfMonth ?? baseDefaultFormValues.monthlyDayOfMonth,
+    monthlyWeekOrdinal: currentInitialValues?.monthlyWeekOrdinal ?? baseDefaultFormValues.monthlyWeekOrdinal,
+    monthlyDayOfWeek: currentInitialValues?.monthlyDayOfWeek ?? baseDefaultFormValues.monthlyDayOfWeek,
   };
 
-  // Ensure string fields that go to <Input> or <Textarea> are not null/undefined after merge
-  defaultVals.name = defaultVals.name ?? "";
-  defaultVals.description = defaultVals.description ?? "";
-  defaultVals.defaultImageUrl = defaultVals.defaultImageUrl ?? "";
-  // defaultTime and defaultLocation are already guaranteed to be strings by baseDefaultFormValues
-
-  return defaultVals;
+  // Ensure all string fields are indeed strings to prevent uncontrolled -> controlled warning
+  resolved.name = resolved.name || "";
+  resolved.description = resolved.description || "";
+  resolved.defaultImageUrl = resolved.defaultImageUrl || "";
+  resolved.defaultTime = resolved.defaultTime || "00:00";
+  resolved.defaultLocation = resolved.defaultLocation || "";
+  
+  return resolved;
 };
 
 
@@ -114,8 +123,6 @@ export default function DefineMeetingSeriesForm({
   });
 
   useEffect(() => {
-    // Reset the form if initialValues change after the initial mount
-    // This is important if the form component instance is reused with different initialValues
     form.reset(getResolvedDefaultValues(initialValues));
   }, [initialValues, form.reset]);
 
@@ -147,7 +154,13 @@ export default function DefineMeetingSeriesForm({
 
   async function onSubmit(values: DefineMeetingSeriesFormValues) {
     startTransition(async () => {
-      const dataToSend = { ...values };
+      // Prepare data for server action, ensuring date is correctly formatted if present
+      const dataToSend = { 
+        ...values,
+        oneTimeDate: values.oneTimeDate instanceof Date && isValidDate(values.oneTimeDate) 
+                     ? values.oneTimeDate // Pass as Date object, server action will format
+                     : undefined,
+      };
       
       if (dataToSend.frequency !== 'OneTime') delete dataToSend.oneTimeDate;
       if (dataToSend.frequency !== 'Weekly') delete dataToSend.weeklyDays;
@@ -171,7 +184,7 @@ export default function DefineMeetingSeriesForm({
           onSuccess();
         }
         if (!isEditing) { 
-            form.reset(getResolvedDefaultValues(undefined)); // Reset to base defaults
+            form.reset(getResolvedDefaultValues(undefined));
         }
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
@@ -183,7 +196,8 @@ export default function DefineMeetingSeriesForm({
     if (isEditing && onCancelEdit) {
       onCancelEdit(); 
     }
-    form.reset(getResolvedDefaultValues(initialValues));
+    // Reset to initial (if editing) or base defaults (if adding)
+    form.reset(getResolvedDefaultValues(isEditing ? initialValues : undefined));
   };
 
 
@@ -210,7 +224,7 @@ export default function DefineMeetingSeriesForm({
             <FormItem>
               <FormLabel>Descripción (Opcional)</FormLabel>
               <FormControl>
-                <Textarea placeholder="Breve descripción de esta serie de reuniones." {...field} disabled={isPending} />
+                <Textarea placeholder="Breve descripción de esta serie de reuniones." {...field} value={field.value ?? ''} disabled={isPending} />
               </FormControl>
               <FormMessage />
             </FormItem>

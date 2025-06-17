@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { format, isValid } from "date-fns" // Import isValid
+import { format, isValid } from "date-fns"
 import { Calendar as CalendarIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -22,7 +22,6 @@ interface DatePickerProps {
 }
 
 export function DatePicker({ date, setDate, placeholder = "Pick a date", disabled }: DatePickerProps) {
-  // Check if the date is a valid Date object
   const isDateValid = date instanceof Date && isValid(date);
 
   return (
@@ -33,7 +32,7 @@ export function DatePicker({ date, setDate, placeholder = "Pick a date", disable
           disabled={disabled}
           className={cn(
             "w-full justify-start text-left font-normal",
-            !isDateValid && "text-muted-foreground" // Use isDateValid here
+            !isDateValid && "text-muted-foreground"
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
@@ -43,7 +42,7 @@ export function DatePicker({ date, setDate, placeholder = "Pick a date", disable
       <PopoverContent className="w-auto p-0">
         <Calendar
           mode="single"
-          selected={date} // It's okay to pass potentially invalid date here, Calendar handles it
+          selected={isDateValid ? date : undefined} // Pass undefined if date is not valid
           onSelect={setDate}
           disabled={disabled}
           initialFocus
