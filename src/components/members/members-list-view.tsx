@@ -2,13 +2,13 @@
 "use client";
 
 import { useState, useMemo, useCallback, useTransition, useEffect } from 'react';
-import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberWriteData } from '@/lib/types';
+import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberWriteData, MemberRoleType } from '@/lib/types';
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
 import MemberDetailsDialog from './member-details-dialog';
 import AddMemberForm from './add-member-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -30,8 +30,14 @@ interface MembersListViewProps {
   currentSearchTerm?: string;
 }
 
-type SortKey = Exclude<keyof Member, 'email' | 'assignedGDIId' | 'assignedAreaIds' | 'avatarUrl' | 'attendsLifeSchool' | 'attendsBibleInstitute' | 'fromAnotherChurch' | 'baptismDate'> | 'fullName';
+type SortKey = Exclude<keyof Member, 'email' | 'assignedGDIId' | 'assignedAreaIds' | 'avatarUrl' | 'attendsLifeSchool' | 'attendsBibleInstitute' | 'fromAnotherChurch' | 'baptismDate' | 'roles'> | 'fullName';
 type SortOrder = 'asc' | 'desc';
+
+const roleDisplayNames: Record<MemberRoleType, string> = {
+  Leader: "Líder",
+  Worker: "Obrero",
+  GeneralAttendee: "Asistente General",
+};
 
 export default function MembersListView({ 
   initialMembers, 
@@ -46,7 +52,7 @@ export default function MembersListView({
   currentSearchTerm = ''
 }: MembersListViewProps) {
   const [members, setMembers] = useState<Member[]>(initialMembers);
-  const [searchInput, setSearchInput] = useState(currentSearchTerm); // Local input state
+  const [searchInput, setSearchInput] = useState(currentSearchTerm); 
   const [sortKey, setSortKey] = useState<SortKey>('fullName');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -82,7 +88,7 @@ export default function MembersListView({
 
   const handleSearchSubmit = () => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set('page', '1'); // Reset to page 1 on new search
+    params.set('page', '1'); 
     if (searchInput.trim()) {
       params.set('search', searchInput.trim());
     } else {
@@ -92,9 +98,6 @@ export default function MembersListView({
   };
 
   const handleSort = (key: SortKey) => {
-    // Server-side sorting would require updating URL params and re-fetching.
-    // For now, client-side sort applies to the current page's data.
-    // This would be removed if server-side sorting is fully implemented.
     if (sortKey === key) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
@@ -103,11 +106,8 @@ export default function MembersListView({
     }
   };
   
-  // Client-side sorting is applied to the current page's data.
-  // Search is now server-side.
   const processedMembers = useMemo(() => {
     let membersToProcess = [...members]; 
-    // Search is handled server-side, so no client-side search filter here.
 
     membersToProcess.sort((a, b) => {
       let valA, valB;
@@ -153,6 +153,7 @@ export default function MembersListView({
       ...data,
       birthDate: data.birthDate ? data.birthDate.toISOString().split('T')[0] : undefined,
       churchJoinDate: data.churchJoinDate ? data.churchJoinDate.toISOString().split('T')[0] : undefined,
+      roles: [], // Roles will be calculated server-side
     };
 
     startMemberTransition(async () => {
@@ -171,7 +172,7 @@ export default function MembersListView({
     setMembers(prevMembers => 
       prevMembers.map(m => m.id === updatedMember.id ? updatedMember : m)
     );
-    router.refresh(); // Refresh to ensure data consistency if changes affect pagination/filters
+    router.refresh(); 
   };
 
   const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
@@ -191,7 +192,6 @@ export default function MembersListView({
   const createPageURL = (pageNumber: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('page', pageNumber.toString());
-    // pageSize and search params are preserved from current searchParams
     return `${pathname}?${params.toString()}`;
   };
 
@@ -203,12 +203,11 @@ export default function MembersListView({
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Buscar miembros..."
+            placeholder="Buscar miembros (nombre, email, rol...)"
             className="w-full pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-primary focus:border-primary"
             value={searchInput}
             onChange={handleSearchChange}
           />
-           {/* Hidden submit button to allow form submission on enter */}
           <button type="submit" className="hidden" />
         </form>
         <div className="flex gap-2 flex-wrap">
@@ -235,6 +234,7 @@ export default function MembersListView({
               </TableHead>
               <TableHead>Teléfono</TableHead>
               <TableHead>Guía GDI</TableHead>
+              <TableHead>Roles</TableHead>
               <TableHead onClick={() => handleSort('status')} className="cursor-pointer">
                 <div className="flex items-center gap-1 hover:text-primary">
                   Estado <SortIcon columnKey="status" />
@@ -255,6 +255,19 @@ export default function MembersListView({
                 <TableCell className="font-medium">{member.firstName} {member.lastName}</TableCell>
                 <TableCell>{member.phone}</TableCell>
                 <TableCell>{getGdiGuideName(member)}</TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {member.roles && member.roles.length > 0 ? (
+                      member.roles.map(role => (
+                        <Badge key={role} variant="secondary" className="text-xs">
+                          {roleDisplayNames[role] || role}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">N/A</span>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell>
                   <Badge variant={
                     member.status === 'Active' ? 'default' :
@@ -338,7 +351,7 @@ export default function MembersListView({
               onSubmitMember={handleAddSingleMemberSubmit}
               allGDIs={allGDIs}
               allMinistryAreas={allMinistryAreas}
-              allMembers={allMembersForDropdowns} // Pass all members for dropdowns
+              allMembers={allMembersForDropdowns} 
               submitButtonText="Agregar Miembro"
               cancelButtonText="Cancelar"
               onDialogClose={() => setIsAddMemberDialogOpen(false)}
@@ -350,3 +363,4 @@ export default function MembersListView({
     </>
   );
 }
+

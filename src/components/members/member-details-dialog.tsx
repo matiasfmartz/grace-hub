@@ -1,26 +1,33 @@
 
 "use client";
 
-import type { Member, GDI, MinistryArea, AddMemberFormValues } from '@/lib/types';
+import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberRoleType } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Pencil } from 'lucide-react';
+import { Pencil, ShieldCheck } from 'lucide-react';
 import AddMemberForm from './add-member-form';
 import { useState, useTransition } from 'react';
 import { useToast } from "@/hooks/use-toast";
 
 interface MemberDetailsDialogProps {
   member: Member | null;
-  allMembers: Member[]; // Needed for GDI/Area leader names in view & form
+  allMembers: Member[]; 
   allGDIs: GDI[];
   allMinistryAreas: MinistryArea[];
   isOpen: boolean;
   onClose: () => void;
-  onMemberUpdated: (updatedMember: Member) => void; // Callback after successful update
+  onMemberUpdated: (updatedMember: Member) => void; 
   updateMemberAction: (memberData: Member) => Promise<{ success: boolean; message: string; updatedMember?: Member }>;
 }
+
+const roleDisplayNames: Record<MemberRoleType, string> = {
+  Leader: "Líder",
+  Worker: "Obrero",
+  GeneralAttendee: "Asistente General",
+};
+
 
 export default function MemberDetailsDialog({ 
   member, 
@@ -41,11 +48,9 @@ export default function MemberDetailsDialog({
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
     try {
-      // Assuming dateString is YYYY-MM-DD, append time to avoid timezone issues with just date
       const date = new Date(dateString + 'T00:00:00Z'); 
       return date.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
     } catch (e) {
-      // If parsing fails, return original string (might be 'June 2018')
       return dateString; 
     }
   };
@@ -73,15 +78,15 @@ export default function MemberDetailsDialog({
   };
 
   const handleFormSubmit = async (data: AddMemberFormValues, memberId?: string) => {
-    if (!memberId) return; // Should not happen in edit mode
+    if (!memberId) return; 
 
     const updatedMemberData: Member = {
-      ...member, // Spread existing member to keep ID and any other non-form fields
-      ...data,   // Spread form values
+      ...member, 
+      ...data,   
       birthDate: data.birthDate ? data.birthDate.toISOString().split('T')[0] : undefined,
       churchJoinDate: data.churchJoinDate ? data.churchJoinDate.toISOString().split('T')[0] : undefined,
-      id: memberId, // Ensure ID is correctly passed
-      // avatarUrl will be updated from data.avatarUrl, default if empty in AddMemberForm
+      id: memberId, 
+      // Roles will be recalculated server-side by updateMemberAction
     };
     
     startTransition(async () => {
@@ -91,8 +96,8 @@ export default function MemberDetailsDialog({
           title: "Éxito",
           description: result.message,
         });
-        onMemberUpdated(result.updatedMember); // Update client-side state
-        setIsEditing(false); // Switch back to view mode
+        onMemberUpdated(result.updatedMember); 
+        setIsEditing(false); 
         onClose(); 
       } else {
         toast({
@@ -105,7 +110,7 @@ export default function MemberDetailsDialog({
   };
 
   const handleCloseDialog = () => {
-    setIsEditing(false); // Reset edit mode on close
+    setIsEditing(false); 
     onClose();
   };
 
@@ -122,7 +127,7 @@ export default function MemberDetailsDialog({
             <div>
               <DialogTitle className="text-xl sm:text-2xl">{member.firstName} {member.lastName}</DialogTitle>
                {!isEditing && (
-                <div className="mt-1">
+                <div className="mt-1 flex flex-wrap gap-1 items-center">
                     <Badge variant={
                         member.status === 'Active' ? 'default' :
                         member.status === 'Inactive' ? 'secondary' :
@@ -136,6 +141,11 @@ export default function MemberDetailsDialog({
                     >
                     {displayStatus(member.status)}
                     </Badge>
+                    {member.roles && member.roles.length > 0 && member.roles.map(role => (
+                       <Badge key={role} variant="outline" className="text-xs border-primary/50 text-primary/90">
+                         <ShieldCheck className="mr-1 h-3 w-3" />{roleDisplayNames[role] || role}
+                       </Badge>
+                    ))}
                 </div>
                )}
             </div>
