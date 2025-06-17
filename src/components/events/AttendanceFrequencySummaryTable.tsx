@@ -154,7 +154,7 @@ export default function AttendanceLineChart({
               />
               <Line
                 dataKey="attendedCount"
-                type="monotone"
+                type="linear" // Changed from "monotone" to "linear"
                 stroke="var(--color-attendedCount)"
                 strokeWidth={2}
                 dot={{
