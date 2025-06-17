@@ -1,11 +1,10 @@
 
 import Link from 'next/link';
-import { Home, Users, UsersRound, CalendarDays, BookOpen, Menu, PlusCircle } from 'lucide-react';
+import { Home, Users, UsersRound, CalendarDays, BookOpen, Menu } from 'lucide-react';
 import { GraceHubLogo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import GlobalAddMeetingTrigger from '@/components/events/global-add-meeting-trigger';
-
+// Removed GlobalAddMeetingTrigger import
 
 const navItems = [
   { href: '/', label: 'Home', icon: Home },
@@ -36,9 +35,7 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <div className="hidden md:block">
-            <GlobalAddMeetingTrigger />
-          </div>
+          {/* GlobalAddMeetingTrigger removed from here */}
           <div className="md:hidden">
             <Sheet>
               <SheetTrigger asChild>
@@ -60,7 +57,7 @@ export default function Header() {
                     </Link>
                   ))}
                    <hr className="my-2"/>
-                   <GlobalAddMeetingTrigger />
+                   {/* GlobalAddMeetingTrigger removed from mobile sheet as well */}
                 </nav>
               </SheetContent>
             </Sheet>
