@@ -193,4 +193,3 @@ export default function MemberAttendanceChart({
     </Card>
   );
 }
-
