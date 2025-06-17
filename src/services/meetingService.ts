@@ -1,8 +1,7 @@
-
 'use server';
 import type { Meeting, MeetingWriteData, MeetingSeries, MeetingSeriesWriteData, Member, GDI, MinistryArea, MeetingTargetRoleType, AttendanceRecord, DayOfWeekType, MonthlyRuleType, WeekOrdinalType, MeetingFrequencyType, MeetingInstanceUpdateData } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
-import { format, parseISO, addWeeks, setDay, addMonths, setDate, getDate, getDaysInMonth, lastDayOfMonth, startOfDay, isSameDay, nextDay, previousDay, getDay, isValid as isValidDateFn } from 'date-fns';
+import { format, parseISO, addWeeks, setDay, addMonths, setDate, getDate, getDaysInMonth, lastDayOfMonth, startOfDay, isSameDay, nextDay, previousDay, getDay, isValid as isValidDateFn, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 
@@ -155,14 +154,10 @@ async function resolveAttendeeUids(
 ): Promise<string[]> {
     const attendeeSet = new Set<string>();
 
-    // If "allMembers" is a target, this series is for everyone dynamically.
-    // Instances will store an empty attendeeUids array.
-    // getResolvedAttendees will handle fetching all members at display time.
     if (targetGroups.includes("allMembers")) {
-        return []; 
+        return []; // For "allMembers", UIDs are resolved dynamically at display time
     }
 
-    // Logic for 'workers' and 'leaders'
     for (const role of targetGroups) {
         if (role === 'workers') {
             allGdis.forEach(gdi => {
@@ -245,7 +240,7 @@ export async function addMeetingSeries(
                 location: newSeries.defaultLocation,
                 description: newSeries.description,
                 imageUrl: newSeries.defaultImageUrl,
-                attendeeUids: resolvedUids, // Will be [] if series targets "allMembers"
+                attendeeUids: resolvedUids, 
                 minute: null,
             });
             newInstances.push(instance);
@@ -422,6 +417,45 @@ export async function getAllMeetings(): Promise<Meeting[]> {
   return meetings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
+export async function getFilteredMeetingInstances(
+  seriesId: string,
+  startDate?: string,
+  endDate?: string,
+  page: number = 1,
+  pageSize: number = 10
+): Promise<{ instances: Meeting[]; totalCount: number; totalPages: number }> {
+  let allMeetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []);
+  
+  let filtered = allMeetings.filter(meeting => meeting.seriesId === seriesId);
+
+  if (startDate) {
+    const start = startOfDay(parseISO(startDate));
+    filtered = filtered.filter(meeting => {
+      const meetingDate = parseISO(meeting.date);
+      return isValidDateFn(meetingDate) && meetingDate >= start;
+    });
+  }
+
+  if (endDate) {
+    const end = startOfDay(parseISO(endDate)); // Use startOfDay to include the whole end date
+    filtered = filtered.filter(meeting => {
+      const meetingDate = parseISO(meeting.date);
+      return isValidDateFn(meetingDate) && meetingDate <= end;
+    });
+  }
+  
+  // Sort by date descending (most recent first)
+  filtered.sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+
+  const totalCount = filtered.length;
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const startIndex = (page - 1) * pageSize;
+  const paginatedInstances = filtered.slice(startIndex, startIndex + pageSize);
+  
+  return { instances: paginatedInstances, totalCount, totalPages };
+}
+
+
 export async function getMeetingsBySeriesId(seriesId: string): Promise<Meeting[]> {
   const allMeetings = await getAllMeetings();
   return allMeetings.filter(meeting => meeting.seriesId === seriesId)
@@ -438,7 +472,6 @@ async function addMeetingInstanceInternal(meetingInstanceData: Omit<Meeting, 'id
   const newMeetingInstance: Meeting = {
     id: `instance-${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}-${meetings.length}`,
     ...meetingInstanceData,
-    // attendeeUids are already set by the caller based on resolveAttendeeUids logic
   };
   const updatedMeetings = [...meetings, newMeetingInstance];
   await writeDbFile<Meeting>(MEETINGS_DB_FILE, updatedMeetings);
@@ -499,10 +532,6 @@ export async function updateMeeting(meetingId: string, updates: Partial<MeetingW
   const updatedMeeting: Meeting = {
     ...originalMeeting,
     ...formattedUpdates,
-    // AttendeeUids are generally set at instance creation based on series rules
-    // If target groups change, the series update logic should handle regenerating instances if needed
-    // For direct instance update, we typically don't change attendeeUids unless specifically asked.
-    // Here, we preserve the original attendeeUids unless 'attendeeUids' is explicitly in 'updates'.
     attendeeUids: updates.attendeeUids !== undefined ? updates.attendeeUids : originalMeeting.attendeeUids,
   };
 

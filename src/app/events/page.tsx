@@ -1,4 +1,3 @@
-
 'use server';
 import type { Meeting, DefineMeetingSeriesFormValues, MeetingSeries, Member, GDI, MinistryArea, AttendanceRecord, AddOccasionalMeetingFormValues } from '@/lib/types';
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,7 @@ import {
     updateMeetingSeries,
     deleteMeetingSeries,
     addMeetingInstance,
-    getFilteredMeetingInstances // Changed from getAllMeetings
+    getFilteredMeetingInstances 
 } from '@/services/meetingService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
 import PageSpecificAddMeetingDialog from '@/components/events/page-specific-add-meeting-dialog';
@@ -20,7 +19,7 @@ import ManageMeetingSeriesDialog from '@/components/events/manage-meeting-series
 import AddOccasionalMeetingDialog from '@/components/events/add-occasional-meeting-dialog';
 import { getAllGdis } from '@/services/gdiService';
 import { getAllMinistryAreas } from '@/services/ministryAreaService';
-import { getAllAttendanceRecords, getResolvedAttendees } from '@/services/attendanceService'; // Added getResolvedAttendees
+import { getAllAttendanceRecords, getResolvedAttendees } from '@/services/attendanceService'; 
 import MeetingTypeAttendanceTable from '@/components/events/meeting-type-attendance-table';
 import AttendanceLineChart from '@/components/events/AttendanceFrequencySummaryTable'; 
 import DateRangeFilter from '@/components/events/date-range-filter';
@@ -134,7 +133,7 @@ export async function addOccasionalMeetingAction(
 
 interface EventsPageData {
   allSeries: MeetingSeries[];
-  meetingsForPage: Meeting[]; // Renamed from meetingsBySeries
+  meetingsForPage: Meeting[]; 
   totalMeetingInstances: number;
   meetingInstancesTotalPages: number;
   meetingInstancesCurrentPage: number;
@@ -142,8 +141,8 @@ interface EventsPageData {
   allGdis: GDI[];
   allMinistryAreas: MinistryArea[];
   allAttendanceRecords: AttendanceRecord[];
-  initialRowMembers: Member[]; // For member pagination in table
-  expectedAttendeesMap: Record<string, Set<string>>; // For member pagination in table
+  initialRowMembers: Member[]; 
+  expectedAttendeesMap: Record<string, Set<string>>; 
   memberCurrentPage: number;
   memberPageSize: number;
   appliedStartDate?: string;
@@ -156,10 +155,10 @@ interface EventsPageProps {
     series?: string;
     startDate?: string;
     endDate?: string;
-    page?: string; // For meeting instance pagination
-    pageSize?: string; // For meeting instance pagination
-    mPage?: string; // For member pagination
-    mPSize?: string; // For member pagination
+    page?: string; 
+    pageSize?: string; 
+    mPage?: string; 
+    mPSize?: string; 
   };
 }
 
@@ -194,7 +193,6 @@ async function getEventsPageData(
     getAllAttendanceRecords()
   ]);
 
-  // Determine selected series ID, default to first if available
   const seriesPresentInFilter = allSeriesData.sort((a,b) => a.name.localeCompare(b.name));
   const actualSelectedSeriesId = selectedSeriesIdParam && seriesPresentInFilter.some(s => s.id === selectedSeriesIdParam)
     ? selectedSeriesIdParam
@@ -219,7 +217,6 @@ async function getEventsPageData(
     meetingInstancesTotalPages = result.totalPages;
   }
 
-  // Calculate initialRowMembers and expectedAttendeesMap based on meetingsForPage
   const rowMemberIds = new Set<string>();
   const expectedAttendeesMap: Record<string, Set<string>> = {};
 
@@ -284,25 +281,19 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
   const selectedSeriesObject = selectedSeriesId ? allSeries.find(s => s.id === selectedSeriesId) : undefined;
 
-  const createPageURL = (pageNumber: number, currentMPSize?: number, currentSeriesId?: string, currentStartDate?: string, currentEndDate?: string) => {
-    const params = new URLSearchParams();
-    if (currentSeriesId) params.set('series', currentSeriesId);
-    if (currentStartDate) params.set('startDate', currentStartDate);
-    if (currentEndDate) params.set('endDate', currentEndDate);
-    if (searchParams?.pageSize) params.set('pageSize', searchParams.pageSize); // Preserve instance pageSize
-    if (pageNumber > 1) params.set('page', pageNumber.toString());
-
-    if (currentMPSize) params.set('mPSize', currentMPSize.toString()); // Preserve member pageSize
-    if (searchParams?.mPage && Number(searchParams.mPage) > 1) params.set('mPage', searchParams.mPage); // Preserve member page if not 1
-    
+  const createPageURL = (newPageNumber: number) => {
+    const params = new URLSearchParams(searchParams);
+    if (newPageNumber > 1) {
+      params.set('page', newPageNumber.toString());
+    } else {
+      params.delete('page');
+    }
     return `/events?${params.toString()}`;
   };
   
   const createSeriesLink = (seriesId: string) => {
       const params = new URLSearchParams();
       params.set('series', seriesId);
-      // Reset instance page and member page to 1 when changing series
-      // Preserve date filters and member page size
       if (appliedStartDate) params.set('startDate', appliedStartDate);
       if (appliedEndDate) params.set('endDate', appliedEndDate);
       if (searchParams?.pageSize) params.set('pageSize', searchParams.pageSize);
@@ -395,7 +386,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
               {meetingsForPage.length > 0 && (
                 <AttendanceLineChart
-                  meetingsForSeries={meetingsForPage} // Use paginated instances for chart for now
+                  meetingsForSeries={meetingsForPage} 
                   allAttendanceRecords={allAttendanceRecords}
                   seriesName={selectedSeriesObject.name}
                   filterStartDate={appliedStartDate}
@@ -405,9 +396,9 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               
               {totalMeetingInstances > 0 ? (
                 <MeetingTypeAttendanceTable
-                  displayedInstances={meetingsForPage} // Pass paginated instances
+                  displayedInstances={meetingsForPage} 
                   allMeetingSeries={allSeries} 
-                  initialRowMembers={initialRowMembers} // Pass all relevant members for this set of instances
+                  initialRowMembers={initialRowMembers} 
                   expectedAttendeesMap={expectedAttendeesMap}
                   allAttendanceRecords={allAttendanceRecords}
                   seriesName={selectedSeriesObject.name}
@@ -436,10 +427,12 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => router.push(createPageURL(meetingInstancesCurrentPage - 1, memberPageSize, selectedSeriesId, appliedStartDate, appliedEndDate))}
+                    asChild
                     disabled={meetingInstancesCurrentPage <= 1}
                   >
-                    Anterior (Instancias)
+                    <Link href={createPageURL(meetingInstancesCurrentPage - 1)}>
+                      Anterior (Instancias)
+                    </Link>
                   </Button>
                   <span className="text-sm text-muted-foreground">
                     Página {meetingInstancesCurrentPage} de {meetingInstancesTotalPages} (Instancias)
@@ -447,10 +440,12 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => router.push(createPageURL(meetingInstancesCurrentPage + 1, memberPageSize, selectedSeriesId, appliedStartDate, appliedEndDate))}
+                    asChild
                     disabled={meetingInstancesCurrentPage >= meetingInstancesTotalPages}
                   >
-                    Siguiente (Instancias)
+                     <Link href={createPageURL(meetingInstancesCurrentPage + 1)}>
+                       Siguiente (Instancias)
+                     </Link>
                   </Button>
                 </div>
               )}
@@ -477,4 +472,3 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     </div>
   );
 }
-
