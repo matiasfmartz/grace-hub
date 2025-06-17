@@ -41,9 +41,12 @@ export default async function MeetingTypeAttendanceTable({
 
   // Determine unique row members based on who was expected for any meeting of this type
   const rowMemberIds = new Set<string>();
+  const expectedAttendeesByMeetingId: Record<string, Set<string>> = {};
+
   for (const meeting of meetingsForType) {
     const expectedForThisMeeting = await getResolvedAttendees(meeting, allMembers, allGdis, allMinistryAreas);
     expectedForThisMeeting.forEach(member => rowMemberIds.add(member.id));
+    expectedAttendeesByMeetingId[meeting.id] = new Set(expectedForThisMeeting.map(m => m.id));
   }
   
   const rowMembers = allMembers
@@ -53,13 +56,6 @@ export default async function MeetingTypeAttendanceTable({
   // Columns are the meetings, sorted by date (most recent first by default from page.tsx)
   const columnMeetings = meetingsForType; 
 
-  // Pre-calculate expected attendees for each meeting column to avoid repeated calls in the loop
-  const expectedAttendeesByMeetingId: Record<string, Set<string>> = {};
-  for (const meeting of columnMeetings) {
-    const expected = await getResolvedAttendees(meeting, allMembers, allGdis, allMinistryAreas);
-    expectedAttendeesByMeetingId[meeting.id] = new Set(expected.map(m => m.id));
-  }
-
   return (
     <div className="border rounded-lg shadow-md">
       <ScrollArea className="w-full whitespace-nowrap">
@@ -67,7 +63,7 @@ export default async function MeetingTypeAttendanceTable({
           <TableCaption className="mt-4 text-lg font-semibold">{meetingTypeLabel} - Historial de Asistencia</TableCaption>
           <TableHeader>
             <TableRow>
-              <TableHead className="sticky left-0 bg-card z-10 w-[200px] min-w-[200px]">Miembro</TableHead>
+              <TableHead className="sticky left-0 bg-card z-10 w-[200px] min-w-[200px] border-r">Miembro</TableHead>
               {columnMeetings.map(meeting => (
                 <TableHead key={meeting.id} className="text-center min-w-[150px]">
                   <Link href={`/events/${meeting.id}/attendance`} className="hover:underline text-primary font-medium block">
@@ -81,7 +77,7 @@ export default async function MeetingTypeAttendanceTable({
           <TableBody>
             {rowMembers.map(member => (
               <TableRow key={member.id}>
-                <TableCell className="sticky left-0 bg-card z-10 font-medium w-[200px] min-w-[200px]">
+                <TableCell className="sticky left-0 bg-card z-10 font-medium w-[200px] min-w-[200px] border-r">
                   {member.firstName} {member.lastName}
                 </TableCell
                 >
@@ -92,19 +88,19 @@ export default async function MeetingTypeAttendanceTable({
                   if (isExpected) {
                     const record = allAttendanceRecords.find(r => r.memberId === member.id && r.meetingId === meeting.id);
                     if (record && record.attended) {
-                      cellContent = <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto" />;
+                      cellContent = <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto" title="Asistió" />;
                     } else if (record && !record.attended) {
-                      cellContent = <XCircle className="h-5 w-5 text-red-600 mx-auto" />;
+                      cellContent = <XCircle className="h-5 w-5 text-red-600 mx-auto" title="No Asistió" />;
                     } else {
-                      cellContent = <HelpCircle className="h-5 w-5 text-muted-foreground mx-auto" />;
+                      cellContent = <HelpCircle className="h-5 w-5 text-muted-foreground mx-auto" title="Pendiente" />;
                     }
                   } else {
-                    cellContent = <MinusCircle className="h-5 w-5 text-gray-300 mx-auto" />;
+                    cellContent = <MinusCircle className="h-5 w-5 text-gray-300 mx-auto" title="No Aplicable" />;
                   }
                   
                   return (
                     <TableCell key={`${member.id}-${meeting.id}`} className="text-center">
-                      <Link href={`/events/${meeting.id}/attendance`} className="flex justify-center items-center h-full w-full">
+                      <Link href={`/events/${meeting.id}/attendance`} className="flex justify-center items-center h-full w-full p-2">
                         {cellContent}
                       </Link>
                     </TableCell>
@@ -123,15 +119,16 @@ export default async function MeetingTypeAttendanceTable({
         </Table>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
-      <div className="p-4 border-t text-center">
-         <Button asChild variant="outline">
-            <Link href={`/events/${meetingsForType[0]?.type || ''}`}> 
-              {/* This link might need adjustment if a specific type page is desired */}
-              Ver todas las reuniones de {meetingTypeLabel} <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-      </div>
+      {meetingsForType.length > 0 && (
+        <div className="p-4 border-t text-center">
+           <Button asChild variant="outline">
+              {/* This link could eventually include date range parameters if implemented */}
+              <Link href={`/events?type=${meetingsForType[0].type}`}> 
+                Ver Todas las Reuniones de {meetingTypeLabel} <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+        </div>
+      )}
     </div>
   );
 }
-
