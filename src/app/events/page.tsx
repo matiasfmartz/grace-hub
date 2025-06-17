@@ -2,10 +2,9 @@
 'use server';
 import type { Meeting, DefineMeetingSeriesFormValues, MeetingSeries, Member, GDI, MinistryArea, AttendanceRecord } from '@/lib/types';
 import { Button } from "@/components/ui/button";
-import Link from 'next/link';
-import { CalendarDays, Clock, MapPin, Users, Briefcase, Award, CheckSquare, Sparkles, Building2, HandHelping, Edit, Filter, Trash2, Edit2 } from 'lucide-react';
+import { CalendarDays, Filter, Settings } from 'lucide-react'; // Added Settings icon
 import { revalidatePath } from 'next/cache';
-import { format, parseISO, isValid, isWithinInterval } from 'date-fns';
+import { format, parseISO, isValid, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
     getAllMeetingSeries, 
@@ -16,8 +15,7 @@ import {
 } from '@/services/meetingService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
 import PageSpecificAddMeetingDialog from '@/components/events/page-specific-add-meeting-dialog';
-import EditMeetingSeriesDialog from '@/components/events/edit-meeting-series-dialog';
-import DeleteMeetingSeriesAlert from '@/components/events/delete-meeting-series-alert';
+import ManageMeetingSeriesDialog from '@/components/events/manage-meeting-series-dialog'; // Changed import
 import { getAllGdis } from '@/services/gdiService';
 import { getAllMinistryAreas } from '@/services/ministryAreaService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -116,7 +114,7 @@ interface EventsPageProps {
 async function getEventsPageData(startDateParam?: string, endDateParam?: string): Promise<EventsPageData> {
   const [
     allSeries,
-    allMeetingInstances,
+    allMeetingInstancesList, // Renamed for clarity
     allMembers,
     allGdis,
     allMinistryAreas,
@@ -132,26 +130,30 @@ async function getEventsPageData(startDateParam?: string, endDateParam?: string)
 
   let appliedStartDate: string | undefined = startDateParam;
   let appliedEndDate: string | undefined = endDateParam;
-
-  let filteredMeetingInstances = allMeetingInstances;
+  let filteredMeetingInstances = allMeetingInstancesList;
 
   if (startDateParam && endDateParam) {
     const parsedStartDate = parseISO(startDateParam);
     const parsedEndDate = parseISO(endDateParam);
     if (isValid(parsedStartDate) && isValid(parsedEndDate) && parsedStartDate <= parsedEndDate) {
-      filteredMeetingInstances = allMeetingInstances.filter(meeting => {
+      filteredMeetingInstances = allMeetingInstancesList.filter(meeting => {
         const meetingDate = parseISO(meeting.date);
         return isValid(meetingDate) && isWithinInterval(meetingDate, { start: parsedStartDate, end: parsedEndDate });
       });
     } else {
+      // Invalid date params, reset to no filter
       appliedStartDate = undefined;
       appliedEndDate = undefined;
-      filteredMeetingInstances = allMeetingInstances;
+      filteredMeetingInstances = allMeetingInstancesList; 
     }
+  } else if (startDateParam || endDateParam) {
+    // If only one is provided, or one is invalid, ignore filter
+    appliedStartDate = undefined;
+    appliedEndDate = undefined;
+    filteredMeetingInstances = allMeetingInstancesList;
   } else {
-      appliedStartDate = undefined;
-      appliedEndDate = undefined;
-      filteredMeetingInstances = allMeetingInstances;
+    // No date parameters, show all meetings by default
+    filteredMeetingInstances = allMeetingInstancesList;
   }
 
 
@@ -239,18 +241,13 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                         </div>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0 ml-4">
-                        <EditMeetingSeriesDialog
-                          series={series}
-                          updateMeetingSeriesAction={updateMeetingSeriesAction}
-                        />
-                        <DeleteMeetingSeriesAlert
-                          seriesId={series.id}
-                          seriesName={series.name}
-                          deleteMeetingSeriesAction={deleteMeetingSeriesAction}
-                        />
+                        <ManageMeetingSeriesDialog
+                            series={series}
+                            updateMeetingSeriesAction={updateMeetingSeriesAction}
+                            deleteMeetingSeriesAction={deleteMeetingSeriesAction}
+                         />
                     </div>
                 </div>
-                {/* TODO: Button "Schedule New Instance for this Series" to be added here later */}
               </div>
 
               {meetingsBySeries[series.id] && meetingsBySeries[series.id].length > 0 ? (
@@ -311,4 +308,3 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     </div>
   );
 }
-

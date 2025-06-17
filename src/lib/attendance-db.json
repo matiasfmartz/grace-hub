@@ -98,54 +98,6 @@
     "attended": true
   },
   {
-    "id": "att-gdi1-20240731-7",
-    "meetingId": "m-gdi1-20240731",
-    "memberId": "7",
-    "attended": true
-  },
-  {
-    "id": "att-gdi1-20240731-6",
-    "meetingId": "m-gdi1-20240731",
-    "memberId": "6",
-    "attended": true
-  },
-  {
-    "id": "att-gdi1-20240731-5",
-    "meetingId": "m-gdi1-20240731",
-    "memberId": "5",
-    "attended": true
-  },
-  {
-    "id": "att-gdi1-20240724-7",
-    "meetingId": "m-gdi1-20240724",
-    "memberId": "7",
-    "attended": true
-  },
-  {
-    "id": "att-gdi1-20240724-6",
-    "meetingId": "m-gdi1-20240724",
-    "memberId": "6",
-    "attended": false
-  },
-  {
-    "id": "att-gdi1-20240724-5",
-    "meetingId": "m-gdi1-20240724",
-    "memberId": "5",
-    "attended": true
-  },
-  {
-    "id": "att-gdi2-20240730-2",
-    "meetingId": "m-gdi2-20240730",
-    "memberId": "2",
-    "attended": true
-  },
-  {
-    "id": "att-gdi2-20240730-3",
-    "meetingId": "m-gdi2-20240730",
-    "memberId": "3",
-    "attended": true
-  },
-  {
     "id": "att-obr-20240706-2",
     "meetingId": "m-obr-20240706",
     "memberId": "2",
@@ -190,72 +142,6 @@
   {
     "id": "att-obr-20240706-maximo",
     "meetingId": "m-obr-20240706",
-    "memberId": "1749880160940-30020fm",
-    "attended": true
-  },
-  {
-    "id": "att-lid-20240701-2",
-    "meetingId": "m-lid-20240701",
-    "memberId": "2",
-    "attended": true
-  },
-  {
-    "id": "att-lid-20240701-7",
-    "meetingId": "m-lid-20240701",
-    "memberId": "7",
-    "attended": true
-  },
-  {
-    "id": "att-lid-20240701-8",
-    "meetingId": "m-lid-20240701",
-    "memberId": "8",
-    "attended": true
-  },
-  {
-    "id": "att-lid-20240701-matias",
-    "meetingId": "m-lid-20240701",
-    "memberId": "1749877175613-ls6oqv6",
-    "attended": true
-  },
-  {
-    "id": "att-lid-20240701-maximo",
-    "meetingId": "m-lid-20240701",
-    "memberId": "1749880160940-30020fm",
-    "attended": false
-  },
-  {
-    "id": "att-area-ma1-20240713-maximo",
-    "meetingId": "m-area-ma1-20240713",
-    "memberId": "1749880160940-30020fm",
-    "attended": true
-  },
-  {
-    "id": "att-area-ma1-20240713-8",
-    "meetingId": "m-area-ma1-20240713",
-    "memberId": "8",
-    "attended": true
-  },
-  {
-    "id": "att-area-ma1-20240713-7",
-    "meetingId": "m-area-ma1-20240713",
-    "memberId": "7",
-    "attended": true
-  },
-  {
-    "id": "att-area-ma2-20240720-matias",
-    "meetingId": "m-area-ma2-20240720",
-    "memberId": "1749877175613-ls6oqv6",
-    "attended": true
-  },
-  {
-    "id": "att-area-ma2-20240720-2",
-    "meetingId": "m-area-ma2-20240720",
-    "memberId": "2",
-    "attended": true
-  },
-  {
-    "id": "att-area-ma2-20240720-maximo",
-    "meetingId": "m-area-ma2-20240720",
     "memberId": "1749880160940-30020fm",
     "attended": true
   },

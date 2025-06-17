@@ -1,4 +1,3 @@
-
 [
   {
     "id": "m-gs-20240804",
@@ -9,7 +8,19 @@
     "location": "Santuario Principal",
     "description": "Servicio dominical de adoración y enseñanza.",
     "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["1", "2", "3", "4", "5", "6", "7", "8", "1749877175613-ls6oqv6", "1749877205345-hd6yhu7", "1749880160940-30020fm"],
+    "attendeeUids": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "1749877175613-ls6oqv6",
+      "1749877205345-hd6yhu7",
+      "1749880160940-30020fm"
+    ],
     "minute": null
   },
   {
@@ -21,7 +32,19 @@
     "location": "Santuario Principal",
     "description": "Servicio dominical de adoración y enseñanza.",
     "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["1", "2", "3", "4", "5", "6", "7", "8", "1749877175613-ls6oqv6", "1749877205345-hd6yhu7", "1749880160940-30020fm"],
+    "attendeeUids": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "1749877175613-ls6oqv6",
+      "1749877205345-hd6yhu7",
+      "1749880160940-30020fm"
+    ],
     "minute": null
   },
   {
@@ -33,7 +56,19 @@
     "location": "Santuario Principal",
     "description": "Servicio dominical de adoración y enseñanza.",
     "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["1", "2", "3", "4", "5", "6", "7", "8", "1749877175613-ls6oqv6", "1749877205345-hd6yhu7", "1749880160940-30020fm"],
+    "attendeeUids": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "1749877175613-ls6oqv6",
+      "1749877205345-hd6yhu7",
+      "1749880160940-30020fm"
+    ],
     "minute": null
   },
   {
@@ -45,67 +80,19 @@
     "location": "Santuario Principal",
     "description": "Servicio dominical de adoración y enseñanza.",
     "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["1", "2", "3", "4", "5", "6", "7", "8", "1749877175613-ls6oqv6", "1749877205345-hd6yhu7", "1749880160940-30020fm"],
-    "minute": null
-  },
-  {
-    "id": "m-gdi1-20240807",
-    "seriesId": "series-gdi-alpha",
-    "name": "GDI Alpha (7 Ago)",
-    "date": "2024-08-07",
-    "time": "19:00",
-    "location": "Salón Anexo",
-    "description": "Reunión semanal del GDI Alpha.",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["7", "6", "5"],
-    "minute": null
-  },
-  {
-    "id": "m-gdi1-20240731",
-    "seriesId": "series-gdi-alpha",
-    "name": "GDI Alpha (31 Jul)",
-    "date": "2024-07-31",
-    "time": "19:00",
-    "location": "Salón Anexo",
-    "description": "Reunión semanal del GDI Alpha.",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["7", "6", "5"],
-    "minute": null
-  },
-  {
-    "id": "m-gdi1-20240724",
-    "seriesId": "series-gdi-alpha",
-    "name": "GDI Alpha (24 Jul)",
-    "date": "2024-07-24",
-    "time": "19:00",
-    "location": "Salón Anexo",
-    "description": "Reunión semanal del GDI Alpha.",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["7", "6", "5"],
-    "minute": null
-  },
-  {
-    "id": "m-gdi2-20240806",
-    "seriesId": "series-gdi-beta",
-    "name": "GDI Beta (6 Ago)",
-    "date": "2024-08-06",
-    "time": "19:30",
-    "location": "Hogar Familia Smith",
-    "description": "Reunión semanal del GDI Beta.",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["2", "3"],
-    "minute": null
-  },
-  {
-    "id": "m-gdi2-20240730",
-    "seriesId": "series-gdi-beta",
-    "name": "GDI Beta (30 Jul)",
-    "date": "2024-07-30",
-    "time": "19:30",
-    "location": "Hogar Familia Smith",
-    "description": "Reunión semanal del GDI Beta.",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["2", "3"],
+    "attendeeUids": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "1749877175613-ls6oqv6",
+      "1749877205345-hd6yhu7",
+      "1749880160940-30020fm"
+    ],
     "minute": null
   },
   {
@@ -117,7 +104,17 @@
     "location": "Salón Multiusos",
     "description": "Capacitación mensual para todos los obreros.",
     "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["1", "2", "4", "5", "7", "8", "1749877175613-ls6oqv6", "1749877205345-hd6yhu7", "1749880160940-30020fm"],
+    "attendeeUids": [
+      "1",
+      "2",
+      "4",
+      "5",
+      "7",
+      "8",
+      "1749877175613-ls6oqv6",
+      "1749877205345-hd6yhu7",
+      "1749880160940-30020fm"
+    ],
     "minute": null
   },
   {
@@ -129,91 +126,34 @@
     "location": "Salón Multiusos",
     "description": "Capacitación mensual para todos los obreros.",
     "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["1", "2", "4", "5", "7", "8", "1749877175613-ls6oqv6", "1749877205345-hd6yhu7", "1749880160940-30020fm"],
+    "attendeeUids": [
+      "1",
+      "2",
+      "4",
+      "5",
+      "7",
+      "8",
+      "1749877175613-ls6oqv6",
+      "1749877205345-hd6yhu7",
+      "1749880160940-30020fm"
+    ],
     "minute": null
-  },
-  {
-    "id": "m-lid-20240805",
-    "seriesId": "series-lideres",
-    "name": "Consejo de Líderes (5 Ago)",
-    "date": "2024-08-05",
-    "time": "18:00",
-    "location": "Oficina Pastoral",
-    "description": "Reunión mensual de líderes de GDI y Áreas.",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["2", "7", "8", "1749877175613-ls6oqv6", "1749880160940-30020fm"],
-    "minute": null
-  },
-  {
-    "id": "m-lid-20240701",
-    "seriesId": "series-lideres",
-    "name": "Consejo de Líderes (1 Jul)",
-    "date": "2024-07-01",
-    "time": "18:00",
-    "location": "Oficina Pastoral",
-    "description": "Reunión mensual de líderes de GDI y Áreas.",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["2", "7", "8", "1749877175613-ls6oqv6", "1749880160940-30020fm"],
-    "minute": null
-  },
-  {
-    "id": "m-area-ma1-20240810",
-    "seriesId": "series-area-youth",
-    "name": "Planificación Min. Jóvenes (10 Ago)",
-    "date": "2024-08-10",
-    "time": "14:00",
-    "location": "Salón de Jóvenes",
-    "description": "Planificación para eventos del Ministerio de Jóvenes.",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["1749880160940-30020fm", "8", "7"],
-    "minute": "Discusión sobre el campamento de verano Q3. Presupuesto aprobado."
-  },
-  {
-    "id": "m-area-ma1-20240713",
-    "seriesId": "series-area-youth",
-    "name": "Reunión Min. Jóvenes (13 Jul)",
-    "date": "2024-07-13",
-    "time": "14:00",
-    "location": "Salón de Jóvenes",
-    "description": "Reunión de equipo del Ministerio de Jóvenes.",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["1749880160940-30020fm", "8", "7"],
-    "minute": "Se revisaron las actividades del mes anterior."
-  },
-  {
-    "id": "m-area-ma2-20240720",
-    "seriesId": "series-area-worship",
-    "name": "Ensayo Min. Alabanza (20 Jul)",
-    "date": "2024-07-20",
-    "time": "17:00",
-    "location": "Santuario Principal",
-    "description": "Ensayo del equipo de alabanza y adoración.",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["1749877175613-ls6oqv6", "2", "1749880160940-30020fm"],
-    "minute": "Se definieron las canciones para los próximos 2 servicios."
-  },
-  {
-    "id": "m-area-ma2-20240706",
-    "seriesId": "series-area-worship",
-    "name": "Ensayo Min. Alabanza (6 Jul)",
-    "date": "2024-07-06",
-    "time": "17:00",
-    "location": "Santuario Principal",
-    "description": "Ensayo del equipo de alabanza y adoración.",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["1749877175613-ls6oqv6", "2", "1749880160940-30020fm"],
-    "minute": "Práctica general y prueba de sonido."
   },
   {
     "id": "m-spec-20240815-prayer",
-    "seriesId": "series-special-prayer", 
+    "seriesId": "series-special-prayer",
     "name": "Noche de Oración Especial (15 Ago)",
     "date": "2024-08-15",
     "time": "20:00",
     "location": "Capilla",
     "description": "Noche especial de oración por necesidades comunitarias.",
     "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": ["1", "3", "5", "1749877175613-ls6oqv6"],
+    "attendeeUids": [
+      "1",
+      "3",
+      "5",
+      "1749877175613-ls6oqv6"
+    ],
     "minute": null
   }
 ]

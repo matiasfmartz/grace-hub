@@ -27,15 +27,16 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTransition, useEffect } from "react";
-import { DialogClose } from "@/components/ui/dialog";
+import { DialogClose } from "@/components/ui/dialog"; // Keep for potential direct use, but ManageDialog might control close
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
 interface DefineMeetingSeriesFormProps {
   defineMeetingSeriesAction: (data: DefineMeetingSeriesFormValues) => Promise<{ success: boolean; message: string; newSeries?: any, newInstance?: any, updatedSeries?: MeetingSeries }>;
-  onSuccess?: () => void;
-  initialValues?: DefineMeetingSeriesFormValues; // For editing
-  isEditing?: boolean; // To change button text etc.
+  onSuccess?: () => void; // Called after successful action, parent can close dialog or switch view
+  initialValues?: DefineMeetingSeriesFormValues; 
+  isEditing?: boolean;
+  onCancelEdit?: () => void; // Specific callback for cancelling edit mode
 }
 
 const targetAttendeeGroupOptions: { id: MeetingTargetRoleType; label: string }[] = [
@@ -64,7 +65,8 @@ export default function DefineMeetingSeriesForm({
   defineMeetingSeriesAction, 
   onSuccess,
   initialValues,
-  isEditing = false 
+  isEditing = false,
+  onCancelEdit 
 }: DefineMeetingSeriesFormProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -77,6 +79,8 @@ export default function DefineMeetingSeriesForm({
   useEffect(() => {
     if (initialValues) {
       form.reset(initialValues);
+    } else {
+      form.reset(defaultFormValues); // Ensure reset to defaults if not editing
     }
   }, [initialValues, form]);
 
@@ -92,17 +96,32 @@ export default function DefineMeetingSeriesForm({
       const result = await defineMeetingSeriesAction(dataToSend);
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
-        if (!isEditing) { // Only reset fully if not editing
-            form.reset(defaultFormValues);
-        }
         if (onSuccess) {
           onSuccess();
+        }
+        if (!isEditing) { 
+            form.reset(defaultFormValues);
         }
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
       }
     });
   }
+  
+  const handleCancel = () => {
+    if (isEditing && onCancelEdit) {
+      onCancelEdit(); // Call specific cancel for edit mode (e.g., switch view in parent dialog)
+      form.reset(initialValues || defaultFormValues); // Reset to initial or default
+    } else if (!isEditing && onSuccess) {
+      // If adding and onSuccess is typically for closing dialog, let parent handle.
+      // This form's DialogClose might be for simple cases.
+      // For now, let's assume parent dialog (like ManageMeetingSeriesDialog or PageSpecificAdd...) handles its own closure.
+      form.reset(defaultFormValues);
+    } else {
+      form.reset(defaultFormValues);
+    }
+  };
+
 
   return (
     <Form {...form}>
@@ -168,7 +187,7 @@ export default function DefineMeetingSeriesForm({
             <FormItem>
               <FormLabel>URL de Imagen Predeterminada (Opcional)</FormLabel>
               <FormControl>
-                <Input type="url" placeholder="https://example.com/image.png" {...field} value={field.value ?? ''} disabled={isPending} />
+                <Input type="url" placeholder="https://placehold.co/image.png" {...field} value={field.value ?? ''} disabled={isPending} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -236,7 +255,9 @@ export default function DefineMeetingSeriesForm({
                     }
                 }} 
                 value={field.value} 
-                disabled={isPending || (isEditing && field.value === "OneTime")} // Prevent changing frequency of a OneTime event once created
+                // When editing a "OneTime" series, its frequency and date should not be changed via this form
+                // as it's tied to a specific instance. This needs more complex handling if such edits are desired.
+                disabled={isPending || (isEditing && initialValues?.frequency === "OneTime")} 
                >
                 <FormControl>
                   <SelectTrigger>
@@ -245,11 +266,18 @@ export default function DefineMeetingSeriesForm({
                 </FormControl>
                 <SelectContent>
                   {frequencyOptions.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value} disabled={isEditing && initialValues?.frequency === "OneTime" && opt.value !== "OneTime"}>{opt.label}</SelectItem>
+                    <SelectItem 
+                        key={opt.value} 
+                        value={opt.value} 
+                        disabled={isEditing && initialValues?.frequency === "OneTime" && opt.value !== "OneTime"}>
+                        {opt.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {isEditing && initialValues?.frequency === "OneTime" && <FormMessage>La frecuencia de una reunión de 'Única Vez' no se puede cambiar después de su creación.</FormMessage>}
+              {isEditing && initialValues?.frequency === "OneTime" && 
+                <FormMessage className="text-xs">La frecuencia y fecha de una reunión de 'Única Vez' no se pueden modificar directamente después de su creación. Para cambiarla, elimine esta serie y cree una nueva.</FormMessage>
+              }
               <FormMessage />
             </FormItem>
           )}
@@ -262,22 +290,36 @@ export default function DefineMeetingSeriesForm({
             render={({ field }) => (
                 <FormItem className="flex flex-col">
                 <FormLabel>Fecha de Reunión (para Única Vez)</FormLabel>
-                <DatePicker date={field.value} setDate={field.onChange} placeholder="Seleccionar fecha" disabled={isPending || (isEditing && initialValues?.frequency === "OneTime")} />
-                 {isEditing && initialValues?.frequency === "OneTime" && <FormMessage>La fecha de una reunión de 'Única Vez' no se puede cambiar después de su creación.</FormMessage>}
+                <DatePicker 
+                    date={field.value} 
+                    setDate={field.onChange} 
+                    placeholder="Seleccionar fecha" 
+                    disabled={isPending || (isEditing && initialValues?.frequency === "OneTime")} 
+                />
+                 {isEditing && initialValues?.frequency === "OneTime" && 
+                    <FormMessage className="text-xs mt-1">La fecha de la instancia única no es editable aquí.</FormMessage>
+                 }
                 <FormMessage />
                 </FormItem>
             )}
             />
         )}
         
+        {/* Footer buttons are now usually handled by the parent Dialog (e.g. ManageMeetingSeriesDialog or PageSpecificAddMeetingDialog) */}
+        {/* However, if this form is used standalone or for simple dialogs, these can be useful. */}
+        {/* For ManageMeetingSeriesDialog, the "Cancel Edit" button is separate, and "Save" is part of this form's submit. */}
+        {/* For PageSpecificAddMeetingDialog, DialogClose wraps the Cancel button. */}
+        
         <div className="flex justify-end space-x-2 pt-4 border-t">
-           <DialogClose asChild>
-            <Button type="button" variant="outline" onClick={() => { 
-                if (!isEditing) form.reset(defaultFormValues);
-            }} disabled={isPending}>
-                Cancelar
-            </Button>
-          </DialogClose>
+           {!isEditing && ( // Only show DialogClose for "Add New" scenario if not nested in a complex dialog
+             <DialogClose asChild> 
+                <Button type="button" variant="outline" onClick={handleCancel} disabled={isPending}>
+                    Cancelar
+                </Button>
+            </DialogClose>
+           )}
+           {/* The "Cancel Edit" button is handled by ManageMeetingSeriesDialog externally now */}
+           {/* This submit button is for both Add and Edit scenarios */}
           <Button type="submit" disabled={isPending}>
              {isPending ? <Loader2 className="animate-spin mr-2" /> : (isEditing ? "Guardar Cambios" : "Definir Serie")}
           </Button>
@@ -286,4 +328,3 @@ export default function DefineMeetingSeriesForm({
     </Form>
   );
 }
-
