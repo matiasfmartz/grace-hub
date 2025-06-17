@@ -1,5 +1,2 @@
 
-[
-  { "id": "att1", "meetingId": "m1", "memberId": "1", "attended": true, "notes": "" },
-  { "id": "att2", "meetingId": "m2", "memberId": "2", "attended": false, "notes": "Called in sick" }
-]
+[]

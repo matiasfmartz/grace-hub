@@ -69,18 +69,18 @@ export interface Meeting {
   imageUrl?: string;
   relatedGdiId?: string | null;    // For GDI_Meeting type
   relatedAreaId?: string | null;   // For Area_Meeting type
-  attendeeUids?: string[] | null; // For Special_Meeting type (specific UIDs)
+  attendeeUids?: string[] | null; // For Special_Meeting type (specific UIDs, resolved from roles or manual selection)
   minute?: string | null;          // For Area_Meeting or others requiring minutes
 }
 export type MeetingWriteData = Omit<Meeting, 'id'>;
 
 
 export interface AttendanceRecord {
-  id: string;
+  id: string; // meetingId-memberId could be a unique key
   meetingId: string;
   memberId: string;
   attended: boolean;
-  notes?: string;
+  notes?: string; // Optional notes for an individual's attendance
 }
 export type AttendanceRecordWriteData = Omit<AttendanceRecord, 'id'>;
 
@@ -115,7 +115,6 @@ export const AddMemberFormSchema = z.object({
   avatarUrl: z.string().url({ message: "URL inválida." }).optional().or(z.literal('')),
   assignedGDIId: z.string().nullable().optional(),
   assignedAreaIds: z.array(z.string()).optional(),
-  // roles is not directly editable in this form, it's derived
 });
 export type AddMemberFormValues = z.infer<typeof AddMemberFormSchema>;
 
@@ -144,26 +143,27 @@ export const AssignMinistryAreaMembersFormSchema = z.object({
 });
 export type AssignMinistryAreaMembersFormValues = z.infer<typeof AssignMinistryAreaMembersFormSchema>;
 
-export const MeetingInviteeRoleEnum = z.enum(["generalAttendees", "workers", "leaders"]);
-export type MeetingInviteeRoleType = z.infer<typeof MeetingInviteeRoleEnum>;
 
-// Schema for adding meetings from the general /events page
-// GDI_Meeting and Area_Meeting are typically created from their respective management pages.
+export const MeetingRoleSelectionEnum = z.enum(["generalAttendees", "workers", "leaders"]);
+export type MeetingRoleType = z.infer<typeof MeetingRoleSelectionEnum>;
+
 export const AddGeneralMeetingFormSchema = z.object({
   name: z.string().min(3, { message: "El nombre de la reunión debe tener al menos 3 caracteres." }),
   type: z.enum([
     "General_Service",
     "Obreros_Meeting",
     "Lideres_Meeting",
-    "Special_Meeting"
+    "Special_Meeting",
+    "Area_Meeting", // Added for completeness, though not directly creatable from this general form
+    "GDI_Meeting"   // Added for completeness
   ]),
   date: z.date({ required_error: "La fecha es requerida." }),
   time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Formato de hora inválido (HH:MM)." }),
   location: z.string().min(3, { message: "La ubicación es requerida." }),
   description: z.string().optional(),
   imageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')),
-  selectedRoles: z.array(MeetingInviteeRoleEnum).optional(), // For "Special_Meeting" to select invitee roles
-  // relatedGdiId, relatedAreaId, minute are part of Meeting type but not set in this specific form
+  selectedRoles: z.array(MeetingRoleSelectionEnum).optional(), 
+  minute: z.string().optional(), // Added for minute taking
 });
 
 export type AddGeneralMeetingFormValues = z.infer<typeof AddGeneralMeetingFormSchema>;

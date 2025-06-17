@@ -1,10 +1,11 @@
 
 'use server';
-import type { Meeting, AddGeneralMeetingFormValues, MeetingType, MeetingWriteData, Member } from '@/lib/types';
+import type { Meeting, AddGeneralMeetingFormValues, MeetingType, MeetingWriteData, Member, GDI, MinistryArea } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from 'next/image';
-import { CalendarDays, Clock, MapPin, Users, Briefcase, Award, CheckSquare, Sparkles, Building2, HandHelping } from 'lucide-react';
+import Link from 'next/link';
+import { CalendarDays, Clock, MapPin, Users, Briefcase, Award, CheckSquare, Sparkles, Building2, HandHelping, Edit } from 'lucide-react';
 import { revalidatePath } from 'next/cache';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -12,8 +13,8 @@ import { getAllMeetings, addMeeting as addMeetingSvc } from '@/services/meetingS
 import { getAllMembersNonPaginated } from '@/services/memberService'; 
 import PageSpecificAddMeetingDialog from '@/components/events/page-specific-add-meeting-dialog';
 import { Badge } from '@/components/ui/badge';
-import { getAllGdis } from '@/services/gdiService'; // For role resolution
-import { getAllMinistryAreas } from '@/services/ministryAreaService'; // For role resolution
+import { getAllGdis } from '@/services/gdiService'; 
+import { getAllMinistryAreas } from '@/services/ministryAreaService'; 
 
 
 export async function addMeetingAction(
@@ -31,27 +32,20 @@ export async function addMeetingAction(
       for (const role of newMeetingData.selectedRoles) {
         if (role === 'generalAttendees') {
           allMembers.forEach(member => {
-            if (member.assignedGDIId) { // Member is in any GDI
+            if (member.assignedGDIId) { 
               attendeeSet.add(member.id);
             }
           });
         } else if (role === 'workers') {
-          // GDI Guides
           allGdis.forEach(gdi => attendeeSet.add(gdi.guideId));
-          // Ministry Area Leaders
-          allMinistryAreas.forEach(area => attendeeSet.add(area.leaderId));
-          // Ministry Area Members (excluding leaders already added)
           allMinistryAreas.forEach(area => {
+            attendeeSet.add(area.leaderId);
             area.memberIds.forEach(memberId => {
-              if (memberId !== area.leaderId) { // Avoid double-adding if a member is also a leader of the same area
-                attendeeSet.add(memberId);
-              }
+               if (memberId !== area.leaderId) attendeeSet.add(memberId);
             });
           });
         } else if (role === 'leaders') {
-          // GDI Guides
           allGdis.forEach(gdi => attendeeSet.add(gdi.guideId));
-          // Ministry Area Leaders
           allMinistryAreas.forEach(area => attendeeSet.add(area.leaderId));
         }
       }
@@ -69,7 +63,7 @@ export async function addMeetingAction(
       relatedGdiId: null, 
       relatedAreaId: null,
       attendeeUids: resolvedAttendeeUids,
-      minute: null,
+      minute: null, // Minutes are handled separately, usually on edit or during attendance
     };
 
     const newMeeting = await addMeetingSvc(meetingToWrite);
@@ -185,14 +179,23 @@ export default async function EventsPage() {
                      <p className="text-xs text-muted-foreground pt-1">GDI: {meeting.relatedGdiId}</p> 
                   )}
                   {meeting.type === 'Special_Meeting' && meeting.attendeeUids && meeting.attendeeUids.length > 0 && (
-                    <p className="text-xs text-muted-foreground pt-1">Asistentes resueltos: {meeting.attendeeUids.length}</p>
+                    <p className="text-xs text-muted-foreground pt-1">Asistentes: {meeting.attendeeUids.length}</p>
                   )}
                 </CardContent>
-                <CardFooter>
-                  <Button variant="outline" className="border-accent text-accent hover:bg-accent/10">
-                    <CheckSquare className="mr-2 h-4 w-4" />
-                    Gestionar Asistencia
+                <CardFooter className="gap-2">
+                  <Button asChild variant="default" className="bg-primary hover:bg-primary/90">
+                    <Link href={`/events/${meeting.id}/attendance`}>
+                      <CheckSquare className="mr-2 h-4 w-4" />
+                      Gestionar Asistencia
+                    </Link>
                   </Button>
+                  {/* Basic edit button, can be expanded later for full edit functionality */}
+                   <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent/10">
+                     <Link href={`/events/${meeting.id}/attendance#edit`}> {/* Link to attendance and rely on hash for later or a dedicated edit page */}
+                       <Edit className="mr-2 h-4 w-4" />
+                       Editar/Ver Minuta
+                     </Link>
+                   </Button>
                 </CardFooter>
               </div>
             </Card>
