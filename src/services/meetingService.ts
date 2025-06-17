@@ -156,9 +156,7 @@ async function resolveAttendeeUids(targetGroups: MeetingTargetRoleType[]): Promi
     for (const role of targetGroups) {
         if (role === 'generalAttendees') {
             allMembers.forEach(member => {
-                if (member.status === 'Active') { // Changed: All active members
-                    attendeeSet.add(member.id);
-                }
+                attendeeSet.add(member.id); // Include all members regardless of status
             });
         } else if (role === 'workers') {
             allGdis.forEach(gdi => {
