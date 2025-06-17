@@ -169,7 +169,7 @@ export const DefineMeetingSeriesFormSchema = z.object({
   oneTimeDate: z.date().optional(),
   weeklyDays: z.array(DayOfWeekEnum).optional(),
   monthlyRuleType: MonthlyRuleTypeEnum.optional(),
-  monthlyDayOfMonth: z.number().min(1).max(31).optional(),
+  monthlyDayOfMonth: z.coerce.number().min(1).max(31).optional(), // Coerce to number for input type=number
   monthlyWeekOrdinal: WeekOrdinalEnum.optional(),
   monthlyDayOfWeek: DayOfWeekEnum.optional(),
 }).superRefine((data, ctx) => {
@@ -234,4 +234,3 @@ export const weekOrdinals: { id: WeekOrdinalType; label: string }[] = [
     { id: "Fourth", label: "Cuarta" },
     { id: "Last", label: "Última" },
 ];
-```
