@@ -11,8 +11,8 @@ import {
     addMeetingSeries,
     updateMeetingSeries,
     deleteMeetingSeries,
-    getAllMeetings,
-    addMeetingInstance
+    addMeetingInstance,
+    getFilteredMeetingInstances // Changed from getAllMeetings
 } from '@/services/meetingService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
 import PageSpecificAddMeetingDialog from '@/components/events/page-specific-add-meeting-dialog';
@@ -20,7 +20,7 @@ import ManageMeetingSeriesDialog from '@/components/events/manage-meeting-series
 import AddOccasionalMeetingDialog from '@/components/events/add-occasional-meeting-dialog';
 import { getAllGdis } from '@/services/gdiService';
 import { getAllMinistryAreas } from '@/services/ministryAreaService';
-import { getAllAttendanceRecords } from '@/services/attendanceService';
+import { getAllAttendanceRecords, getResolvedAttendees } from '@/services/attendanceService'; // Added getResolvedAttendees
 import MeetingTypeAttendanceTable from '@/components/events/meeting-type-attendance-table';
 import AttendanceLineChart from '@/components/events/AttendanceFrequencySummaryTable'; 
 import DateRangeFilter from '@/components/events/date-range-filter';
@@ -132,20 +132,23 @@ export async function addOccasionalMeetingAction(
   }
 }
 
-
-interface MeetingInstancesBySeries {
-  [seriesId: string]: Meeting[];
-}
-
 interface EventsPageData {
   allSeries: MeetingSeries[];
-  meetingsBySeries: MeetingInstancesBySeries;
+  meetingsForPage: Meeting[]; // Renamed from meetingsBySeries
+  totalMeetingInstances: number;
+  meetingInstancesTotalPages: number;
+  meetingInstancesCurrentPage: number;
   allMembers: Member[];
   allGdis: GDI[];
   allMinistryAreas: MinistryArea[];
   allAttendanceRecords: AttendanceRecord[];
+  initialRowMembers: Member[]; // For member pagination in table
+  expectedAttendeesMap: Record<string, Set<string>>; // For member pagination in table
+  memberCurrentPage: number;
+  memberPageSize: number;
   appliedStartDate?: string;
   appliedEndDate?: string;
+  selectedSeriesId?: string;
 }
 
 interface EventsPageProps {
@@ -153,63 +156,100 @@ interface EventsPageProps {
     series?: string;
     startDate?: string;
     endDate?: string;
+    page?: string; // For meeting instance pagination
+    pageSize?: string; // For meeting instance pagination
+    mPage?: string; // For member pagination
+    mPSize?: string; // For member pagination
   };
 }
 
-async function getEventsPageData(startDateParam?: string, endDateParam?: string): Promise<EventsPageData> {
+async function getEventsPageData(
+    selectedSeriesIdParam?: string,
+    startDateParam?: string, 
+    endDateParam?: string,
+    meetingPageParam?: string,
+    meetingPageSizeParam?: string,
+    memberPageParam?: string,
+    memberPageSizeParam?: string
+): Promise<EventsPageData> {
+  const meetingCurrentPage = Number(meetingPageParam) || 1;
+  let meetingPageSize = Number(meetingPageSizeParam) || 10;
+  if (isNaN(meetingPageSize) || meetingPageSize < 1) meetingPageSize = 10;
+
+  const memberCurrentPage = Number(memberPageParam) || 1;
+  let memberPageSize = Number(memberPageSizeParam) || 10;
+  if (isNaN(memberPageSize) || memberPageSize < 1) memberPageSize = 10;
+  
   const [
-    allSeries,
-    allMeetingInstancesList,
-    allMembers,
-    allGdis,
-    allMinistryAreas,
-    allAttendanceRecords
+    allSeriesData,
+    allMembersData,
+    allGdisData,
+    allMinistryAreasData,
+    allAttendanceRecordsData
   ] = await Promise.all([
     getAllMeetingSeries(),
-    getAllMeetings(),
     getAllMembersNonPaginated(),
     getAllGdis(),
     getAllMinistryAreas(),
     getAllAttendanceRecords()
   ]);
 
-  let appliedStartDate: string | undefined = startDateParam;
-  let appliedEndDate: string | undefined = endDateParam;
-  let filteredMeetingInstances = allMeetingInstancesList;
+  // Determine selected series ID, default to first if available
+  const seriesPresentInFilter = allSeriesData.sort((a,b) => a.name.localeCompare(b.name));
+  const actualSelectedSeriesId = selectedSeriesIdParam && seriesPresentInFilter.some(s => s.id === selectedSeriesIdParam)
+    ? selectedSeriesIdParam
+    : seriesPresentInFilter.length > 0
+      ? seriesPresentInFilter[0].id
+      : undefined;
 
-  if (startDateParam && endDateParam) {
-    const parsedStartDate = parseISO(startDateParam);
-    const parsedEndDate = parseISO(endDateParam);
-    if (isValid(parsedStartDate) && isValid(parsedEndDate) && parsedStartDate <= parsedEndDate) {
-      filteredMeetingInstances = allMeetingInstancesList.filter(meeting => {
-        const meetingDate = parseISO(meeting.date);
-        return isValid(meetingDate) && isWithinInterval(meetingDate, { start: parsedStartDate, end: parsedEndDate });
-      });
-    } else {
-      appliedStartDate = undefined;
-      appliedEndDate = undefined;
-    }
-  } else if (startDateParam || endDateParam) { 
-      appliedStartDate = undefined;
-      appliedEndDate = undefined;
+  let meetingsForPage: Meeting[] = [];
+  let totalMeetingInstances = 0;
+  let meetingInstancesTotalPages = 1;
+
+  if (actualSelectedSeriesId) {
+    const result = await getFilteredMeetingInstances(
+      actualSelectedSeriesId,
+      startDateParam,
+      endDateParam,
+      meetingCurrentPage,
+      meetingPageSize
+    );
+    meetingsForPage = result.instances;
+    totalMeetingInstances = result.totalCount;
+    meetingInstancesTotalPages = result.totalPages;
   }
 
-  const meetingsBySeries: MeetingInstancesBySeries = {};
-  allSeries.forEach(series => {
-    meetingsBySeries[series.id] = filteredMeetingInstances
-      .filter(instance => instance.seriesId === series.id)
-      .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
-  });
+  // Calculate initialRowMembers and expectedAttendeesMap based on meetingsForPage
+  const rowMemberIds = new Set<string>();
+  const expectedAttendeesMap: Record<string, Set<string>> = {};
+
+  for (const meeting of meetingsForPage) {
+    const resolvedForThisInstance = await getResolvedAttendees(meeting, allMembersData, allSeriesData);
+    expectedAttendeesMap[meeting.id] = new Set(resolvedForThisInstance.map(m => m.id));
+    resolvedForThisInstance.forEach(member => rowMemberIds.add(member.id));
+  }
+
+  const initialRowMembers = allMembersData
+    .filter(member => rowMemberIds.has(member.id))
+    .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
 
   return {
-    allSeries,
-    meetingsBySeries,
-    allMembers,
-    allGdis,
-    allMinistryAreas,
-    allAttendanceRecords,
-    appliedStartDate,
-    appliedEndDate
+    allSeries: seriesPresentInFilter,
+    meetingsForPage,
+    totalMeetingInstances,
+    meetingInstancesTotalPages,
+    meetingInstancesCurrentPage: meetingCurrentPage,
+    allMembers: allMembersData,
+    allGdis: allGdisData,
+    allMinistryAreas: allMinistryAreasData,
+    allAttendanceRecords: allAttendanceRecordsData,
+    initialRowMembers,
+    expectedAttendeesMap,
+    memberCurrentPage,
+    memberPageSize,
+    appliedStartDate: startDateParam,
+    appliedEndDate: endDateParam,
+    selectedSeriesId: actualSelectedSeriesId,
   };
 }
 
@@ -217,26 +257,59 @@ async function getEventsPageData(startDateParam?: string, endDateParam?: string)
 export default async function EventsPage({ searchParams }: EventsPageProps) {
   const {
     allSeries,
-    meetingsBySeries,
+    meetingsForPage,
+    totalMeetingInstances,
+    meetingInstancesTotalPages,
+    meetingInstancesCurrentPage,
     allMembers,
     allGdis,
     allMinistryAreas,
     allAttendanceRecords,
+    initialRowMembers,
+    expectedAttendeesMap,
+    memberCurrentPage,
+    memberPageSize,
     appliedStartDate,
-    appliedEndDate
-  } = await getEventsPageData(searchParams?.startDate, searchParams?.endDate);
+    appliedEndDate,
+    selectedSeriesId,
+  } = await getEventsPageData(
+      searchParams?.series, 
+      searchParams?.startDate, 
+      searchParams?.endDate,
+      searchParams?.page,
+      searchParams?.pageSize,
+      searchParams?.mPage,
+      searchParams?.mPSize
+  );
 
-  const seriesPresentInFilter = allSeries.filter(series =>
-    meetingsBySeries[series.id]?.length > 0 || series.frequency === "Weekly" || series.frequency === "Monthly" || series.frequency === "OneTime"
-  ).sort((a,b) => a.name.localeCompare(b.name));
+  const selectedSeriesObject = selectedSeriesId ? allSeries.find(s => s.id === selectedSeriesId) : undefined;
 
-  const selectedSeriesId = searchParams?.series && seriesPresentInFilter.some(s => s.id === searchParams.series)
-    ? searchParams.series
-    : seriesPresentInFilter.length > 0
-      ? seriesPresentInFilter[0].id
-      : undefined;
+  const createPageURL = (pageNumber: number, currentMPSize?: number, currentSeriesId?: string, currentStartDate?: string, currentEndDate?: string) => {
+    const params = new URLSearchParams();
+    if (currentSeriesId) params.set('series', currentSeriesId);
+    if (currentStartDate) params.set('startDate', currentStartDate);
+    if (currentEndDate) params.set('endDate', currentEndDate);
+    if (searchParams?.pageSize) params.set('pageSize', searchParams.pageSize); // Preserve instance pageSize
+    if (pageNumber > 1) params.set('page', pageNumber.toString());
 
-  const selectedSeriesObject = selectedSeriesId ? seriesPresentInFilter.find(s => s.id === selectedSeriesId) : undefined;
+    if (currentMPSize) params.set('mPSize', currentMPSize.toString()); // Preserve member pageSize
+    if (searchParams?.mPage && Number(searchParams.mPage) > 1) params.set('mPage', searchParams.mPage); // Preserve member page if not 1
+    
+    return `/events?${params.toString()}`;
+  };
+  
+  const createSeriesLink = (seriesId: string) => {
+      const params = new URLSearchParams();
+      params.set('series', seriesId);
+      // Reset instance page and member page to 1 when changing series
+      // Preserve date filters and member page size
+      if (appliedStartDate) params.set('startDate', appliedStartDate);
+      if (appliedEndDate) params.set('endDate', appliedEndDate);
+      if (searchParams?.pageSize) params.set('pageSize', searchParams.pageSize);
+      if (searchParams?.mPSize) params.set('mPSize', searchParams.mPSize);
+      return `/events?${params.toString()}`;
+  }
+
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -255,10 +328,10 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               <LayoutGrid className="mr-2 h-5 w-5 text-primary" />
               Series de Reuniones
             </h2>
-            {seriesPresentInFilter.length > 0 ? (
+            {allSeries.length > 0 ? (
               <ScrollArea className="max-h-60 md:max-h-72 lg:max-h-80 pr-3">
                 <div className="space-y-1">
-                  {seriesPresentInFilter.map((series) => (
+                  {allSeries.map((series) => (
                     <Button
                       key={series.id}
                       variant={selectedSeriesId === series.id ? "default" : "ghost"}
@@ -268,8 +341,8 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                       )}
                       asChild
                     >
-                      <Link href={`/events?series=${series.id}${appliedStartDate ? `&startDate=${appliedStartDate}` : ''}${appliedEndDate ? `&endDate=${appliedEndDate}` : ''}`}>
-                        {series.name} ({meetingsBySeries[series.id]?.length || 0})
+                      <Link href={createSeriesLink(series.id)}>
+                        {series.name}
                       </Link>
                     </Button>
                   ))}
@@ -320,9 +393,9 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                 </div>
               </div>
 
-              {meetingsBySeries[selectedSeriesObject.id] && meetingsBySeries[selectedSeriesObject.id].length > 0 && (
+              {meetingsForPage.length > 0 && (
                 <AttendanceLineChart
-                  meetingsForSeries={meetingsBySeries[selectedSeriesObject.id]}
+                  meetingsForSeries={meetingsForPage} // Use paginated instances for chart for now
                   allAttendanceRecords={allAttendanceRecords}
                   seriesName={selectedSeriesObject.name}
                   filterStartDate={appliedStartDate}
@@ -330,17 +403,18 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                 />
               )}
               
-              {meetingsBySeries[selectedSeriesObject.id] && meetingsBySeries[selectedSeriesObject.id].length > 0 ? (
+              {totalMeetingInstances > 0 ? (
                 <MeetingTypeAttendanceTable
-                  meetingsForSeries={meetingsBySeries[selectedSeriesObject.id]}
+                  displayedInstances={meetingsForPage} // Pass paginated instances
                   allMeetingSeries={allSeries} 
-                  allMembers={allMembers}
-                  allGdis={allGdis}
-                  allMinistryAreas={allMinistryAreas}
+                  initialRowMembers={initialRowMembers} // Pass all relevant members for this set of instances
+                  expectedAttendeesMap={expectedAttendeesMap}
                   allAttendanceRecords={allAttendanceRecords}
                   seriesName={selectedSeriesObject.name}
                   filterStartDate={appliedStartDate}
                   filterEndDate={appliedEndDate}
+                  memberCurrentPage={memberCurrentPage}
+                  memberPageSize={memberPageSize}
                 />
               ) : (
                 <div className="text-center py-10">
@@ -357,18 +431,43 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                   </p>
                 </div>
               )}
+              {meetingInstancesTotalPages > 1 && (
+                <div className="flex items-center justify-end space-x-2 py-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push(createPageURL(meetingInstancesCurrentPage - 1, memberPageSize, selectedSeriesId, appliedStartDate, appliedEndDate))}
+                    disabled={meetingInstancesCurrentPage <= 1}
+                  >
+                    Anterior (Instancias)
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Página {meetingInstancesCurrentPage} de {meetingInstancesTotalPages} (Instancias)
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push(createPageURL(meetingInstancesCurrentPage + 1, memberPageSize, selectedSeriesId, appliedStartDate, appliedEndDate))}
+                    disabled={meetingInstancesCurrentPage >= meetingInstancesTotalPages}
+                  >
+                    Siguiente (Instancias)
+                  </Button>
+                </div>
+              )}
             </>
           ) : (
              <div className="text-center py-10 flex flex-col items-center justify-center">
               <CalendarDays className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
               <h2 className="text-2xl font-semibold text-muted-foreground">
-                {seriesPresentInFilter.length > 0 ? "Seleccione una Serie" : 
+                {allSeries.length > 0 ? "Seleccione una Serie" : 
                   (appliedStartDate && appliedEndDate ? "No hay reuniones para el rango seleccionado" : "No hay Series de Reuniones Definidas")
                 }
               </h2>
                <p className="text-muted-foreground mt-3 max-w-md">
-                {seriesPresentInFilter.length > 0 ? "Elija una serie de la lista de la izquierda para ver sus instancias y gestionar la asistencia." :
-                  (appliedStartDate && appliedEndDate ? `(${format(parseISO(appliedStartDate), 'dd/MM/yy', { locale: es })} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', { locale: es })})` : "Defina una nueva serie de reuniones o ajuste los filtros de fecha para comenzar.")
+                {allSeries.length > 0 ? "Elija una serie de la lista de la izquierda para ver sus instancias y gestionar la asistencia." :
+                  (appliedStartDate && appliedEndDate && appliedStartDate === appliedEndDate ? `(${format(parseISO(appliedStartDate), 'dd/MM/yy', { locale: es })})` :
+                   appliedStartDate && appliedEndDate ? `(${format(parseISO(appliedStartDate), 'dd/MM/yy', { locale: es })} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', { locale: es })})` :
+                  "Defina una nueva serie de reuniones o ajuste los filtros de fecha para comenzar.")
                 }
               </p>
             </div>
@@ -378,3 +477,4 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     </div>
   );
 }
+

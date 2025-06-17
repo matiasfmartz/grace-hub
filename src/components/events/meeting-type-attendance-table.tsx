@@ -1,23 +1,29 @@
 
-import type { Meeting, Member, GDI, MinistryArea, AttendanceRecord, MeetingSeries } from '@/lib/types';
+"use client";
+
+import type { Meeting, Member, AttendanceRecord, MeetingSeries } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getResolvedAttendees } from '@/services/attendanceService';
 import Link from 'next/link';
-import { CheckCircle2, XCircle, HelpCircle, MinusCircle, CalendarRange } from 'lucide-react';
+import { CheckCircle2, XCircle, HelpCircle, MinusCircle, CalendarRange, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import React, { useMemo } from 'react';
 
 interface MeetingTypeAttendanceTableProps {
-  meetingsForSeries: Meeting[];
-  allMeetingSeries: MeetingSeries[]; // Added this prop
-  allMembers: Member[];
-  allGdis: GDI[];
-  allMinistryAreas: MinistryArea[];
+  displayedInstances: Meeting[]; // Paginated meeting instances (columns)
+  allMeetingSeries: MeetingSeries[];
+  initialRowMembers: Member[]; // Full list of members relevant to displayedInstances (rows to be paginated)
+  expectedAttendeesMap: Record<string, Set<string>>; // Map of meetingId to Set of expected memberIds
   allAttendanceRecords: AttendanceRecord[];
   seriesName: string;
   filterStartDate?: string;
   filterEndDate?: string;
+  memberCurrentPage: number;
+  memberPageSize: number;
 }
 
 const formatMeetingHeader = (dateString: string, timeString: string, isDuplicateDate: boolean): string => {
@@ -56,40 +62,51 @@ const formatDateRangeText = (startDate?: string, endDate?: string): string => {
   return `Mostrando todas las instancias para esta serie.`;
 };
 
-export default async function MeetingTypeAttendanceTable({
-  meetingsForSeries,
-  allMeetingSeries, // Use this prop
-  allMembers,
-  allGdis,
-  allMinistryAreas,
+export default function MeetingTypeAttendanceTable({
+  displayedInstances,
+  allMeetingSeries, 
+  initialRowMembers,
+  expectedAttendeesMap,
   allAttendanceRecords,
   seriesName,
   filterStartDate,
   filterEndDate,
+  memberCurrentPage,
+  memberPageSize,
 }: MeetingTypeAttendanceTableProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  if (!meetingsForSeries || meetingsForSeries.length === 0) {
+  // Member Pagination Logic
+  const totalMembers = initialRowMembers.length;
+  const totalMemberPages = Math.ceil(totalMembers / memberPageSize);
+  const memberStartIndex = (memberCurrentPage - 1) * memberPageSize;
+  const memberEndIndex = memberStartIndex + memberPageSize;
+  const paginatedRowMembers = initialRowMembers.slice(memberStartIndex, memberEndIndex);
+
+  const handleMemberPageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('mPage', newPage.toString());
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
+  const handleMemberPageSizeChange = (newSize: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('mPSize', newSize);
+    params.set('mPage', '1'); // Reset to first page when size changes
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
+
+  if (!displayedInstances || displayedInstances.length === 0) {
      const dateRangeInfo = filterStartDate && filterEndDate ? 
       ` para el rango de ${format(parseISO(filterStartDate), 'dd/MM/yy', {locale: es})} a ${format(parseISO(filterEndDate), 'dd/MM/yy', {locale: es})}` :
       "";
     return <p className="text-muted-foreground py-4 text-center">No hay instancias de reunión para la serie "{seriesName}"{dateRangeInfo}.</p>;
   }
-
-  const rowMemberIds = new Set<string>();
-  const expectedAttendeesByMeetingId: Record<string, Set<string>> = {}; 
-
-  for (const meeting of meetingsForSeries) {
-    // Pass allMembers and allMeetingSeries to getResolvedAttendees
-    const expectedForThisInstance = await getResolvedAttendees(meeting, allMembers, allMeetingSeries);
-    expectedAttendeesByMeetingId[meeting.id] = new Set(expectedForThisInstance.map(m => m.id));
-    expectedForThisInstance.forEach(member => rowMemberIds.add(member.id));
-  }
   
-  const rowMembers = allMembers
-    .filter(member => rowMemberIds.has(member.id))
-    .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
-
-  const columnMeetings = meetingsForSeries; 
+  const columnMeetings = displayedInstances; 
 
   const dateCounts = new Map<string, number>();
   columnMeetings.forEach(meeting => {
@@ -100,6 +117,54 @@ export default async function MeetingTypeAttendanceTable({
 
   return (
     <div className="border rounded-lg shadow-md">
+      {totalMembers > 0 && (
+        <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-b gap-2">
+          <div className="text-sm text-muted-foreground">
+            Mostrando {paginatedRowMembers.length} de {totalMembers} miembros convocados.
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm">Mostrar:</span>
+            <Select
+              value={memberPageSize.toString()}
+              onValueChange={handleMemberPageSizeChange}
+            >
+              <SelectTrigger className="w-[70px] h-8 text-xs">
+                <SelectValue placeholder={memberPageSize} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectContent>
+            </Select>
+             {totalMemberPages > 1 && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => handleMemberPageChange(memberCurrentPage - 1)}
+                    disabled={memberCurrentPage <= 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Pág. {memberCurrentPage} de {totalMemberPages} (Miembros)
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => handleMemberPageChange(memberCurrentPage + 1)}
+                    disabled={memberCurrentPage >= totalMemberPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </>
+            )}
+          </div>
+        </div>
+      )}
       <ScrollArea className="w-full whitespace-nowrap">
         <Table className="min-w-full">
           <TableHeader>
@@ -118,14 +183,14 @@ export default async function MeetingTypeAttendanceTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rowMembers.map(member => (
+            {paginatedRowMembers.map(member => (
               <TableRow key={member.id}>
                 <TableCell className="sticky left-0 bg-card z-10 font-medium w-[200px] min-w-[200px] border-r p-2">
                   {member.firstName} {member.lastName}
                 </TableCell
                 >
                 {columnMeetings.map(meeting => {
-                  const isExpected = expectedAttendeesByMeetingId[meeting.id]?.has(member.id);
+                  const isExpected = expectedAttendeesMap[meeting.id]?.has(member.id);
                   let cellContent;
 
                   if (isExpected) {
@@ -151,10 +216,17 @@ export default async function MeetingTypeAttendanceTable({
                 })}
               </TableRow>
             ))}
-            {rowMembers.length === 0 && (
+            {paginatedRowMembers.length === 0 && totalMembers > 0 && (
+               <TableRow>
+                <TableCell colSpan={columnMeetings.length + 1} className="text-center text-muted-foreground py-8">
+                    No hay miembros para mostrar en esta página.
+                </TableCell>
+              </TableRow>
+            )}
+             {totalMembers === 0 && (
               <TableRow>
                 <TableCell colSpan={columnMeetings.length + 1} className="text-center text-muted-foreground py-8">
-                  No hay miembros esperados para las instancias de esta serie
+                  No hay miembros convocados para las instancias visibles de esta serie
                   {filterStartDate && filterEndDate ? ` en el rango de fechas seleccionado` : ""}.
                 </TableCell>
               </TableRow>
@@ -172,3 +244,4 @@ export default async function MeetingTypeAttendanceTable({
     </div>
   );
 }
+

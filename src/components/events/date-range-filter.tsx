@@ -43,6 +43,9 @@ export default function DateRangeFilter({ initialStartDate, initialEndDate }: Da
     } else {
       params.delete('endDate');
     }
+    // Reset instance page and member page when date filters change
+    params.delete('page'); 
+    params.delete('mPage');
     router.push(`${pathname}?${params.toString()}`);
   };
 
@@ -50,22 +53,25 @@ export default function DateRangeFilter({ initialStartDate, initialEndDate }: Da
     const params = new URLSearchParams(searchParams.toString());
     params.delete('startDate');
     params.delete('endDate');
+    // Reset instance page and member page when date filters change
+    params.delete('page');
+    params.delete('mPage');
     setStartDate(undefined);
     setEndDate(undefined);
     router.push(`${pathname}?${params.toString()}`);
   };
 
   return (
-    <div className="space-y-4"> {/* Main container for the filter component */}
-      <div className="space-y-1.5"> {/* Start Date */}
+    <div className="space-y-4"> 
+      <div className="space-y-1.5"> 
         <Label htmlFor="startDateFilter">Fecha de Inicio</Label>
         <DatePicker date={startDate} setDate={setStartDate} placeholder="Desde" />
       </div>
-      <div className="space-y-1.5"> {/* End Date */}
+      <div className="space-y-1.5"> 
         <Label htmlFor="endDateFilter">Fecha de Fin</Label>
         <DatePicker date={endDate} setDate={setEndDate} placeholder="Hasta" />
       </div>
-      <div className="flex flex-col sm:flex-row gap-2 pt-2"> {/* Buttons container */}
+      <div className="flex flex-col sm:flex-row gap-2 pt-2"> 
         <Button onClick={handleApplyFilters} disabled={!startDate || !endDate} className="w-full sm:w-auto">
           Aplicar Filtro
         </Button>
@@ -81,3 +87,4 @@ export default function DateRangeFilter({ initialStartDate, initialEndDate }: Da
     </div>
   );
 }
+
