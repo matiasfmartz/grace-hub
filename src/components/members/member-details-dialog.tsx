@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, ShieldCheck, BarChart3, ListChecks } from 'lucide-react';
 import AddMemberForm from './add-member-form';
-import MemberAttendanceSummary from './member-attendance-chart'; // Corrected import path
+import MemberAttendanceSummary from './member-attendance-chart'; // Corrected import path, points to the file with summary logic
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useTransition } from 'react';
 import { useToast } from "@/hooks/use-toast";
@@ -263,3 +263,5 @@ export default function MemberDetailsDialog({
     </Dialog>
   );
 }
+
+    

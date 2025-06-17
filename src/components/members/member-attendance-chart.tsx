@@ -70,7 +70,7 @@ export default function MemberAttendanceSummary({
     }
     
     const sortedMeetings = meetingsFilteredByDate.sort((a, b) => 
-      parseISO(b.date).getTime() - parseISO(a.date).getTime()
+      parseISO(b.date).getTime() - parseISO(a.date).getTime() // Sort descending by date (newest first)
     );
 
     const detailedInfo: FilteredMeetingInfo[] = sortedMeetings.map(meeting => {
@@ -83,7 +83,7 @@ export default function MemberAttendanceSummary({
         meetingName: meeting.name,
         meetingDate: meeting.date,
         seriesName: series?.name || 'Serie Desconocida',
-        attended: attendanceRecord?.attended || false,
+        attended: attendanceRecord?.attended || false, // Default to false if no record
       };
     });
 
@@ -217,3 +217,5 @@ export default function MemberAttendanceSummary({
     </Card>
   );
 }
+
+    
