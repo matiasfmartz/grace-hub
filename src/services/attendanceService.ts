@@ -55,7 +55,9 @@ export async function getResolvedAttendees(
         return [];
     }
 
+    // Removed "&& member.status === 'Active'" to include all members listed in attendeeUids
     return membersToFetch
-        .filter(member => meeting.attendeeUids.includes(member.id) && member.status === 'Active')
+        .filter(member => meeting.attendeeUids.includes(member.id)) 
         .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
 }
+
