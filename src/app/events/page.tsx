@@ -22,6 +22,7 @@ import { getAllGdis } from '@/services/gdiService';
 import { getAllMinistryAreas } from '@/services/ministryAreaService';
 import { getAllAttendanceRecords } from '@/services/attendanceService';
 import MeetingTypeAttendanceTable from '@/components/events/meeting-type-attendance-table';
+import AttendanceFrequencySummaryTable from '@/components/events/AttendanceFrequencySummaryTable'; // Nueva importación
 import DateRangeFilter from '@/components/events/date-range-filter';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -323,6 +324,17 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                 </div>
               </div>
 
+              {/* Nueva Tabla de Resumen de Frecuencia de Asistencia */}
+              {meetingsBySeries[selectedSeriesObject.id] && meetingsBySeries[selectedSeriesObject.id].length > 0 && (
+                <AttendanceFrequencySummaryTable
+                  meetingsForSeries={meetingsBySeries[selectedSeriesObject.id]}
+                  allAttendanceRecords={allAttendanceRecords}
+                  seriesName={selectedSeriesObject.name}
+                  filterStartDate={appliedStartDate}
+                  filterEndDate={appliedEndDate}
+                />
+              )}
+              
               {meetingsBySeries[selectedSeriesObject.id] && meetingsBySeries[selectedSeriesObject.id].length > 0 ? (
                 <MeetingTypeAttendanceTable
                   meetingsForSeries={meetingsBySeries[selectedSeriesObject.id]}

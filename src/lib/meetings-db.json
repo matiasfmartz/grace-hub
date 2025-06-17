@@ -254,5 +254,37 @@
       "8"
     ],
     "minute": null
+  },
+  {
+    "id": "instance-1750192706688-mhdft92-15",
+    "seriesId": "series-1750192706678-zngwt",
+    "name": "Noche de uncion especial (15 jun)",
+    "date": "2025-06-15",
+    "time": "10:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "5",
+      "6",
+      "1749877175613-ls6oqv6"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750192723722-z310kzs-16",
+    "seriesId": "series-1750192706678-zngwt",
+    "name": "Noche de uncion especial (Ocasional)",
+    "date": "2025-06-26",
+    "time": "10:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "5",
+      "6",
+      "1749877175613-ls6oqv6"
+    ],
+    "minute": null
   }
 ]

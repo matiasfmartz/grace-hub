@@ -43,5 +43,18 @@
     "weeklyDays": [
       "Thursday"
     ]
+  },
+  {
+    "id": "series-1750192706678-zngwt",
+    "name": "Noche de uncion especial",
+    "description": "",
+    "defaultTime": "10:00",
+    "defaultLocation": "Santuario Principal",
+    "defaultImageUrl": "https://placehold.co/600x400",
+    "targetAttendeeGroups": [
+      "generalAttendees"
+    ],
+    "frequency": "OneTime",
+    "oneTimeDate": "2025-06-15"
   }
 ]
