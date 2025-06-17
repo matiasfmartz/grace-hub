@@ -27,12 +27,12 @@ import {
 import { DatePicker } from "@/components/ui/date-picker";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useTransition, useEffect } from "react";
+import React, { useTransition, useEffect, useMemo } from "react"; // Added React for useMemo
 import { DialogClose } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { isValid as isValidDate } from 'date-fns'; // Import isValidDate
+import { isValid as isValidDate } from 'date-fns';
 
 interface DefineMeetingSeriesFormProps {
   defineMeetingSeriesAction: (data: DefineMeetingSeriesFormValues) => Promise<{ success: boolean; message: string; newSeries?: any, newInstance?: any, updatedSeries?: MeetingSeries }>;
@@ -58,6 +58,44 @@ const baseDefaultFormValues: DefineMeetingSeriesFormValues = {
   monthlyDayOfWeek: undefined,
 };
 
+// Helper function to resolve default values for the form
+const getResolvedDefaultValues = (
+  currentInitialValues?: DefineMeetingSeriesFormValues,
+): DefineMeetingSeriesFormValues => {
+  let oneTimeDateToSet: Date | undefined = undefined;
+  if (currentInitialValues?.oneTimeDate) {
+    const dateCandidate = currentInitialValues.oneTimeDate;
+    if (dateCandidate instanceof Date && isValidDate(dateCandidate)) {
+      oneTimeDateToSet = dateCandidate;
+    }
+  }
+
+  const defaultVals: DefineMeetingSeriesFormValues = {
+    name: currentInitialValues?.name ?? baseDefaultFormValues.name,
+    description: currentInitialValues?.description ?? baseDefaultFormValues.description,
+    defaultTime: currentInitialValues?.defaultTime ?? baseDefaultFormValues.defaultTime,
+    defaultLocation: currentInitialValues?.defaultLocation ?? baseDefaultFormValues.defaultLocation,
+    defaultImageUrl: currentInitialValues?.defaultImageUrl ?? baseDefaultFormValues.defaultImageUrl,
+    targetAttendeeGroups: currentInitialValues?.targetAttendeeGroups ?? baseDefaultFormValues.targetAttendeeGroups,
+    frequency: currentInitialValues?.frequency ?? baseDefaultFormValues.frequency,
+    oneTimeDate: oneTimeDateToSet, // Correctly typed Date | undefined
+    weeklyDays: currentInitialValues?.weeklyDays ?? baseDefaultFormValues.weeklyDays,
+    monthlyRuleType: currentInitialValues?.monthlyRuleType, // Can be undefined, not direct text input
+    monthlyDayOfMonth: currentInitialValues?.monthlyDayOfMonth, // Can be undefined
+    monthlyWeekOrdinal: currentInitialValues?.monthlyWeekOrdinal, // Can be undefined
+    monthlyDayOfWeek: currentInitialValues?.monthlyDayOfWeek, // Can be undefined
+  };
+
+  // Ensure string fields that go to <Input> or <Textarea> are not null/undefined after merge
+  defaultVals.name = defaultVals.name ?? "";
+  defaultVals.description = defaultVals.description ?? "";
+  defaultVals.defaultImageUrl = defaultVals.defaultImageUrl ?? "";
+  // defaultTime and defaultLocation are already guaranteed to be strings by baseDefaultFormValues
+
+  return defaultVals;
+};
+
+
 export default function DefineMeetingSeriesForm({
   defineMeetingSeriesAction,
   onSuccess,
@@ -68,33 +106,18 @@ export default function DefineMeetingSeriesForm({
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
+  const resolvedDefaultValues = useMemo(() => getResolvedDefaultValues(initialValues), [initialValues]);
+
   const form = useForm<DefineMeetingSeriesFormValues>({
     resolver: zodResolver(DefineMeetingSeriesFormSchema),
-    // Default values are set in useEffect
+    defaultValues: resolvedDefaultValues,
   });
 
-
   useEffect(() => {
-    let oneTimeDateToSet: Date | undefined = undefined;
-    if (initialValues?.oneTimeDate) {
-        // Ensure it's a Date object and valid before setting
-        const dateCandidate = initialValues.oneTimeDate;
-        if (dateCandidate instanceof Date && isValidDate(dateCandidate)) {
-            oneTimeDateToSet = dateCandidate;
-        }
-    }
-
-    const valuesToReset = initialValues
-      ? {
-          ...baseDefaultFormValues,
-          ...initialValues,
-          oneTimeDate: oneTimeDateToSet, // Use the validated date
-          weeklyDays: initialValues.weeklyDays || [],
-          targetAttendeeGroups: initialValues.targetAttendeeGroups || [],
-        }
-      : baseDefaultFormValues;
-    form.reset(valuesToReset);
-  }, [initialValues, isEditing, form]); // form.reset is stable, form is not
+    // Reset the form if initialValues change after the initial mount
+    // This is important if the form component instance is reused with different initialValues
+    form.reset(getResolvedDefaultValues(initialValues));
+  }, [initialValues, form.reset]);
 
 
   const watchedFrequency = form.watch("frequency");
@@ -125,10 +148,7 @@ export default function DefineMeetingSeriesForm({
   async function onSubmit(values: DefineMeetingSeriesFormValues) {
     startTransition(async () => {
       const dataToSend = { ...values };
-      // oneTimeDate is already a Date object or undefined from the form state
-      // No further conversion needed here for sending to action
       
-      // Clean up conditional fields based on frequency
       if (dataToSend.frequency !== 'OneTime') delete dataToSend.oneTimeDate;
       if (dataToSend.frequency !== 'Weekly') delete dataToSend.weeklyDays;
       if (dataToSend.frequency !== 'Monthly') {
@@ -144,14 +164,14 @@ export default function DefineMeetingSeriesForm({
         }
       }
 
-      const result = await defineMeetingSeriesAction(dataToSend); // No 'as any' needed if types align
+      const result = await defineMeetingSeriesAction(dataToSend);
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
         if (onSuccess) {
           onSuccess();
         }
-        if (!isEditing) { // Only reset fully for new series creation
-            form.reset(baseDefaultFormValues);
+        if (!isEditing) { 
+            form.reset(getResolvedDefaultValues(undefined)); // Reset to base defaults
         }
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
@@ -161,26 +181,9 @@ export default function DefineMeetingSeriesForm({
 
   const handleCancel = () => {
     if (isEditing && onCancelEdit) {
-      onCancelEdit(); // This might re-trigger useEffect if initialValues changes, ensure stability
+      onCancelEdit(); 
     }
-    // Reset to initial state (either base defaults or the original initialValues for edit)
-    let oneTimeDateToSet: Date | undefined = undefined;
-    if (initialValues?.oneTimeDate) {
-        const dateCandidate = initialValues.oneTimeDate;
-        if (dateCandidate instanceof Date && isValidDate(dateCandidate)) {
-            oneTimeDateToSet = dateCandidate;
-        }
-    }
-    const resetValues = initialValues
-        ? {
-            ...baseDefaultFormValues,
-            ...initialValues,
-            oneTimeDate: oneTimeDateToSet,
-            weeklyDays: initialValues.weeklyDays || [],
-            targetAttendeeGroups: initialValues.targetAttendeeGroups || [],
-          }
-        : baseDefaultFormValues;
-    form.reset(resetValues);
+    form.reset(getResolvedDefaultValues(initialValues));
   };
 
 
@@ -345,7 +348,7 @@ export default function DefineMeetingSeriesForm({
                 <FormItem className="flex flex-col">
                 <FormLabel>Fecha de Reunión (para Única Vez)</FormLabel>
                 <DatePicker
-                    date={field.value} // field.value should be Date or undefined
+                    date={field.value} 
                     setDate={field.onChange}
                     placeholder="Seleccionar fecha"
                     disabled={isPending || (isEditing && initialValues?.frequency === "OneTime")}
@@ -500,14 +503,14 @@ export default function DefineMeetingSeriesForm({
         )}
 
         <div className="flex justify-end space-x-2 pt-4 border-t">
-           {(!isEditing || (isEditing && !onCancelEdit)) && ( // Standard case: form is inside a Dialog that closes itself (e.g. PageSpecificAdd)
+           {(!isEditing || (isEditing && !onCancelEdit)) && ( 
              <DialogClose asChild>
                 <Button type="button" variant="outline" onClick={handleCancel} disabled={isPending}>
                     Cancelar
                 </Button>
             </DialogClose>
            )}
-           {isEditing && onCancelEdit && ( // Specific case: form is in ManageMeetingSeriesDialog, which controls its own visibility
+           {isEditing && onCancelEdit && ( 
                 <Button type="button" variant="outline" onClick={handleCancel} disabled={isPending}>
                     Cancelar Edición
                 </Button>
