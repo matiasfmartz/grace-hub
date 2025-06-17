@@ -1,9 +1,7 @@
 
 'use server';
-import type { Meeting, AddGeneralMeetingFormValues, MeetingType, MeetingWriteData, Member, GDI, MinistryArea } from '@/lib/types';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import type { Meeting, AddGeneralMeetingFormValues, MeetingType, MeetingWriteData, Member, GDI, MinistryArea, AttendanceRecord } from '@/lib/types';
 import { Button } from "@/components/ui/button";
-import Image from 'next/image';
 import Link from 'next/link';
 import { CalendarDays, Clock, MapPin, Users, Briefcase, Award, CheckSquare, Sparkles, Building2, HandHelping, Edit } from 'lucide-react';
 import { revalidatePath } from 'next/cache';
@@ -16,6 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { getAllGdis } from '@/services/gdiService'; 
 import { getAllMinistryAreas } from '@/services/ministryAreaService'; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getAllAttendanceRecords } from '@/services/attendanceService';
+import MeetingTypeAttendanceTable from '@/components/events/meeting-type-attendance-table';
 
 export async function addMeetingAction(
   newMeetingData: AddGeneralMeetingFormValues
@@ -75,25 +75,6 @@ export async function addMeetingAction(
   }
 }
 
-const MeetingTypeIcon = ({ type }: { type: MeetingType }) => {
-  switch (type) {
-    case 'General_Service':
-      return <Users className="mr-2 h-5 w-5 text-primary" />;
-    case 'GDI_Meeting':
-      return <HandHelping className="mr-2 h-5 w-5 text-teal-500" />;
-    case 'Obreros_Meeting':
-      return <Briefcase className="mr-2 h-5 w-5 text-green-500" />;
-    case 'Lideres_Meeting':
-      return <Award className="mr-2 h-5 w-5 text-yellow-500" />;
-    case 'Area_Meeting':
-      return <Building2 className="mr-2 h-5 w-5 text-indigo-500" />;
-    case 'Special_Meeting':
-      return <Sparkles className="mr-2 h-5 w-5 text-pink-500" />;
-    default:
-      return <CalendarDays className="mr-2 h-5 w-5 text-primary" />;
-  }
-};
-
 const meetingTypeTranslations: Record<string, string> = {
   General_Service: "Servicio General",
   GDI_Meeting: "Reunión de GDI",
@@ -103,28 +84,23 @@ const meetingTypeTranslations: Record<string, string> = {
   Special_Meeting: "Reunión Especial",
 };
 
-
-const formatDateDisplay = (dateString: string) => {
-  try {
-    return format(parseISO(dateString), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es });
-  } catch (error) {
-    return dateString; 
-  }
-};
-
 interface EventsPageData {
   meetingsByType: Record<string, Meeting[]>;
   allMembers: Member[];
   allGdis: GDI[];
   allMinistryAreas: MinistryArea[];
+  allAttendanceRecords: AttendanceRecord[];
 }
 
 async function getEventsPageData(): Promise<EventsPageData> {
-  const allMeetingsList = await getAllMeetings();
-  const allMembers = await getAllMembersNonPaginated();
-  const allGdis = await getAllGdis();
-  const allMinistryAreas = await getAllMinistryAreas();
-
+  const [allMeetingsList, allMembers, allGdis, allMinistryAreas, allAttendanceRecords] = await Promise.all([
+    getAllMeetings(),
+    getAllMembersNonPaginated(),
+    getAllGdis(),
+    getAllMinistryAreas(),
+    getAllAttendanceRecords()
+  ]);
+  
   const meetingsByType: Record<string, Meeting[]> = {};
   allMeetingsList.forEach(meeting => {
     if (!meetingsByType[meeting.type]) {
@@ -134,15 +110,16 @@ async function getEventsPageData(): Promise<EventsPageData> {
   });
 
   for (const type in meetingsByType) {
+    // Sort meetings within each type, most recent first
     meetingsByType[type].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 
-  return { meetingsByType, allMembers, allGdis, allMinistryAreas };
+  return { meetingsByType, allMembers, allGdis, allMinistryAreas, allAttendanceRecords };
 }
 
 
 export default async function EventsPage() {
-  const { meetingsByType, allMembers, allGdis, allMinistryAreas } = await getEventsPageData();
+  const { meetingsByType, allMembers, allGdis, allMinistryAreas, allAttendanceRecords } = await getEventsPageData();
   const meetingTypesPresent = Object.keys(meetingsByType).filter(type => meetingsByType[type] && meetingsByType[type].length > 0);
   
   const orderedMeetingTypes = [
@@ -163,7 +140,7 @@ export default async function EventsPage() {
       <div className="flex flex-wrap justify-between items-center mb-10">
         <div className="mb-4 sm:mb-0">
           <h1 className="font-headline text-4xl font-bold text-primary">Administración de Reuniones</h1>
-          <p className="text-muted-foreground mt-2">Organice y vea reuniones por tipo.</p>
+          <p className="text-muted-foreground mt-2">Organice y vea el historial de asistencia a reuniones por tipo.</p>
         </div>
         <PageSpecificAddMeetingDialog 
           addMeetingAction={addMeetingAction} 
@@ -183,78 +160,15 @@ export default async function EventsPage() {
 
           {sortedMeetingTypesPresent.map((type) => (
             <TabsContent key={type} value={type}>
-              <h2 className="font-headline text-2xl font-semibold text-primary mb-6 border-b pb-2">
-                {meetingTypeTranslations[type as MeetingType] || type}
-              </h2>
               {meetingsByType[type] && meetingsByType[type].length > 0 ? (
-                <div className="space-y-8">
-                  {meetingsByType[type].map((meeting) => (
-                    <Card key={meeting.id} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 md:flex">
-                      {meeting.imageUrl && (
-                        <div className="md:w-1/3 relative h-48 md:h-auto">
-                          <Image 
-                            src={meeting.imageUrl} 
-                            alt={meeting.name} 
-                            layout="fill" 
-                            objectFit="cover"
-                            className="md:rounded-l-lg md:rounded-t-none rounded-t-lg"
-                            data-ai-hint="church meeting"
-                          />
-                        </div>
-                      )}
-                      <div className={`flex flex-col ${meeting.imageUrl ? 'md:w-2/3' : 'w-full'}`}>
-                        <CardHeader>
-                          <div className="flex justify-between items-start mb-2">
-                            <CardTitle className="font-headline text-2xl text-primary flex items-center">
-                               <MeetingTypeIcon type={meeting.type} />
-                               {meeting.name}
-                            </CardTitle>
-                            {/* Optional: Badge for type, could be removed as it's implied by tab */}
-                            {/* <Badge variant="secondary">{meetingTypeTranslations[meeting.type as MeetingType] || meeting.type}</Badge> */}
-                          </div>
-                        </CardHeader>
-                        <CardContent className="flex-grow space-y-3">
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <CalendarDays className="mr-2 h-5 w-5 text-primary" />
-                            <span>{formatDateDisplay(meeting.date)}</span>
-                          </div>
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <Clock className="mr-2 h-5 w-5 text-primary" />
-                            <span>{meeting.time}</span>
-                          </div>
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <MapPin className="mr-2 h-5 w-5 text-primary" />
-                            <span>{meeting.location}</span>
-                          </div>
-                          {meeting.description && <CardDescription className="text-sm pt-2 leading-relaxed">{meeting.description}</CardDescription>}
-                          {meeting.type === 'Area_Meeting' && meeting.relatedAreaId && (
-                             <p className="text-xs text-muted-foreground pt-1">Área: {allMinistryAreas.find(a => a.id === meeting.relatedAreaId)?.name || meeting.relatedAreaId}</p> 
-                          )}
-                          {meeting.type === 'GDI_Meeting' && meeting.relatedGdiId && (
-                             <p className="text-xs text-muted-foreground pt-1">GDI: {allGdis.find(g => g.id === meeting.relatedGdiId)?.name || meeting.relatedGdiId}</p> 
-                          )}
-                          {meeting.type === 'Special_Meeting' && meeting.attendeeUids && meeting.attendeeUids.length > 0 && (
-                            <p className="text-xs text-muted-foreground pt-1">Asistentes Específicos: {meeting.attendeeUids.length}</p>
-                          )}
-                        </CardContent>
-                        <CardFooter className="gap-2">
-                          <Button asChild variant="default" className="bg-primary hover:bg-primary/90">
-                            <Link href={`/events/${meeting.id}/attendance`}>
-                              <CheckSquare className="mr-2 h-4 w-4" />
-                              Gestionar Asistencia
-                            </Link>
-                          </Button>
-                           <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent/10">
-                             <Link href={`/events/${meeting.id}/attendance`}> 
-                               <Edit className="mr-2 h-4 w-4" />
-                               Ver/Editar Minuta
-                             </Link>
-                           </Button>
-                        </CardFooter>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
+                <MeetingTypeAttendanceTable
+                  meetingsForType={meetingsByType[type]}
+                  allMembers={allMembers}
+                  allGdis={allGdis}
+                  allMinistryAreas={allMinistryAreas}
+                  allAttendanceRecords={allAttendanceRecords}
+                  meetingTypeLabel={meetingTypeTranslations[type as MeetingType] || type}
+                />
               ) : (
                 <div className="text-center py-10">
                   <CalendarDays className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -275,3 +189,4 @@ export default async function EventsPage() {
     </div>
   );
 }
+
