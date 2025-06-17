@@ -1,13 +1,15 @@
 
 "use client";
 
-import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberRoleType } from '@/lib/types';
+import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberRoleType, Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, ShieldCheck } from 'lucide-react';
+import { Pencil, ShieldCheck, BarChart3, ListChecks } from 'lucide-react';
 import AddMemberForm from './add-member-form';
+import MemberAttendanceChart from './member-attendance-chart';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useTransition } from 'react';
 import { useToast } from "@/hooks/use-toast";
 
@@ -16,6 +18,9 @@ interface MemberDetailsDialogProps {
   allMembers: Member[]; 
   allGDIs: GDI[];
   allMinistryAreas: MinistryArea[];
+  allMeetings: Meeting[];
+  allMeetingSeries: MeetingSeries[];
+  allAttendanceRecords: AttendanceRecord[];
   isOpen: boolean;
   onClose: () => void;
   onMemberUpdated: (updatedMember: Member) => void; 
@@ -33,7 +38,10 @@ export default function MemberDetailsDialog({
   member, 
   allMembers, 
   allGDIs, 
-  allMinistryAreas, 
+  allMinistryAreas,
+  allMeetings,
+  allMeetingSeries,
+  allAttendanceRecords,
   isOpen, 
   onClose,
   onMemberUpdated,
@@ -42,6 +50,7 @@ export default function MemberDetailsDialog({
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("details");
 
   if (!member) return null;
 
@@ -75,6 +84,9 @@ export default function MemberDetailsDialog({
 
   const handleEditToggle = () => {
     setIsEditing(!isEditing);
+    if (!isEditing) {
+        setActiveTab("details"); // Switch back to details tab when entering edit mode
+    }
   };
 
   const handleFormSubmit = async (data: AddMemberFormValues, memberId?: string) => {
@@ -86,7 +98,6 @@ export default function MemberDetailsDialog({
       birthDate: data.birthDate ? data.birthDate.toISOString().split('T')[0] : undefined,
       churchJoinDate: data.churchJoinDate ? data.churchJoinDate.toISOString().split('T')[0] : undefined,
       id: memberId, 
-      // Roles will be recalculated server-side by updateMemberAction
     };
     
     startTransition(async () => {
@@ -98,6 +109,7 @@ export default function MemberDetailsDialog({
         });
         onMemberUpdated(result.updatedMember); 
         setIsEditing(false); 
+        setActiveTab("details");
         onClose(); 
       } else {
         toast({
@@ -111,13 +123,14 @@ export default function MemberDetailsDialog({
 
   const handleCloseDialog = () => {
     setIsEditing(false); 
+    setActiveTab("details");
     onClose();
   };
 
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCloseDialog}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0">
+      <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="p-6 border-b sticky top-0 bg-background z-10">
            <div className="flex items-center space-x-4">
             <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
@@ -126,7 +139,6 @@ export default function MemberDetailsDialog({
             </Avatar>
             <div>
               <DialogTitle className="text-xl sm:text-2xl">{member.firstName} {member.lastName}</DialogTitle>
-               {!isEditing && (
                 <div className="mt-1 flex flex-wrap gap-1 items-center">
                     <Badge variant={
                         member.status === 'Active' ? 'default' :
@@ -147,7 +159,6 @@ export default function MemberDetailsDialog({
                        </Badge>
                     ))}
                 </div>
-               )}
             </div>
           </div>
           {isEditing && <DialogDescription className="pt-2">Modifique los campos necesarios y guarde los cambios.</DialogDescription>}
@@ -168,60 +179,79 @@ export default function MemberDetailsDialog({
             />
           </div>
         ) : (
-          <div className="flex-grow overflow-y-auto p-6 min-h-0">
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-3 gap-2">
-                <span className="font-semibold text-muted-foreground">Email:</span>
-                <span className="col-span-2 break-all">{member.email}</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <span className="font-semibold text-muted-foreground">Teléfono:</span>
-                <span className="col-span-2">{member.phone}</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <span className="font-semibold text-muted-foreground">Fecha de Nacimiento:</span>
-                <span className="col-span-2">{formatDate(member.birthDate)}</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <span className="font-semibold text-muted-foreground">Ingreso a la Iglesia:</span>
-                <span className="col-span-2">{formatDate(member.churchJoinDate)}</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <span className="font-semibold text-muted-foreground">Bautismo:</span>
-                <span className="col-span-2">{baptismDate}</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <span className="font-semibold text-muted-foreground">Escuela de Vida:</span>
-                <span className="col-span-2">{member.attendsLifeSchool ? 'Sí' : 'No'}</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <span className="font-semibold text-muted-foreground">Instituto Bíblico (IBE):</span>
-                <span className="col-span-2">{member.attendsBibleInstitute ? 'Sí' : 'No'}</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <span className="font-semibold text-muted-foreground">Vino de otra Iglesia:</span>
-                <span className="col-span-2">{member.fromAnotherChurch ? 'Sí' : 'No'}</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <span className="font-semibold text-muted-foreground">GDI:</span>
-                <span className="col-span-2">
-                  {memberGDI 
-                    ? `${memberGDI.name} (Guía: ${gdiGuide ? `${gdiGuide.firstName} ${gdiGuide.lastName}` : 'N/A'})` 
-                    : 'No asignado'}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <span className="font-semibold text-muted-foreground">Áreas de Ministerio:</span>
-                <span className="col-span-2">
-                  {memberAreas.length > 0 ? memberAreas.join(', ') : 'Ninguna'}
-                </span>
-              </div>
-            </div>
-          </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-grow flex flex-col min-h-0">
+            <TabsList className="mx-6 mt-4 sticky top-0 bg-background z-10">
+                <TabsTrigger value="details" className="flex items-center gap-2">
+                    <ListChecks className="h-4 w-4" /> Detalles
+                </TabsTrigger>
+                <TabsTrigger value="attendance" className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" /> Historial de Asistencia
+                </TabsTrigger>
+            </TabsList>
+            <TabsContent value="details" className="flex-grow overflow-y-auto p-6 min-h-0">
+                <div className="space-y-3 text-sm">
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-semibold text-muted-foreground">Email:</span>
+                    <span className="col-span-2 break-all">{member.email}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-semibold text-muted-foreground">Teléfono:</span>
+                    <span className="col-span-2">{member.phone}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-semibold text-muted-foreground">Fecha de Nacimiento:</span>
+                    <span className="col-span-2">{formatDate(member.birthDate)}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-semibold text-muted-foreground">Ingreso a la Iglesia:</span>
+                    <span className="col-span-2">{formatDate(member.churchJoinDate)}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-semibold text-muted-foreground">Bautismo:</span>
+                    <span className="col-span-2">{baptismDate}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-semibold text-muted-foreground">Escuela de Vida:</span>
+                    <span className="col-span-2">{member.attendsLifeSchool ? 'Sí' : 'No'}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-semibold text-muted-foreground">Instituto Bíblico (IBE):</span>
+                    <span className="col-span-2">{member.attendsBibleInstitute ? 'Sí' : 'No'}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-semibold text-muted-foreground">Vino de otra Iglesia:</span>
+                    <span className="col-span-2">{member.fromAnotherChurch ? 'Sí' : 'No'}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-semibold text-muted-foreground">GDI:</span>
+                    <span className="col-span-2">
+                      {memberGDI 
+                        ? `${memberGDI.name} (Guía: ${gdiGuide ? `${gdiGuide.firstName} ${gdiGuide.lastName}` : 'N/A'})` 
+                        : 'No asignado'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-semibold text-muted-foreground">Áreas de Ministerio:</span>
+                    <span className="col-span-2">
+                      {memberAreas.length > 0 ? memberAreas.join(', ') : 'Ninguna'}
+                    </span>
+                  </div>
+                </div>
+            </TabsContent>
+            <TabsContent value="attendance" className="flex-grow overflow-y-auto p-6 min-h-0">
+                <MemberAttendanceChart
+                    memberId={member.id}
+                    memberName={`${member.firstName} ${member.lastName}`}
+                    allMeetings={allMeetings}
+                    allMeetingSeries={allMeetingSeries}
+                    allAttendanceRecords={allAttendanceRecords}
+                />
+            </TabsContent>
+        </Tabs>
         )}
 
         {!isEditing && (
-          <DialogFooter className="p-6 border-t bg-background">
+          <DialogFooter className="p-6 border-t bg-background sticky bottom-0 z-10">
             <Button onClick={handleEditToggle} variant="default">
               <Pencil className="mr-2 h-4 w-4" />
               Editar Miembro
@@ -233,4 +263,3 @@ export default function MemberDetailsDialog({
     </Dialog>
   );
 }
-

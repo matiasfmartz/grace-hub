@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useTransition, useEffect } from 'react';
-import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberWriteData, MemberRoleType } from '@/lib/types';
+import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberWriteData, MemberRoleType, Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -22,6 +22,9 @@ interface MembersListViewProps {
   allMembersForDropdowns: Member[]; 
   allGDIs: GDI[];
   allMinistryAreas: MinistryArea[];
+  allMeetings: Meeting[];
+  allMeetingSeries: MeetingSeries[];
+  allAttendanceRecords: AttendanceRecord[];
   addSingleMemberAction: (newMemberData: MemberWriteData) => Promise<{ success: boolean; message: string; newMember?: Member }>;
   updateMemberAction: (memberData: Member) => Promise<{ success: boolean; message: string; updatedMember?: Member }>;
   currentPage: number;
@@ -44,6 +47,9 @@ export default function MembersListView({
   allMembersForDropdowns,
   allGDIs, 
   allMinistryAreas,
+  allMeetings,
+  allMeetingSeries,
+  allAttendanceRecords,
   addSingleMemberAction,
   updateMemberAction,
   currentPage,
@@ -153,7 +159,7 @@ export default function MembersListView({
       ...data,
       birthDate: data.birthDate ? data.birthDate.toISOString().split('T')[0] : undefined,
       churchJoinDate: data.churchJoinDate ? data.churchJoinDate.toISOString().split('T')[0] : undefined,
-      roles: [], // Roles will be calculated server-side
+      roles: [], 
     };
 
     startMemberTransition(async () => {
@@ -332,6 +338,9 @@ export default function MembersListView({
           allMembers={allMembersForDropdowns} 
           allGDIs={allGDIs}
           allMinistryAreas={allMinistryAreas}
+          allMeetings={allMeetings}
+          allMeetingSeries={allMeetingSeries}
+          allAttendanceRecords={allAttendanceRecords}
           isOpen={isDetailsDialogOpen}
           onClose={handleCloseDetailsDialog}
           onMemberUpdated={handleMemberUpdated}
@@ -363,4 +372,3 @@ export default function MembersListView({
     </>
   );
 }
-
