@@ -44,13 +44,13 @@ export interface GDI { // Grupo de Integración
 
 export type GDIWriteData = Omit<GDI, 'id'>;
 
-// Replaces ChurchEvent
 export const MeetingTypeSchema = z.enum([
-  "General", // All members
-  "GDI Focus", // All members in any GDI (conceptual placeholder)
-  "Obreros",   // Active members (in any ministry area)
-  "Lideres",   // Ministry Area Leaders AND GDI Guides
-  "AreaSpecific" // Members of a specific ministry area
+  "General_Service",  // e.g., Sunday Service for all
+  "GDI_Meeting",      // Weekly meeting for a specific GDI
+  "Obreros_Meeting",  // For active workers in any ministry area + GDI guides
+  "Lideres_Meeting",  // For Ministry Area Leaders AND GDI Guides
+  "Area_Meeting",     // For members of a specific ministry area
+  "Special_Meeting"   // Manually selected group of attendees
 ]);
 export type MeetingType = z.infer<typeof MeetingTypeSchema>;
 
@@ -62,8 +62,11 @@ export interface Meeting {
   time: string; // HH:MM, e.g., "10:00" or "19:30"
   location: string;
   description?: string;
-  imageUrl?: string; // Optional image for the meeting
-  relatedAreaId?: string | null; // Only for 'AreaSpecific' type
+  imageUrl?: string;
+  relatedGdiId?: string | null;    // For GDI_Meeting type
+  relatedAreaId?: string | null;   // For Area_Meeting type
+  attendeeUids?: string[] | null; // For Special_Meeting type (specific UIDs)
+  minute?: string | null;          // For Area_Meeting or others requiring minutes
 }
 export type MeetingWriteData = Omit<Meeting, 'id'>;
 
@@ -137,20 +140,22 @@ export const AssignMinistryAreaMembersFormSchema = z.object({
 export type AssignMinistryAreaMembersFormValues = z.infer<typeof AssignMinistryAreaMembersFormSchema>;
 
 
-export const AddMeetingFormSchema = z.object({
+// Schema for adding meetings from the general /events page
+// GDI_Meeting and Area_Meeting are typically created from their respective management pages.
+export const AddGeneralMeetingFormSchema = z.object({
   name: z.string().min(3, { message: "El nombre de la reunión debe tener al menos 3 caracteres." }),
-  type: MeetingTypeSchema.refine(type => type !== "AreaSpecific", {
-    message: "Las reuniones específicas del área se crean desde la gestión del área.", // This form won't offer 'AreaSpecific'
-  }),
+  type: z.enum([
+    "General_Service",
+    "Obreros_Meeting",
+    "Lideres_Meeting",
+    "Special_Meeting"
+  ]),
   date: z.date({ required_error: "La fecha es requerida." }),
   time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Formato de hora inválido (HH:MM)." }),
   location: z.string().min(3, { message: "La ubicación es requerida." }),
   description: z.string().optional(),
   imageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')),
-  relatedAreaId: z.string().nullable().optional(), // Should be null if type is not AreaSpecific
-}).refine(data => data.type === "AreaSpecific" ? !!data.relatedAreaId : true, {
-  message: "relatedAreaId es requerido para reuniones específicas del área.",
-  path: ["relatedAreaId"],
+  // relatedGdiId, relatedAreaId, attendeeUids, minute are part of Meeting type but not set in this specific form
 });
 
-export type AddMeetingFormValues = z.infer<typeof AddMeetingFormSchema>;
+export type AddGeneralMeetingFormValues = z.infer<typeof AddGeneralMeetingFormSchema>;

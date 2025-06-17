@@ -15,7 +15,6 @@
     "fromAnotherChurch": true,
     "assignedGDIId": "gdi2",
     "assignedAreaIds": [
-      "ma1",
       "1749880199537-cvuyxy3"
     ]
   },
@@ -70,7 +69,7 @@
     "attendsLifeSchool": true,
     "attendsBibleInstitute": false,
     "fromAnotherChurch": false,
-    "assignedGDIId": "gdi2",
+    "assignedGDIId": null,
     "assignedAreaIds": [
       "ma3"
     ]
@@ -158,9 +157,8 @@
     "fromAnotherChurch": true,
     "status": "Active",
     "avatarUrl": "https://placehold.co/100x100",
-    "assignedGDIId": null,
+    "assignedGDIId": "1749913833067-9fr4d3p",
     "assignedAreaIds": [
-      "ma1",
       "ma3",
       "1749880199537-cvuyxy3",
       "ma2"
@@ -180,7 +178,7 @@
     "fromAnotherChurch": false,
     "status": "New",
     "avatarUrl": "https://placehold.co/100x100",
-    "assignedGDIId": null,
+    "assignedGDIId": "1749913833067-9fr4d3p",
     "assignedAreaIds": [
       "1749880199537-cvuyxy3",
       "ma3"
@@ -198,10 +196,11 @@
     "fromAnotherChurch": true,
     "status": "Active",
     "avatarUrl": "https://placehold.co/100x100",
-    "assignedGDIId": "gdi2",
+    "assignedGDIId": null,
     "assignedAreaIds": [
       "ma3",
-      "ma2"
+      "ma2",
+      "ma1"
     ],
     "id": "1749880160940-30020fm"
   }

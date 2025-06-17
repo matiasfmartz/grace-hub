@@ -13,15 +13,15 @@
     "name": "GDI Beta",
     "guideId": "2",
     "memberIds": [
-      "4",
-      "1749880160940-30020fm",
       "3"
     ]
   },
   {
-    "name": "GDI Celta",
-    "guideId": "1749880160940-30020fm",
     "id": "1749913833067-9fr4d3p",
-    "memberIds": []
+    "name": "GDI Celta",
+    "guideId": "1749877175613-ls6oqv6",
+    "memberIds": [
+      "1749877205345-hd6yhu7"
+    ]
   }
 ]

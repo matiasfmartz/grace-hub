@@ -3,8 +3,8 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { AddMeetingFormValues, MeetingType } from "@/lib/types";
-import { AddMeetingFormSchema, MeetingTypeSchema } from "@/lib/types";
+import type { AddGeneralMeetingFormValues, MeetingType } from "@/lib/types";
+import { AddGeneralMeetingFormSchema } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -29,45 +29,50 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useTransition } from "react";
 import { DialogClose } from "@/components/ui/dialog";
 
-
 interface AddMeetingFormProps {
-  addMeetingAction: (data: AddMeetingFormValues) => Promise<{ success: boolean; message: string; newMeeting?: any }>;
-  // ministryAreas?: MinistryArea[]; // For relatedAreaId if type is AreaSpecific - not used in this phase
+  addMeetingAction: (data: AddGeneralMeetingFormValues) => Promise<{ success: boolean; message: string; newMeeting?: any }>;
 }
 
-// Filter out 'AreaSpecific' for this general form
-const generalMeetingTypes = MeetingTypeSchema.options.filter(
-  (type: MeetingType) => type !== "AreaSpecific"
-);
+const creatableMeetingTypes: MeetingType[] = [
+  "General_Service",
+  "Obreros_Meeting",
+  "Lideres_Meeting",
+  "Special_Meeting"
+];
 
+const meetingTypeTranslations: Record<MeetingType, string> = {
+  General_Service: "Servicio General",
+  GDI_Meeting: "Reunión de GDI",
+  Obreros_Meeting: "Reunión de Obreros",
+  Lideres_Meeting: "Reunión de Líderes",
+  Area_Meeting: "Reunión de Área Ministerial",
+  Special_Meeting: "Reunión Especial",
+};
 
 export default function AddMeetingForm({ addMeetingAction }: AddMeetingFormProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(true); // To control dialog closure
+  const [isOpen, setIsOpen] = useState(true); 
 
-  const form = useForm<AddMeetingFormValues>({
-    resolver: zodResolver(AddMeetingFormSchema),
+  const form = useForm<AddGeneralMeetingFormValues>({
+    resolver: zodResolver(AddGeneralMeetingFormSchema),
     defaultValues: {
       name: "",
-      type: "General", // Default to General
-      // date will be handled by DatePicker
+      type: "General_Service", 
       time: "10:00",
       location: "",
       description: "",
       imageUrl: "",
-      relatedAreaId: null,
     },
   });
 
-  async function onSubmit(values: AddMeetingFormValues) {
+  async function onSubmit(values: AddGeneralMeetingFormValues) {
     startTransition(async () => {
       const result = await addMeetingAction(values);
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
         form.reset();
-        setIsOpen(false); // Signal to close dialog
-         // Manually trigger DialogClose if still open, after a short delay for state update
+        setIsOpen(false); 
         setTimeout(() => {
             const closeButton = document.getElementById('add-meeting-dialog-close-button');
             if (closeButton) {
@@ -81,13 +86,8 @@ export default function AddMeetingForm({ addMeetingAction }: AddMeetingFormProps
   }
 
   if (!isOpen) {
-     // This button is a trick to close the dialog from within the form if not using DialogClose directly.
-     // It's better if the parent dialog component controls its open state via onOpenChange.
-     // For now, if isOpen is false, we attempt to find a DialogClose button to click.
-     // This part might be removed if parent Dialog handles onOpenChange properly.
     return <DialogClose id="add-meeting-dialog-close-button-hidden" className="hidden" />;
   }
-
 
   return (
     <Form {...form}>
@@ -99,7 +99,7 @@ export default function AddMeetingForm({ addMeetingAction }: AddMeetingFormProps
             <FormItem>
               <FormLabel>Nombre de la Reunión</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Reunión General Dominical" {...field} disabled={isPending} />
+                <Input placeholder="e.g., Servicio Dominical" {...field} disabled={isPending} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -118,8 +118,8 @@ export default function AddMeetingForm({ addMeetingAction }: AddMeetingFormProps
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {generalMeetingTypes.map(type => (
-                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                  {creatableMeetingTypes.map(type => (
+                    <SelectItem key={type} value={type}>{meetingTypeTranslations[type] || type}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -190,7 +190,6 @@ export default function AddMeetingForm({ addMeetingAction }: AddMeetingFormProps
             </FormItem>
           )}
         />
-        {/* relatedAreaId is intentionally omitted as this form is for general meetings */}
         
         <div className="flex justify-end space-x-2 pt-4 border-t">
            <DialogClose asChild>

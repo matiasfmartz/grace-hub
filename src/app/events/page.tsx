@@ -1,10 +1,10 @@
 
 'use server';
-import type { Meeting, AddMeetingFormValues, MeetingType, MeetingWriteData } from '@/lib/types';
+import type { Meeting, AddGeneralMeetingFormValues, MeetingType, MeetingWriteData } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from 'next/image';
-import { CalendarDays, Clock, MapPin, Users, Briefcase, Award, PlusCircle, CheckSquare } from 'lucide-react';
+import { CalendarDays, Clock, MapPin, Users, Briefcase, Award, PlusCircle, CheckSquare, BookOpen, Sparkles, Building2, HandHelping } from 'lucide-react';
 import { revalidatePath } from 'next/cache';
 import {
   Dialog,
@@ -21,18 +21,19 @@ import { es } from 'date-fns/locale';
 import { getAllMeetings, addMeeting as addMeetingSvc } from '@/services/meetingService';
 
 export async function addMeetingAction(
-  newMeetingData: AddMeetingFormValues
+  newMeetingData: AddGeneralMeetingFormValues
 ): Promise<{ success: boolean; message: string; newMeeting?: Meeting }> {
   try {
-    // Convert AddMeetingFormValues to MeetingWriteData
     const meetingToWrite: MeetingWriteData = {
       ...newMeetingData,
-      // The service will handle date formatting if it's a Date object
-      // For now, assuming AddMeetingFormValues `date` is already a Date object
       date: newMeetingData.date, // The service will format this to string
       imageUrl: newMeetingData.imageUrl || 'https://placehold.co/600x400',
       description: newMeetingData.description || '',
-      relatedAreaId: newMeetingData.type === "AreaSpecific" ? newMeetingData.relatedAreaId : null,
+      // These fields are not set by the general form, initialized as null/empty by service
+      relatedGdiId: null, 
+      relatedAreaId: null,
+      attendeeUids: null,
+      minute: null,
     };
 
     const newMeeting = await addMeetingSvc(meetingToWrite);
@@ -46,20 +47,32 @@ export async function addMeetingAction(
 
 const MeetingTypeIcon = ({ type }: { type: MeetingType }) => {
   switch (type) {
-    case 'General':
-      return <Users className="mr-2 h-5 w-5 text-primary" />;
-    case 'GDI Focus':
-      return <Users className="mr-2 h-5 w-5 text-blue-500" />;
-    case 'Obreros':
-      return <Briefcase className="mr-2 h-5 w-5 text-green-500" />;
-    case 'Lideres':
-      return <Award className="mr-2 h-5 w-5 text-yellow-500" />;
-    case 'AreaSpecific':
-      return <Users className="mr-2 h-5 w-5 text-purple-500" />;
+    case 'General_Service':
+      return <Users className="mr-2 h-5 w-5 text-primary" />; // All church
+    case 'GDI_Meeting':
+      return <HandHelping className="mr-2 h-5 w-5 text-teal-500" />; // GDI specific
+    case 'Obreros_Meeting':
+      return <Briefcase className="mr-2 h-5 w-5 text-green-500" />; // Workers
+    case 'Lideres_Meeting':
+      return <Award className="mr-2 h-5 w-5 text-yellow-500" />; // Leaders
+    case 'Area_Meeting':
+      return <Building2 className="mr-2 h-5 w-5 text-indigo-500" />; // Ministry Area specific
+    case 'Special_Meeting':
+      return <Sparkles className="mr-2 h-5 w-5 text-pink-500" />; // Custom group
     default:
       return <CalendarDays className="mr-2 h-5 w-5 text-primary" />;
   }
 };
+
+const meetingTypeTranslations: Record<MeetingType, string> = {
+  General_Service: "Servicio General",
+  GDI_Meeting: "Reunión de GDI",
+  Obreros_Meeting: "Reunión de Obreros",
+  Lideres_Meeting: "Reunión de Líderes",
+  Area_Meeting: "Reunión de Área Ministerial",
+  Special_Meeting: "Reunión Especial",
+};
+
 
 const formatDateDisplay = (dateString: string) => {
   try {
@@ -89,7 +102,7 @@ export default async function EventsPage() {
             <DialogHeader>
               <DialogTitle>Agregar Nueva Reunión</DialogTitle>
               <DialogDescription>
-                Complete los detalles para la nueva reunión.
+                Complete los detalles para la nueva reunión. Reuniones de GDI y Área se gestionan desde sus respectivas secciones.
               </DialogDescription>
             </DialogHeader>
             <AddMeetingForm addMeetingAction={addMeetingAction} />
@@ -120,7 +133,7 @@ export default async function EventsPage() {
                        <MeetingTypeIcon type={meeting.type} />
                        {meeting.name}
                     </CardTitle>
-                    <Badge variant="secondary">{meeting.type}</Badge>
+                    <Badge variant="secondary">{meetingTypeTranslations[meeting.type] || meeting.type}</Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="flex-grow space-y-3">
@@ -137,6 +150,12 @@ export default async function EventsPage() {
                     <span>{meeting.location}</span>
                   </div>
                   {meeting.description && <CardDescription className="text-sm pt-2 leading-relaxed">{meeting.description}</CardDescription>}
+                  {meeting.type === 'Area_Meeting' && meeting.relatedAreaId && (
+                     <p className="text-xs text-muted-foreground pt-1">Área: {meeting.relatedAreaId}</p> // Placeholder, better to show area name
+                  )}
+                  {meeting.type === 'GDI_Meeting' && meeting.relatedGdiId && (
+                     <p className="text-xs text-muted-foreground pt-1">GDI: {meeting.relatedGdiId}</p> // Placeholder, better to show GDI name
+                  )}
                 </CardContent>
                 <CardFooter>
                   <Button variant="outline" className="border-accent text-accent hover:bg-accent/10">
