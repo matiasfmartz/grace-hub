@@ -9,8 +9,9 @@ import { revalidatePath } from 'next/cache';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getAllMeetings, addMeeting as addMeetingSvc } from '@/services/meetingService';
-import { getAllMembersNonPaginated } from '@/services/memberService'; // Added import
+import { getAllMembersNonPaginated } from '@/services/memberService'; 
 import PageSpecificAddMeetingDialog from '@/components/events/page-specific-add-meeting-dialog';
+import { Badge } from '@/components/ui/badge'; // Added import for Badge
 
 
 export async function addMeetingAction(
@@ -18,8 +19,11 @@ export async function addMeetingAction(
 ): Promise<{ success: boolean; message: string; newMeeting?: Meeting }> {
   try {
     const meetingToWrite: MeetingWriteData = {
-      ...newMeetingData,
+      name: newMeetingData.name,
+      type: newMeetingData.type,
       date: newMeetingData.date, 
+      time: newMeetingData.time,
+      location: newMeetingData.location,
       imageUrl: newMeetingData.imageUrl || 'https://placehold.co/600x400',
       description: newMeetingData.description || '',
       relatedGdiId: null, 
@@ -117,7 +121,7 @@ export default async function EventsPage() {
                        <MeetingTypeIcon type={meeting.type} />
                        {meeting.name}
                     </CardTitle>
-                    <Badge variant="secondary">{(meetingTypeTranslations[meeting.type as MeetingType]) || meeting.type}</Badge>
+                    <Badge variant="secondary">{meetingTypeTranslations[meeting.type as MeetingType] || meeting.type}</Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="flex-grow space-y-3">
