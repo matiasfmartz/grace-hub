@@ -32,7 +32,7 @@ import { DialogClose } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { isValid as isValidDate, format } from 'date-fns';
+import { isValid as isValidDate, format, parseISO } from 'date-fns';
 
 interface DefineMeetingSeriesFormProps {
   defineMeetingSeriesAction: (data: DefineMeetingSeriesFormValues) => Promise<{ success: boolean; message: string; newSeries?: any, newInstance?: any, updatedSeries?: MeetingSeries }>;
@@ -70,7 +70,7 @@ const getResolvedDefaultValues = (
     }
     // If it's a string (from older data or direct JSON), try to parse it
     else if (typeof currentInitialValues.oneTimeDate === 'string') {
-      const parsedDate = new Date(currentInitialValues.oneTimeDate); // More lenient parsing
+      const parsedDate = parseISO(currentInitialValues.oneTimeDate);
       if (isValidDate(parsedDate)) {
         oneTimeDateToSet = parsedDate;
       }
@@ -98,7 +98,7 @@ const getResolvedDefaultValues = (
   resolved.name = resolved.name || "";
   resolved.description = resolved.description || "";
   resolved.defaultImageUrl = resolved.defaultImageUrl || "";
-  resolved.defaultTime = resolved.defaultTime || "00:00";
+  resolved.defaultTime = resolved.defaultTime || "00:00"; // Ensure valid time format
   resolved.defaultLocation = resolved.defaultLocation || "";
   
   return resolved;
@@ -115,13 +115,14 @@ export default function DefineMeetingSeriesForm({
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  const resolvedDefaultValues = useMemo(() => getResolvedDefaultValues(initialValues), [initialValues]);
-
+  // Use resolvedDefaultValues for the initial form setup.
+  // This ensures that when editing, the form starts with the correct initial values.
   const form = useForm<DefineMeetingSeriesFormValues>({
     resolver: zodResolver(DefineMeetingSeriesFormSchema),
-    defaultValues: resolvedDefaultValues,
+    defaultValues: getResolvedDefaultValues(initialValues),
   });
 
+  // Effect to reset the form if initialValues change (e.g., when the dialog is reopened for a different item to edit)
   useEffect(() => {
     form.reset(getResolvedDefaultValues(initialValues));
   }, [initialValues, form.reset]);
@@ -157,11 +158,11 @@ export default function DefineMeetingSeriesForm({
       // Prepare data for server action, ensuring date is correctly formatted if present
       const dataToSend = { 
         ...values,
-        oneTimeDate: values.oneTimeDate instanceof Date && isValidDate(values.oneTimeDate) 
-                     ? values.oneTimeDate // Pass as Date object, server action will format
-                     : undefined,
+        // oneTimeDate is already a Date object or undefined from the form state managed by DatePicker + RHF
+        // The server action will handle formatting it to string if needed.
       };
       
+      // Clean up conditional fields based on frequency before sending to action
       if (dataToSend.frequency !== 'OneTime') delete dataToSend.oneTimeDate;
       if (dataToSend.frequency !== 'Weekly') delete dataToSend.weeklyDays;
       if (dataToSend.frequency !== 'Monthly') {
@@ -169,7 +170,7 @@ export default function DefineMeetingSeriesForm({
         delete dataToSend.monthlyDayOfMonth;
         delete dataToSend.monthlyWeekOrdinal;
         delete dataToSend.monthlyDayOfWeek;
-      } else {
+      } else { // Monthly frequency specific cleanup
         if (dataToSend.monthlyRuleType !== 'DayOfMonth') delete dataToSend.monthlyDayOfMonth;
         if (dataToSend.monthlyRuleType !== 'DayOfWeekOfMonth') {
             delete dataToSend.monthlyWeekOrdinal;
@@ -184,8 +185,10 @@ export default function DefineMeetingSeriesForm({
           onSuccess();
         }
         if (!isEditing) { 
+             // For add mode, reset to base defaults after success
             form.reset(getResolvedDefaultValues(undefined));
         }
+        // For edit mode, form retains current (now saved) values, or parent dialog closes.
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
       }
@@ -194,10 +197,13 @@ export default function DefineMeetingSeriesForm({
 
   const handleCancel = () => {
     if (isEditing && onCancelEdit) {
-      onCancelEdit(); 
+      onCancelEdit(); // Parent (ManageMeetingSeriesDialog) handles UI change
+      form.reset(getResolvedDefaultValues(initialValues)); // Reset form to original edit values
+    } else {
+      // For add mode, or if no specific onCancelEdit, reset to base defaults
+      form.reset(getResolvedDefaultValues(undefined));
     }
-    // Reset to initial (if editing) or base defaults (if adding)
-    form.reset(getResolvedDefaultValues(isEditing ? initialValues : undefined));
+    // DialogClose will handle closing if it's a direct child of a Dialog
   };
 
 
@@ -517,17 +523,17 @@ export default function DefineMeetingSeriesForm({
         )}
 
         <div className="flex justify-end space-x-2 pt-4 border-t">
-           {(!isEditing || (isEditing && !onCancelEdit)) && ( 
+           {/* Conditional rendering for Cancel button based on context (add vs edit) */}
+           {onCancelEdit ? (
+                <Button type="button" variant="outline" onClick={handleCancel} disabled={isPending}>
+                    Cancelar Edición
+                </Button>
+           ) : (
              <DialogClose asChild>
                 <Button type="button" variant="outline" onClick={handleCancel} disabled={isPending}>
                     Cancelar
                 </Button>
             </DialogClose>
-           )}
-           {isEditing && onCancelEdit && ( 
-                <Button type="button" variant="outline" onClick={handleCancel} disabled={isPending}>
-                    Cancelar Edición
-                </Button>
            )}
           <Button type="submit" disabled={isPending}>
              {isPending ? <Loader2 className="animate-spin mr-2" /> : (isEditing ? "Guardar Cambios" : "Definir Serie")}
