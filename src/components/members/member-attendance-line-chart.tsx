@@ -60,12 +60,14 @@ export default function MemberAttendanceLineChart({
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
-  const chartData = useMemo(() => {
+  const { chartData, yAxisDomainMax } = useMemo(() => {
     // 1. Filter meetings relevant to the member
     let relevantMeetings = allMeetings.filter(meeting => {
       const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
       if (!series) return false;
+      // If series targets "allMembers", this meeting is relevant
       if (series.targetAttendeeGroups.includes('allMembers')) return true;
+      // Otherwise, check if member's UID is in the specific meeting's attendeeUids
       return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
     });
 
@@ -101,7 +103,7 @@ export default function MemberAttendanceLineChart({
       if (!monthlyAggregationMap[yearMonth]) {
         monthlyAggregationMap[yearMonth] = { attended: 0, convocated: 0 };
       }
-      monthlyAggregationMap[yearMonth].convocated += 1; // Increment for every meeting member was expected at
+      monthlyAggregationMap[yearMonth].convocated += 1;
 
       const attendanceRecord = allAttendanceRecords.find(
         record => record.meetingId === meeting.id && record.memberId === memberId
@@ -112,7 +114,6 @@ export default function MemberAttendanceLineChart({
       }
     });
 
-    // 5. Convert to ChartDataPoint structure
     const dataPoints: MonthlyChartDataPoint[] = Object.entries(monthlyAggregationMap)
       .map(([yearMonth, counts]) => ({
         monthValue: yearMonth,
@@ -120,9 +121,12 @@ export default function MemberAttendanceLineChart({
         attendedCount: counts.attended,
         convocatedCount: counts.convocated,
       }))
-      .sort((a, b) => a.monthValue.localeCompare(b.monthValue)); // Sort chronologically
+      .sort((a, b) => a.monthValue.localeCompare(b.monthValue)); 
 
-    return dataPoints;
+    const maxMonthlyConvocations = dataPoints.length > 0 ? Math.max(0, ...dataPoints.map(p => p.convocatedCount)) : 0;
+    const calculatedYAxisDomainMax = maxMonthlyConvocations > 0 ? maxMonthlyConvocations : 5; // Default to 5 if no convocations
+
+    return { chartData: dataPoints, yAxisDomainMax: calculatedYAxisDomainMax };
 
   }, [memberId, allMeetings, allMeetingSeries, allAttendanceRecords, selectedSeriesId, startDate, endDate]);
 
@@ -139,7 +143,7 @@ export default function MemberAttendanceLineChart({
           Tendencia Mensual de Asistencia
         </CardTitle>
         <CardDescription className="text-xs text-muted-foreground pt-1">
-          Asistencias por mes para {memberName}.
+          Asistencias por mes para {memberName}. La línea muestra asistencias; la escala del eje Y representa convocatorias.
         </CardDescription>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3">
@@ -191,7 +195,8 @@ export default function MemberAttendanceLineChart({
                 tick={{ fontSize: 9 }}
               />
               <YAxis
-                dataKey="attendedCount"
+                dataKey="attendedCount" // Still use attendedCount for direct line values, domain handles scale
+                domain={[0, yAxisDomainMax]}
                 tickLine={false}
                 axisLine={false}
                 tickMargin={5}
@@ -205,7 +210,7 @@ export default function MemberAttendanceLineChart({
                     const data = payload[0].payload as MonthlyChartDataPoint;
                     return (
                       <ChartTooltipContent
-                        className="w-[180px]" // Adjusted width for longer text
+                        className="w-[180px]" 
                         label={data.monthDisplay}
                         payload={[{ 
                             name: "Asistencias", 
@@ -232,7 +237,7 @@ export default function MemberAttendanceLineChart({
                   r: 5,
                 }}
                 name="Asistencias por Mes"
-                connectNulls={true}
+                connectNulls={true} // Keep true to show gaps if a month has 0 convocations/attendances
               />
             </RechartsLineChart>
           </ChartContainer>
