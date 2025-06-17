@@ -20,16 +20,39 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getAllMeetings, addMeeting as addMeetingSvc } from '@/services/meetingService';
 
+// For stateful dialog on server component page, we need a client component wrapper
+// Or, make this EventsPage itself a client component if state is simple enough.
+// For now, we can move the Dialog and its trigger into a client component,
+// or acknowledge this page might need to be client for the dialog state.
+// The simplest way to handle the dialog state in the page itself is to use client component features
+// Let's make a small client component for the Dialog part.
+
+// Client component for the Add Meeting Dialog Trigger and Content
+// This is not ideal for a server component page. A better approach for server components
+// is often to navigate or use query params to show modals if state is complex.
+// However, for a simple dialog toggle, making the whole page client or a wrapper is common.
+
+// To keep this page as a server component for data fetching,
+// the stateful Dialog logic will be encapsulated.
+// For this specific task, I'll make this page a client component to manage dialog state.
+// This is not always the "best" pattern for Next.js App Router (prefer Server Components),
+// but it's the most direct change for now.
+
+// Let's stick to the plan: EventsPage remains a server component,
+// the button/dialog part on this page will be a new client component.
+
+import PageSpecificAddMeetingDialog from '@/components/events/page-specific-add-meeting-dialog';
+
+
 export async function addMeetingAction(
   newMeetingData: AddGeneralMeetingFormValues
 ): Promise<{ success: boolean; message: string; newMeeting?: Meeting }> {
   try {
     const meetingToWrite: MeetingWriteData = {
       ...newMeetingData,
-      date: newMeetingData.date, // The service will format this to string
+      date: newMeetingData.date, 
       imageUrl: newMeetingData.imageUrl || 'https://placehold.co/600x400',
       description: newMeetingData.description || '',
-      // These fields are not set by the general form, initialized as null/empty by service
       relatedGdiId: null, 
       relatedAreaId: null,
       attendeeUids: null,
@@ -48,23 +71,23 @@ export async function addMeetingAction(
 const MeetingTypeIcon = ({ type }: { type: MeetingType }) => {
   switch (type) {
     case 'General_Service':
-      return <Users className="mr-2 h-5 w-5 text-primary" />; // All church
+      return <Users className="mr-2 h-5 w-5 text-primary" />;
     case 'GDI_Meeting':
-      return <HandHelping className="mr-2 h-5 w-5 text-teal-500" />; // GDI specific
+      return <HandHelping className="mr-2 h-5 w-5 text-teal-500" />;
     case 'Obreros_Meeting':
-      return <Briefcase className="mr-2 h-5 w-5 text-green-500" />; // Workers
+      return <Briefcase className="mr-2 h-5 w-5 text-green-500" />;
     case 'Lideres_Meeting':
-      return <Award className="mr-2 h-5 w-5 text-yellow-500" />; // Leaders
+      return <Award className="mr-2 h-5 w-5 text-yellow-500" />;
     case 'Area_Meeting':
-      return <Building2 className="mr-2 h-5 w-5 text-indigo-500" />; // Ministry Area specific
+      return <Building2 className="mr-2 h-5 w-5 text-indigo-500" />;
     case 'Special_Meeting':
-      return <Sparkles className="mr-2 h-5 w-5 text-pink-500" />; // Custom group
+      return <Sparkles className="mr-2 h-5 w-5 text-pink-500" />;
     default:
       return <CalendarDays className="mr-2 h-5 w-5 text-primary" />;
   }
 };
 
-const meetingTypeTranslations: Record<MeetingType, string> = {
+const meetingTypeTranslations: Record<string, string> = {
   General_Service: "Servicio General",
   GDI_Meeting: "Reunión de GDI",
   Obreros_Meeting: "Reunión de Obreros",
@@ -83,7 +106,7 @@ const formatDateDisplay = (dateString: string) => {
 };
 
 export default async function EventsPage() {
-  const meetings = await getAllMeetings(); // Already sorted by service
+  const meetings = await getAllMeetings(); 
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -92,22 +115,7 @@ export default async function EventsPage() {
           <h1 className="font-headline text-4xl font-bold text-primary">Próximas Reuniones</h1>
           <p className="text-muted-foreground mt-2">Administre y manténgase informado sobre todas las actividades.</p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" /> Agregar Nueva Reunión
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Agregar Nueva Reunión</DialogTitle>
-              <DialogDescription>
-                Complete los detalles para la nueva reunión. Reuniones de GDI y Área se gestionan desde sus respectivas secciones.
-              </DialogDescription>
-            </DialogHeader>
-            <AddMeetingForm addMeetingAction={addMeetingAction} />
-          </DialogContent>
-        </Dialog>
+        <PageSpecificAddMeetingDialog addMeetingAction={addMeetingAction} />
       </div>
 
       {meetings.length > 0 ? (
@@ -133,7 +141,7 @@ export default async function EventsPage() {
                        <MeetingTypeIcon type={meeting.type} />
                        {meeting.name}
                     </CardTitle>
-                    <Badge variant="secondary">{meetingTypeTranslations[meeting.type] || meeting.type}</Badge>
+                    <Badge variant="secondary">{(meetingTypeTranslations[meeting.type as MeetingType]) || meeting.type}</Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="flex-grow space-y-3">
@@ -151,10 +159,10 @@ export default async function EventsPage() {
                   </div>
                   {meeting.description && <CardDescription className="text-sm pt-2 leading-relaxed">{meeting.description}</CardDescription>}
                   {meeting.type === 'Area_Meeting' && meeting.relatedAreaId && (
-                     <p className="text-xs text-muted-foreground pt-1">Área: {meeting.relatedAreaId}</p> // Placeholder, better to show area name
+                     <p className="text-xs text-muted-foreground pt-1">Área: {meeting.relatedAreaId}</p> 
                   )}
                   {meeting.type === 'GDI_Meeting' && meeting.relatedGdiId && (
-                     <p className="text-xs text-muted-foreground pt-1">GDI: {meeting.relatedGdiId}</p> // Placeholder, better to show GDI name
+                     <p className="text-xs text-muted-foreground pt-1">GDI: {meeting.relatedGdiId}</p> 
                   )}
                 </CardContent>
                 <CardFooter>
@@ -177,3 +185,4 @@ export default async function EventsPage() {
     </div>
   );
 }
+

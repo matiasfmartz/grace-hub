@@ -26,11 +26,12 @@ import {
 import { DatePicker } from "@/components/ui/date-picker"; 
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { DialogClose } from "@/components/ui/dialog";
 
 interface AddMeetingFormProps {
   addMeetingAction: (data: AddGeneralMeetingFormValues) => Promise<{ success: boolean; message: string; newMeeting?: any }>;
+  onSuccess?: () => void; // Callback for successful submission to close parent dialog
 }
 
 const creatableMeetingTypes: MeetingType[] = [
@@ -40,7 +41,7 @@ const creatableMeetingTypes: MeetingType[] = [
   "Special_Meeting"
 ];
 
-const meetingTypeTranslations: Record<MeetingType, string> = {
+const meetingTypeTranslations: Record<string, string> = { // Use string index for wider compatibility
   General_Service: "Servicio General",
   GDI_Meeting: "Reunión de GDI",
   Obreros_Meeting: "Reunión de Obreros",
@@ -49,20 +50,20 @@ const meetingTypeTranslations: Record<MeetingType, string> = {
   Special_Meeting: "Reunión Especial",
 };
 
-export default function AddMeetingForm({ addMeetingAction }: AddMeetingFormProps) {
+export default function AddMeetingForm({ addMeetingAction, onSuccess }: AddMeetingFormProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(true); 
 
   const form = useForm<AddGeneralMeetingFormValues>({
     resolver: zodResolver(AddGeneralMeetingFormSchema),
     defaultValues: {
       name: "",
       type: "General_Service", 
-      time: "10:00",
+      time: "10:00", // Default time
       location: "",
       description: "",
       imageUrl: "",
+      // Date is handled by DatePicker, will be undefined initially if not set
     },
   });
 
@@ -72,21 +73,13 @@ export default function AddMeetingForm({ addMeetingAction }: AddMeetingFormProps
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
         form.reset();
-        setIsOpen(false); 
-        setTimeout(() => {
-            const closeButton = document.getElementById('add-meeting-dialog-close-button');
-            if (closeButton) {
-                closeButton.click();
-            }
-        }, 100);
+        if (onSuccess) {
+          onSuccess();
+        }
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
       }
     });
-  }
-
-  if (!isOpen) {
-    return <DialogClose id="add-meeting-dialog-close-button-hidden" className="hidden" />;
   }
 
   return (
@@ -119,7 +112,7 @@ export default function AddMeetingForm({ addMeetingAction }: AddMeetingFormProps
                 </FormControl>
                 <SelectContent>
                   {creatableMeetingTypes.map(type => (
-                    <SelectItem key={type} value={type}>{meetingTypeTranslations[type] || type}</SelectItem>
+                    <SelectItem key={type} value={type}>{(meetingTypeTranslations[type as MeetingType]) || type}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -193,7 +186,7 @@ export default function AddMeetingForm({ addMeetingAction }: AddMeetingFormProps
         
         <div className="flex justify-end space-x-2 pt-4 border-t">
            <DialogClose asChild>
-            <Button type="button" variant="outline" id="add-meeting-dialog-close-button" disabled={isPending}>
+            <Button type="button" variant="outline" disabled={isPending}>
                 Cancelar
             </Button>
           </DialogClose>
