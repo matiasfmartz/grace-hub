@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useTransition, useMemo } from 'react';
+import React, { useState, useTransition, useMemo, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,21 +38,31 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  const calculatedDefaultFormValues = useMemo(() => {
-    return {
-      name: `${series.name} (Ocasional)`,
-      date: new Date(), // Fresh date each time defaults are calculated
-      time: series.defaultTime,
-      location: series.defaultLocation,
-      description: series.description || "",
-      imageUrl: series.defaultImageUrl || "",
-    };
-  }, [series]);
-
+  // Initial minimal default values, to be overridden by form.reset via useEffect
   const form = useForm<AddOccasionalMeetingFormValues>({
     resolver: zodResolver(AddOccasionalMeetingFormSchema),
-    defaultValues: calculatedDefaultFormValues,
+    defaultValues: {
+      name: "",
+      date: new Date(),
+      time: "00:00",
+      location: "",
+      description: "",
+      imageUrl: "",
+    },
   });
+
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        name: `${series.name} (Ocasional)`,
+        date: new Date(), // Default to today, user can change
+        time: series.defaultTime,
+        location: series.defaultLocation,
+        description: series.description || "",
+        imageUrl: series.defaultImageUrl || "",
+      });
+    }
+  }, [open, series, form]);
 
   const onSubmit = (values: AddOccasionalMeetingFormValues) => {
     startTransition(async () => {
@@ -66,11 +76,9 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
     });
   };
 
+  // Removed form.reset from handleOpenChange, now handled by useEffect
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
-    if (isOpen) {
-      form.reset(calculatedDefaultFormValues);
-    }
   };
 
   return (
@@ -88,7 +96,7 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
           </DialogDescription>
         </DialogHeader>
         <div className="flex-grow overflow-y-auto p-6">
-          <Form {...form} key={series.id}>
+          <Form {...form} key={series.id}> {/* Keying the form helps ensure it's fresh if series changes */}
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
