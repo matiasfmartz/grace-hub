@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DatePicker } from "@/components/ui/date-picker"; 
+import { DatePicker } from "@/components/ui/date-picker";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTransition, useEffect } from "react";
@@ -35,33 +35,20 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface DefineMeetingSeriesFormProps {
   defineMeetingSeriesAction: (data: DefineMeetingSeriesFormValues) => Promise<{ success: boolean; message: string; newSeries?: any, newInstance?: any, updatedSeries?: MeetingSeries }>;
-  onSuccess?: () => void; 
-  initialValues?: DefineMeetingSeriesFormValues; 
+  onSuccess?: () => void;
+  initialValues?: DefineMeetingSeriesFormValues;
   isEditing?: boolean;
-  onCancelEdit?: () => void; 
+  onCancelEdit?: () => void;
 }
 
-const targetAttendeeGroupOptions: { id: MeetingTargetRoleType; label: string }[] = [
-  { id: "generalAttendees", label: "Asistentes Generales (Miembros de GDI)" },
-  { id: "workers", label: "Obreros (Guías, Líderes de Área, Miembros de Área)" },
-  { id: "leaders", label: "Líderes (Guías de GDI, Líderes de Área)" },
-];
-
-const frequencyOptions: { value: MeetingFrequencyType; label: string }[] = [
-    { value: "OneTime", label: "Única Vez"},
-    { value: "Weekly", label: "Semanal"},
-    { value: "Monthly", label: "Mensual"},
-];
-
-
-const defaultFormValues: DefineMeetingSeriesFormValues = {
+const baseDefaultFormValues: DefineMeetingSeriesFormValues = {
   name: "",
   description: "",
   defaultTime: "10:00",
   defaultLocation: "Santuario Principal",
   defaultImageUrl: "",
   targetAttendeeGroups: [],
-  frequency: "Weekly", 
+  frequency: "Weekly",
   oneTimeDate: undefined,
   weeklyDays: [],
   monthlyRuleType: undefined,
@@ -70,41 +57,43 @@ const defaultFormValues: DefineMeetingSeriesFormValues = {
   monthlyDayOfWeek: undefined,
 };
 
-export default function DefineMeetingSeriesForm({ 
-  defineMeetingSeriesAction, 
+export default function DefineMeetingSeriesForm({
+  defineMeetingSeriesAction,
   onSuccess,
   initialValues,
   isEditing = false,
-  onCancelEdit 
+  onCancelEdit
 }: DefineMeetingSeriesFormProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
   const form = useForm<DefineMeetingSeriesFormValues>({
     resolver: zodResolver(DefineMeetingSeriesFormSchema),
-    defaultValues: initialValues ? {
-      ...defaultFormValues, 
-      ...initialValues, 
-      oneTimeDate: initialValues.oneTimeDate, // Directly use if already Date object
-      weeklyDays: initialValues.weeklyDays || [], 
-      targetAttendeeGroups: initialValues.targetAttendeeGroups || [],
-    } : defaultFormValues,
+    defaultValues: initialValues
+      ? {
+          ...baseDefaultFormValues,
+          ...initialValues,
+          oneTimeDate: initialValues.oneTimeDate, // This should be a Date object or undefined
+          weeklyDays: initialValues.weeklyDays || [],
+          targetAttendeeGroups: initialValues.targetAttendeeGroups || [],
+        }
+      : baseDefaultFormValues,
   });
-  
+
 
   useEffect(() => {
-    if (initialValues) {
-      form.reset({
-        ...defaultFormValues,
-        ...initialValues,
-        oneTimeDate: initialValues.oneTimeDate, // Directly use if already Date object
-        weeklyDays: initialValues.weeklyDays || [],
-        targetAttendeeGroups: initialValues.targetAttendeeGroups || [],
-      });
-    } else {
-      form.reset(defaultFormValues);
-    }
-  }, [initialValues, form]);
+    const valuesToReset = initialValues
+      ? {
+          ...baseDefaultFormValues,
+          ...initialValues,
+          oneTimeDate: initialValues.oneTimeDate,
+          weeklyDays: initialValues.weeklyDays || [],
+          targetAttendeeGroups: initialValues.targetAttendeeGroups || [],
+        }
+      : baseDefaultFormValues;
+    form.reset(valuesToReset);
+  }, [initialValues, isEditing, form.reset]);
+
 
   const watchedFrequency = form.watch("frequency");
   const watchedMonthlyRuleType = form.watch("monthlyRuleType");
@@ -118,7 +107,7 @@ export default function DefineMeetingSeriesForm({
       form.setValue('monthlyWeekOrdinal', undefined);
       form.setValue('monthlyDayOfWeek', undefined);
     }
-  }, [watchedFrequency, form]);
+  }, [watchedFrequency, form.setValue]);
 
   useEffect(() => {
     if (watchedFrequency === 'Monthly' && watchedMonthlyRuleType === 'DayOfWeekOfMonth') {
@@ -128,17 +117,18 @@ export default function DefineMeetingSeriesForm({
       form.setValue('monthlyWeekOrdinal', undefined);
       form.setValue('monthlyDayOfWeek', undefined);
     }
-  }, [watchedMonthlyRuleType, watchedFrequency, form]);
+  }, [watchedMonthlyRuleType, watchedFrequency, form.setValue]);
 
 
   async function onSubmit(values: DefineMeetingSeriesFormValues) {
     startTransition(async () => {
       const dataToSend = { ...values };
-      if (dataToSend.oneTimeDate) {
-        dataToSend.oneTimeDate = dataToSend.oneTimeDate.toISOString().split('T')[0] as any; 
-      } else {
-        delete dataToSend.oneTimeDate;
+      if (dataToSend.oneTimeDate && dataToSend.oneTimeDate instanceof Date) {
+        dataToSend.oneTimeDate = dataToSend.oneTimeDate.toISOString().split('T')[0] as any;
+      } else if (!dataToSend.oneTimeDate) {
+         delete dataToSend.oneTimeDate;
       }
+
 
       if (dataToSend.frequency !== 'Weekly') delete dataToSend.weeklyDays;
       if (dataToSend.frequency !== 'Monthly') {
@@ -153,34 +143,37 @@ export default function DefineMeetingSeriesForm({
             delete dataToSend.monthlyDayOfWeek;
         }
       }
-      
-      const result = await defineMeetingSeriesAction(dataToSend as any); 
+
+      const result = await defineMeetingSeriesAction(dataToSend as any);
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
         if (onSuccess) {
           onSuccess();
         }
-        if (!isEditing) { 
-            form.reset(defaultFormValues);
+        if (!isEditing) {
+            form.reset(baseDefaultFormValues);
         }
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
       }
     });
   }
-  
+
   const handleCancel = () => {
     if (isEditing && onCancelEdit) {
-      onCancelEdit(); 
-      form.reset(initialValues ? {
-        ...defaultFormValues,
-        ...initialValues,
-        oneTimeDate: initialValues.oneTimeDate, // Ensure reset uses potentially Date object
-        weeklyDays: initialValues.weeklyDays || [],
-        targetAttendeeGroups: initialValues.targetAttendeeGroups || [],
-      } : defaultFormValues);
+      onCancelEdit();
+       const resetValues = initialValues
+        ? {
+            ...baseDefaultFormValues,
+            ...initialValues,
+            oneTimeDate: initialValues.oneTimeDate,
+            weeklyDays: initialValues.weeklyDays || [],
+            targetAttendeeGroups: initialValues.targetAttendeeGroups || [],
+          }
+        : baseDefaultFormValues;
+      form.reset(resetValues);
     } else {
-      form.reset(defaultFormValues);
+      form.reset(baseDefaultFormValues);
     }
   };
 
@@ -262,7 +255,7 @@ export default function DefineMeetingSeriesForm({
               <FormItem className="space-y-3">
                 <FormLabel>Grupos de Asistentes Objetivo</FormLabel>
                 <div className="space-y-2 p-2 border rounded-md">
-                  {targetAttendeeGroupOptions.map((group) => (
+                  {[{ id: "generalAttendees", label: "Asistentes Generales (Miembros de GDI)" }, { id: "workers", label: "Obreros (Guías, Líderes de Área, Miembros de Área)" }, { id: "leaders", label: "Líderes (Guías de GDI, Líderes de Área)" }].map((group) => (
                     <FormField
                       key={group.id}
                       control={form.control}
@@ -275,11 +268,11 @@ export default function DefineMeetingSeriesForm({
                           >
                             <FormControl>
                               <Checkbox
-                                checked={field.value?.includes(group.id)}
+                                checked={field.value?.includes(group.id as MeetingTargetRoleType)}
                                 onCheckedChange={(checked) => {
                                   const currentGroups = field.value || [];
                                   return checked
-                                    ? field.onChange([...currentGroups, group.id])
+                                    ? field.onChange([...currentGroups, group.id as MeetingTargetRoleType])
                                     : field.onChange(
                                         currentGroups.filter(
                                           (value) => value !== group.id
@@ -309,10 +302,10 @@ export default function DefineMeetingSeriesForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Frecuencia</FormLabel>
-              <Select 
-                onValueChange={(value: MeetingFrequencyType) => field.onChange(value)} 
-                value={field.value} 
-                disabled={isPending || (isEditing && initialValues?.frequency === "OneTime")} 
+              <Select
+                onValueChange={(value: MeetingFrequencyType) => field.onChange(value)}
+                value={field.value}
+                disabled={isPending || (isEditing && initialValues?.frequency === "OneTime")}
                >
                 <FormControl>
                   <SelectTrigger>
@@ -320,24 +313,24 @@ export default function DefineMeetingSeriesForm({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {frequencyOptions.map(opt => (
-                    <SelectItem 
-                        key={opt.value} 
-                        value={opt.value} 
+                  {[{ value: "OneTime", label: "Única Vez"}, { value: "Weekly", label: "Semanal"}, { value: "Monthly", label: "Mensual"}].map(opt => (
+                    <SelectItem
+                        key={opt.value}
+                        value={opt.value}
                         disabled={isEditing && initialValues?.frequency === "OneTime" && opt.value !== "OneTime"}>
                         {opt.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {isEditing && initialValues?.frequency === "OneTime" && 
+              {isEditing && initialValues?.frequency === "OneTime" &&
                 <FormDescription className="text-xs">La frecuencia de una reunión 'Única Vez' no se puede cambiar después de su creación.</FormDescription>
               }
               <FormMessage />
             </FormItem>
           )}
         />
-        
+
         {watchedFrequency === "OneTime" && (
             <FormField
             control={form.control}
@@ -345,13 +338,13 @@ export default function DefineMeetingSeriesForm({
             render={({ field }) => (
                 <FormItem className="flex flex-col">
                 <FormLabel>Fecha de Reunión (para Única Vez)</FormLabel>
-                <DatePicker 
-                    date={field.value} 
-                    setDate={field.onChange} 
-                    placeholder="Seleccionar fecha" 
-                    disabled={isPending || (isEditing && initialValues?.frequency === "OneTime")} 
+                <DatePicker
+                    date={field.value}
+                    setDate={field.onChange}
+                    placeholder="Seleccionar fecha"
+                    disabled={isPending || (isEditing && initialValues?.frequency === "OneTime")}
                 />
-                 {isEditing && initialValues?.frequency === "OneTime" && 
+                 {isEditing && initialValues?.frequency === "OneTime" &&
                     <FormDescription className="text-xs mt-1">La fecha de la instancia única no es editable aquí.</FormDescription>
                  }
                 <FormMessage />
@@ -399,7 +392,7 @@ export default function DefineMeetingSeriesForm({
             )}
           />
         )}
-        
+
         {watchedFrequency === "Monthly" && (
           <div className="space-y-4 p-4 border rounded-md">
             <FormField
@@ -442,13 +435,13 @@ export default function DefineMeetingSeriesForm({
                   <FormItem>
                     <FormLabel>Día del Mes (1-31)</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        min="1" max="31" 
-                        {...field} 
+                      <Input
+                        type="number"
+                        min="1" max="31"
+                        {...field}
                         value={field.value || ''}
-                        onChange={e => field.onChange(parseInt(e.target.value,10))}
-                        disabled={isPending} 
+                        onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value,10))}
+                        disabled={isPending}
                        />
                     </FormControl>
                     <FormMessage />
@@ -499,16 +492,16 @@ export default function DefineMeetingSeriesForm({
             )}
           </div>
         )}
-        
+
         <div className="flex justify-end space-x-2 pt-4 border-t">
-           {(!isEditing || (isEditing && !onCancelEdit)) && ( 
-             <DialogClose asChild> 
+           {(!isEditing || (isEditing && !onCancelEdit)) && (
+             <DialogClose asChild>
                 <Button type="button" variant="outline" onClick={handleCancel} disabled={isPending}>
                     Cancelar
                 </Button>
             </DialogClose>
            )}
-           {isEditing && onCancelEdit && ( 
+           {isEditing && onCancelEdit && (
                 <Button type="button" variant="outline" onClick={handleCancel} disabled={isPending}>
                     Cancelar Edición
                 </Button>
@@ -521,3 +514,5 @@ export default function DefineMeetingSeriesForm({
     </Form>
   );
 }
+
+    

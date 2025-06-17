@@ -55,21 +55,21 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
     if (open) {
       form.reset({
         name: `${series.name} (Ocasional)`,
-        date: new Date(), // Default to today, user can change
+        date: new Date(), 
         time: series.defaultTime,
         location: series.defaultLocation,
         description: series.description || "",
         imageUrl: series.defaultImageUrl || "",
       });
     }
-  }, [open, series, form]); // form is stable, dependencies are effectively open and series
+  }, [open, series, form.reset]); // form.reset is stable
 
   const onSubmit = (values: AddOccasionalMeetingFormValues) => {
     startTransition(async () => {
       const result = await addOccasionalMeetingAction(series.id, values);
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
-        setOpen(false); 
+        setOpen(false);
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
       }
@@ -78,7 +78,6 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
 
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
-    // No form.reset here, useEffect handles it based on 'open' state
   };
 
   return (
@@ -96,7 +95,7 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
           </DialogDescription>
         </DialogHeader>
         <div className="flex-grow overflow-y-auto p-6">
-          <Form {...form}> {/* Removed key={series.id} */}
+          <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
@@ -115,10 +114,10 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Fecha</FormLabel>
-                    <DatePicker 
-                      date={field.value} 
-                      setDate={field.onChange} 
-                      placeholder="Seleccionar fecha" 
+                    <DatePicker
+                      date={field.value}
+                      setDate={field.onChange}
+                      placeholder="Seleccionar fecha"
                       disabled={isPending}
                     />
                     <FormMessage />
@@ -188,3 +187,4 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
   );
 }
 
+    

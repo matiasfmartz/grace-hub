@@ -1,40 +1,4 @@
-
 [
-  {
-    "id": "att-sermondom-1",
-    "meetingId": "instance-1700000000000-sermondom",
-    "memberId": "1",
-    "attended": true,
-    "notes": ""
-  },
-  {
-    "id": "att-sermondom-2",
-    "meetingId": "instance-1700000000000-sermondom",
-    "memberId": "2",
-    "attended": true,
-    "notes": ""
-  },
-  {
-    "id": "att-sermondom-3",
-    "meetingId": "instance-1700000000000-sermondom",
-    "memberId": "3",
-    "attended": false,
-    "notes": "Llegó tarde"
-  },
-  {
-    "id": "att-estudio-1",
-    "meetingId": "instance-1700000000001-estudio",
-    "memberId": "1",
-    "attended": true,
-    "notes": ""
-  },
-  {
-    "id": "att-estudio-5",
-    "meetingId": "instance-1700000000001-estudio",
-    "memberId": "5",
-    "attended": true,
-    "notes": "Participó activamente"
-  },
   {
     "id": "m-spec-20240815-5-1750127156506",
     "meetingId": "m-spec-20240815",
@@ -46,6 +10,27 @@
     "id": "m-spec-20240815-1749877175613-ls6oqv6-1750127156506",
     "meetingId": "m-spec-20240815",
     "memberId": "1749877175613-ls6oqv6",
+    "attended": true,
+    "notes": ""
+  },
+  {
+    "id": "instance-1750131270237-skdj1za-5-5-1750131324441",
+    "meetingId": "instance-1750131270237-skdj1za-5",
+    "memberId": "5",
+    "attended": true,
+    "notes": ""
+  },
+  {
+    "id": "instance-1750131270237-skdj1za-5-1749877175613-ls6oqv6-1750131324441",
+    "meetingId": "instance-1750131270237-skdj1za-5",
+    "memberId": "1749877175613-ls6oqv6",
+    "attended": true,
+    "notes": ""
+  },
+  {
+    "id": "instance-1750131270237-skdj1za-5-6-1750131324441",
+    "meetingId": "instance-1750131270237-skdj1za-5",
+    "memberId": "6",
     "attended": true,
     "notes": ""
   }

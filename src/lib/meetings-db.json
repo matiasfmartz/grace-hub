@@ -1,39 +1,98 @@
-
 [
   {
-    "id": "instance-1700000000000-sermondom",
-    "seriesId": "series-domingo-general",
-    "name": "Servicio Dominical General (21 Jul)",
-    "date": "2024-07-21",
+    "id": "instance-1750131226122-efmjdvw-0",
+    "seriesId": "series-1750131226099-8q0ed",
+    "name": "General (21 jun)",
+    "date": "2025-06-21",
     "time": "10:00",
     "location": "Santuario Principal",
-    "description": "Servicio principal de adoración y enseñanza para toda la congregación.",
-    "imageUrl": "https://placehold.co/600x400?text=Servicio+Dominical",
-    "attendeeUids": ["1", "2", "3", "4", "5", "6", "7", "8", "1749877175613-ls6oqv6", "1749877205345-hd6yhu7", "1749880160940-30020fm"],
-    "minute": "Se habló sobre la fe y la perseverancia."
-  },
-  {
-    "id": "instance-1700000000001-estudio",
-    "seriesId": "series-estudio-biblico-sem",
-    "name": "Estudio Bíblico Semanal (24 Jul)",
-    "date": "2024-07-24",
-    "time": "19:30",
-    "location": "Salón Multiusos",
-    "description": "Profundización en las escrituras abierto a todos.",
-    "imageUrl": "https://placehold.co/600x400?text=Estudio+Biblico",
-    "attendeeUids": ["1", "3", "5", "6", "1749877205345-hd6yhu7"],
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "5",
+      "6",
+      "1749877175613-ls6oqv6"
+    ],
     "minute": null
   },
   {
-    "id": "instance-1700000000002-conferencia",
-    "seriesId": "series-evento-especial",
-    "name": "Conferencia Anual (26 Oct)",
-    "date": "2024-10-26",
+    "id": "instance-1750131226127-p7uwmkg-1",
+    "seriesId": "series-1750131226099-8q0ed",
+    "name": "General (22 jun)",
+    "date": "2025-06-22",
     "time": "10:00",
     "location": "Santuario Principal",
-    "description": "Conferencia especial de invitados.",
-    "imageUrl": "https://placehold.co/600x400?text=Evento+Especial",
-    "attendeeUids": ["1", "2", "3", "4", "5", "6", "7", "8", "1749877175613-ls6oqv6", "1749877205345-hd6yhu7", "1749880160940-30020fm"],
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "5",
+      "6",
+      "1749877175613-ls6oqv6"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750131226129-y0nfqh2-2",
+    "seriesId": "series-1750131226099-8q0ed",
+    "name": "General (24 jun)",
+    "date": "2025-06-24",
+    "time": "10:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "5",
+      "6",
+      "1749877175613-ls6oqv6"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750131226131-qvjnvyq-3",
+    "seriesId": "series-1750131226099-8q0ed",
+    "name": "General (29 jun)",
+    "date": "2025-06-29",
+    "time": "10:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "5",
+      "6",
+      "1749877175613-ls6oqv6"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750131257251-jg6jzmn-4",
+    "seriesId": "series-1750131226099-8q0ed",
+    "name": "General (Ocasional)",
+    "date": "2025-06-17",
+    "time": "10:00",
+    "location": "Sla",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "5",
+      "6",
+      "1749877175613-ls6oqv6"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750131270237-skdj1za-5",
+    "seriesId": "series-1750131226099-8q0ed",
+    "name": "General (Ocasional)",
+    "date": "2025-06-17",
+    "time": "10:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "5",
+      "6",
+      "1749877175613-ls6oqv6"
+    ],
     "minute": null
   }
 ]

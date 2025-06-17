@@ -1,76 +1,19 @@
-
 [
   {
-    "id": "series-domingo-general",
-    "name": "Servicio Dominical General",
-    "description": "Servicio principal de adoración y enseñanza para toda la congregación.",
+    "id": "series-1750131226099-8q0ed",
+    "name": "General",
+    "description": "",
     "defaultTime": "10:00",
     "defaultLocation": "Santuario Principal",
-    "defaultImageUrl": "https://placehold.co/600x400?text=Servicio+Dominical",
-    "targetAttendeeGroups": [
-      "generalAttendees",
-      "workers",
-      "leaders"
-    ],
-    "frequency": "Weekly",
-    "weeklyDays": ["Sunday"]
-  },
-  {
-    "id": "series-estudio-biblico-sem",
-    "name": "Estudio Bíblico Semanal",
-    "description": "Profundización en las escrituras abierto a todos.",
-    "defaultTime": "19:30",
-    "defaultLocation": "Salón Multiusos",
-    "defaultImageUrl": "https://placehold.co/600x400?text=Estudio+Biblico",
+    "defaultImageUrl": "https://placehold.co/600x400",
     "targetAttendeeGroups": [
       "generalAttendees"
     ],
     "frequency": "Weekly",
-    "weeklyDays": ["Wednesday"]
-  },
-  {
-    "id": "series-obreros-mensual",
-    "name": "Capacitación de Obreros",
-    "description": "Entrenamiento y coordinación para todos los obreros.",
-    "defaultTime": "09:00",
-    "defaultLocation": "Aula 101",
-    "defaultImageUrl": "https://placehold.co/600x400?text=Obreros",
-    "targetAttendeeGroups": [
-      "workers"
-    ],
-    "frequency": "Monthly",
-    "monthlyRuleType": "DayOfWeekOfMonth",
-    "monthlyWeekOrdinal": "First",
-    "monthlyDayOfWeek": "Saturday"
-  },
-  {
-    "id": "series-lideres-mensual",
-    "name": "Reunión de Líderes GDI y Área",
-    "description": "Planificación y estrategia con líderes de GDI y áreas de ministerio.",
-    "defaultTime": "18:00",
-    "defaultLocation": "Oficina Pastoral",
-    "defaultImageUrl": "https://placehold.co/600x400?text=Lideres",
-    "targetAttendeeGroups": [
-      "leaders"
-    ],
-    "frequency": "Monthly",
-    "monthlyRuleType": "DayOfWeekOfMonth",
-    "monthlyWeekOrdinal": "Third",
-    "monthlyDayOfWeek": "Monday"
-  },
-  {
-    "id": "series-evento-especial",
-    "name": "Conferencia Anual",
-    "description": "Conferencia especial de invitados.",
-    "defaultTime": "10:00",
-    "defaultLocation": "Santuario Principal",
-    "defaultImageUrl": "https://placehold.co/600x400?text=Evento+Especial",
-    "targetAttendeeGroups": [
-      "generalAttendees",
-      "workers",
-      "leaders"
-    ],
-    "frequency": "OneTime",
-    "oneTimeDate": "2024-10-26"
+    "weeklyDays": [
+      "Sunday",
+      "Saturday",
+      "Tuesday"
+    ]
   }
 ]
