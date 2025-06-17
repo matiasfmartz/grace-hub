@@ -10,7 +10,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Filter, CalendarRange, Users, CheckCircle2, XCircle, Percent, ListChecks } from 'lucide-react';
+import { Filter, CalendarRange, Users, CheckCircle2, XCircle, Percent, ListChecks, UserX } from 'lucide-react';
 import { format, parseISO, isValid, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -93,13 +93,14 @@ export default function MemberAttendanceSummary({
 
     const totalConvocations = detailedInfo.length;
     const totalAttendances = detailedInfo.filter(info => info.attended).length;
-    const attendanceRate = totalConvocations > 0 ? (totalAttendances / totalConvocations) * 100 : 0;
+    const totalAbsences = totalConvocations - totalAttendances;
+    const absenceRate = totalConvocations > 0 ? (totalAbsences / totalConvocations) * 100 : 0;
 
     return {
       detailedInfo,
       totalConvocations,
       totalAttendances,
-      attendanceRate,
+      absenceRate, // Changed from attendanceRate
     };
 
   }, [memberId, allMeetings, allMeetingSeries, allAttendanceRecords, selectedSeriesId, startDate, endDate]);
@@ -178,10 +179,10 @@ export default function MemberAttendanceSummary({
               <CardTitle className="text-3xl text-green-700">{processedMeetingData.totalAttendances}</CardTitle>
             </CardHeader>
           </Card>
-          <Card className="bg-accent/10">
+          <Card className="bg-red-500/5"> {/* Changed background for absence rate */}
             <CardHeader className="pb-2">
-              <CardDescription className="text-xs font-medium flex items-center"><Percent className="mr-2 h-4 w-4 text-amber-600" />Tasa de Asistencia</CardDescription>
-              <CardTitle className="text-3xl text-amber-700">{processedMeetingData.attendanceRate.toFixed(0)}%</CardTitle>
+              <CardDescription className="text-xs font-medium flex items-center"><UserX className="mr-2 h-4 w-4 text-red-600" />Tasa de Ausencia</CardDescription> {/* Changed label and icon */}
+              <CardTitle className="text-3xl text-red-700">{processedMeetingData.absenceRate.toFixed(0)}%</CardTitle> {/* Changed to absenceRate */}
             </CardHeader>
           </Card>
         </div>
@@ -224,3 +225,4 @@ export default function MemberAttendanceSummary({
     </Card>
   );
 }
+
