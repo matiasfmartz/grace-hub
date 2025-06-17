@@ -94,5 +94,21 @@
       "1749877175613-ls6oqv6"
     ],
     "minute": null
+  },
+  {
+    "id": "instance-1750132429860-zmrvilh-6",
+    "seriesId": "series-1750131226099-8q0ed",
+    "name": "General (Ocasional)",
+    "date": "2025-06-15",
+    "time": "02:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "5",
+      "6",
+      "1749877175613-ls6oqv6"
+    ],
+    "minute": null
   }
 ]

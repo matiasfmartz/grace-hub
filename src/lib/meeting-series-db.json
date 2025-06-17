@@ -15,5 +15,31 @@
       "Saturday",
       "Tuesday"
     ]
+  },
+  {
+    "id": "series-1750132452525-87ebv",
+    "name": "asd",
+    "description": "",
+    "defaultTime": "10:00",
+    "defaultLocation": "Santuario Principal",
+    "defaultImageUrl": "https://placehold.co/600x400",
+    "targetAttendeeGroups": [
+      "leaders"
+    ],
+    "frequency": "OneTime",
+    "oneTimeDate": "2025-06-16T03:00:00.000Z"
+  },
+  {
+    "id": "series-1750132463455-qeikh",
+    "name": "asd",
+    "description": "",
+    "defaultTime": "10:00",
+    "defaultLocation": "Santuario Principal",
+    "defaultImageUrl": "https://placehold.co/600x400",
+    "targetAttendeeGroups": [
+      "leaders"
+    ],
+    "frequency": "OneTime",
+    "oneTimeDate": "2025-06-16T03:00:00.000Z"
   }
 ]

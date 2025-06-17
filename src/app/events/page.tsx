@@ -29,14 +29,29 @@ export async function defineMeetingSeriesAction(
   newSeriesData: DefineMeetingSeriesFormValues
 ): Promise<{ success: boolean; message: string; newSeries?: MeetingSeries, newInstances?: Meeting[] }> {
   try {
-    const result = await addMeetingSeries(newSeriesData);
+    // Prepare data for the service, ensuring oneTimeDate is a string if present
+    const dataForService: DefineMeetingSeriesFormValues = {
+      ...newSeriesData,
+      oneTimeDate: newSeriesData.oneTimeDate instanceof Date && isValid(newSeriesData.oneTimeDate)
+        ? format(newSeriesData.oneTimeDate, 'yyyy-MM-dd')
+        : undefined,
+    };
+
+    const result = await addMeetingSeries(dataForService as any); // Cast as any because service expects string date
 
     revalidatePath('/events');
     let message = `Serie de reuniones "${result.series.name}" agregada exitosamente.`;
     if (result.newInstances && result.newInstances.length > 0) {
         message += ` ${result.newInstances.length} instancia(s) inicial(es) creada(s).`
     } else if (result.series.frequency === "OneTime" && result.newInstances && result.newInstances.length === 1) {
-        message += ` Instancia creada para el ${format(parseISO(result.newInstances[0].date), "d 'de' MMMM", { locale: es })}.`
+        // Ensure newInstances[0].date is a string for formatting
+        const instanceDateStr = result.newInstances[0].date;
+        const parsedInstanceDate = parseISO(instanceDateStr);
+        if (isValid(parsedInstanceDate)) {
+             message += ` Instancia creada para el ${format(parsedInstanceDate, "d 'de' MMMM", { locale: es })}.`
+        } else {
+            message += ` Instancia creada (fecha: ${instanceDateStr}).`
+        }
     }
     return { success: true, message, newSeries: result.series, newInstances: result.newInstances };
   } catch (error: any) {
@@ -58,7 +73,7 @@ export async function updateMeetingSeriesAction(
         defaultImageUrl: updatedData.defaultImageUrl,
         targetAttendeeGroups: updatedData.targetAttendeeGroups,
         frequency: updatedData.frequency,
-        oneTimeDate: updatedData.oneTimeDate ? format(updatedData.oneTimeDate, 'yyyy-MM-dd') : undefined,
+        oneTimeDate: updatedData.oneTimeDate instanceof Date && isValid(updatedData.oneTimeDate) ? format(updatedData.oneTimeDate, 'yyyy-MM-dd') : undefined,
         weeklyDays: updatedData.weeklyDays,
         monthlyRuleType: updatedData.monthlyRuleType,
         monthlyDayOfMonth: updatedData.monthlyDayOfMonth,
