@@ -32,7 +32,7 @@ import { DialogClose } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { isValid as isValidDate, format, parseISO } from 'date-fns';
+import { isValid, format, parseISO } from 'date-fns';
 
 interface DefineMeetingSeriesFormProps {
   defineMeetingSeriesAction: (data: DefineMeetingSeriesFormValues) => Promise<{ success: boolean; message: string; newSeries?: any, newInstance?: any, updatedSeries?: MeetingSeries }>;
@@ -64,21 +64,13 @@ const getResolvedDefaultValues = (
   
   let oneTimeDateToSet: Date | undefined = undefined;
   if (currentInitialValues?.oneTimeDate) {
-    // Ensure it's a Date object and valid before assigning
-    if (currentInitialValues.oneTimeDate instanceof Date && isValidDate(currentInitialValues.oneTimeDate)) {
+    if (currentInitialValues.oneTimeDate instanceof Date && isValid(currentInitialValues.oneTimeDate)) {
       oneTimeDateToSet = currentInitialValues.oneTimeDate;
-    }
-    // If it's a string (from older data or direct JSON), try to parse it
-    else if (typeof currentInitialValues.oneTimeDate === 'string') {
-      const parsedDate = parseISO(currentInitialValues.oneTimeDate);
-      if (isValidDate(parsedDate)) {
-        oneTimeDateToSet = parsedDate;
-      }
     }
   }
   
   const resolved: DefineMeetingSeriesFormValues = {
-    ...baseDefaultFormValues, // Start with base defaults
+    ...baseDefaultFormValues,
     name: currentInitialValues?.name ?? baseDefaultFormValues.name,
     description: currentInitialValues?.description ?? baseDefaultFormValues.description,
     defaultTime: currentInitialValues?.defaultTime ?? baseDefaultFormValues.defaultTime,
@@ -86,7 +78,7 @@ const getResolvedDefaultValues = (
     defaultImageUrl: currentInitialValues?.defaultImageUrl ?? baseDefaultFormValues.defaultImageUrl,
     targetAttendeeGroups: currentInitialValues?.targetAttendeeGroups ?? baseDefaultFormValues.targetAttendeeGroups,
     frequency: currentInitialValues?.frequency ?? baseDefaultFormValues.frequency,
-    oneTimeDate: oneTimeDateToSet,
+    oneTimeDate: oneTimeDateToSet, // Use the processed date
     weeklyDays: currentInitialValues?.weeklyDays ?? baseDefaultFormValues.weeklyDays,
     monthlyRuleType: currentInitialValues?.monthlyRuleType ?? baseDefaultFormValues.monthlyRuleType,
     monthlyDayOfMonth: currentInitialValues?.monthlyDayOfMonth ?? baseDefaultFormValues.monthlyDayOfMonth,
@@ -98,7 +90,7 @@ const getResolvedDefaultValues = (
   resolved.name = resolved.name || "";
   resolved.description = resolved.description || "";
   resolved.defaultImageUrl = resolved.defaultImageUrl || "";
-  resolved.defaultTime = resolved.defaultTime || "00:00"; // Ensure valid time format
+  resolved.defaultTime = resolved.defaultTime || "00:00";
   resolved.defaultLocation = resolved.defaultLocation || "";
   
   return resolved;
@@ -115,17 +107,16 @@ export default function DefineMeetingSeriesForm({
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  // Use resolvedDefaultValues for the initial form setup.
-  // This ensures that when editing, the form starts with the correct initial values.
+  const resolvedDefaultValues = useMemo(() => getResolvedDefaultValues(initialValues), [initialValues]);
+
   const form = useForm<DefineMeetingSeriesFormValues>({
     resolver: zodResolver(DefineMeetingSeriesFormSchema),
-    defaultValues: getResolvedDefaultValues(initialValues),
+    defaultValues: resolvedDefaultValues,
   });
 
-  // Effect to reset the form if initialValues change (e.g., when the dialog is reopened for a different item to edit)
   useEffect(() => {
     form.reset(getResolvedDefaultValues(initialValues));
-  }, [initialValues, form.reset]);
+  }, [initialValues, form]);
 
 
   const watchedFrequency = form.watch("frequency");
@@ -155,14 +146,8 @@ export default function DefineMeetingSeriesForm({
 
   async function onSubmit(values: DefineMeetingSeriesFormValues) {
     startTransition(async () => {
-      // Prepare data for server action, ensuring date is correctly formatted if present
-      const dataToSend = { 
-        ...values,
-        // oneTimeDate is already a Date object or undefined from the form state managed by DatePicker + RHF
-        // The server action will handle formatting it to string if needed.
-      };
+      const dataToSend = { ...values };
       
-      // Clean up conditional fields based on frequency before sending to action
       if (dataToSend.frequency !== 'OneTime') delete dataToSend.oneTimeDate;
       if (dataToSend.frequency !== 'Weekly') delete dataToSend.weeklyDays;
       if (dataToSend.frequency !== 'Monthly') {
@@ -170,7 +155,7 @@ export default function DefineMeetingSeriesForm({
         delete dataToSend.monthlyDayOfMonth;
         delete dataToSend.monthlyWeekOrdinal;
         delete dataToSend.monthlyDayOfWeek;
-      } else { // Monthly frequency specific cleanup
+      } else { 
         if (dataToSend.monthlyRuleType !== 'DayOfMonth') delete dataToSend.monthlyDayOfMonth;
         if (dataToSend.monthlyRuleType !== 'DayOfWeekOfMonth') {
             delete dataToSend.monthlyWeekOrdinal;
@@ -185,10 +170,8 @@ export default function DefineMeetingSeriesForm({
           onSuccess();
         }
         if (!isEditing) { 
-             // For add mode, reset to base defaults after success
             form.reset(getResolvedDefaultValues(undefined));
         }
-        // For edit mode, form retains current (now saved) values, or parent dialog closes.
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
       }
@@ -197,13 +180,11 @@ export default function DefineMeetingSeriesForm({
 
   const handleCancel = () => {
     if (isEditing && onCancelEdit) {
-      onCancelEdit(); // Parent (ManageMeetingSeriesDialog) handles UI change
-      form.reset(getResolvedDefaultValues(initialValues)); // Reset form to original edit values
+      onCancelEdit(); 
+      form.reset(getResolvedDefaultValues(initialValues)); 
     } else {
-      // For add mode, or if no specific onCancelEdit, reset to base defaults
       form.reset(getResolvedDefaultValues(undefined));
     }
-    // DialogClose will handle closing if it's a direct child of a Dialog
   };
 
 
@@ -368,7 +349,7 @@ export default function DefineMeetingSeriesForm({
                 <FormItem className="flex flex-col">
                 <FormLabel>Fecha de Reunión (para Única Vez)</FormLabel>
                 <DatePicker
-                    date={field.value} 
+                    date={field.value instanceof Date && isValid(field.value) ? field.value : undefined}
                     setDate={field.onChange}
                     placeholder="Seleccionar fecha"
                     disabled={isPending || (isEditing && initialValues?.frequency === "OneTime")}
@@ -523,7 +504,6 @@ export default function DefineMeetingSeriesForm({
         )}
 
         <div className="flex justify-end space-x-2 pt-4 border-t">
-           {/* Conditional rendering for Cancel button based on context (add vs edit) */}
            {onCancelEdit ? (
                 <Button type="button" variant="outline" onClick={handleCancel} disabled={isPending}>
                     Cancelar Edición

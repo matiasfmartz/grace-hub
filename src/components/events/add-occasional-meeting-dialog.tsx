@@ -23,7 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Loader2, PlusSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns'; // Added isValid
 
 interface AddOccasionalMeetingDialogProps {
   series: MeetingSeries;
@@ -61,7 +61,7 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
         imageUrl: series.defaultImageUrl || "",
       });
     }
-  }, [open, series]); // form.reset es estable y no necesita estar en el array de dependencias
+  }, [open, series]); 
 
   const onSubmit = (values: AddOccasionalMeetingFormValues) => {
     startTransition(async () => {
@@ -114,7 +114,7 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
                   <FormItem className="flex flex-col">
                     <FormLabel>Fecha</FormLabel>
                     <DatePicker
-                      date={field.value}
+                      date={field.value instanceof Date && isValid(field.value) ? field.value : undefined}
                       setDate={field.onChange}
                       placeholder="Seleccionar fecha"
                       disabled={isPending}
