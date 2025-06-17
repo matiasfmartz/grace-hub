@@ -31,12 +31,17 @@ export async function defineMeetingSeriesAction(
   newSeriesData: DefineMeetingSeriesFormValues
 ): Promise<{ success: boolean; message: string; newSeries?: MeetingSeries, newInstances?: Meeting[] }> {
   try {
+    // Ensure oneTimeDate is formatted correctly if it exists
     const dataForService: DefineMeetingSeriesFormValues = {
       ...newSeriesData,
       oneTimeDate: newSeriesData.oneTimeDate instanceof Date && isValid(newSeriesData.oneTimeDate)
-        ? format(newSeriesData.oneTimeDate, 'yyyy-MM-dd')
+        ? newSeriesData.oneTimeDate // Keep as Date for service layer if service layer expects Date
         : undefined,
     };
+    if (newSeriesData.oneTimeDate instanceof Date && isValid(newSeriesData.oneTimeDate)) {
+        (dataForService as any).oneTimeDate = format(newSeriesData.oneTimeDate, 'yyyy-MM-dd');
+    }
+
 
     const result = await addMeetingSeries(dataForService as any); 
 
@@ -236,26 +241,24 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <div className="flex-grow">
-          <h1 className="font-headline text-4xl font-bold text-primary">Administración de Reuniones</h1>
-          <p className="text-muted-foreground mt-1">Defina series, programe instancias y vea el historial de asistencia.</p>
-        </div>
-        <PageSpecificAddMeetingDialog
-          defineMeetingSeriesAction={defineMeetingSeriesAction}
-        />
+      <div className="mb-6">
+        <h1 className="font-headline text-4xl font-bold text-primary">Administración de Reuniones</h1>
+        <p className="text-muted-foreground mt-1">Defina series, programe instancias y vea el historial de asistencia.</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-6 lg:gap-8">
         {/* Left Panel */}
         <aside className="md:w-72 lg:w-80 flex-shrink-0 space-y-6">
+          <PageSpecificAddMeetingDialog
+            defineMeetingSeriesAction={defineMeetingSeriesAction}
+          />
           <div className="p-4 border rounded-lg shadow-sm bg-card">
             <h2 className="text-lg font-semibold mb-3 flex items-center">
               <LayoutGrid className="mr-2 h-5 w-5 text-primary" />
               Series de Reuniones
             </h2>
             {seriesPresentInFilter.length > 0 ? (
-              <ScrollArea className="h-[calc(50vh-120px)] sm:h-auto sm:max-h-[300px] md:max-h-[calc(100vh-450px)] pr-3">
+              <ScrollArea className="h-[calc(50vh-200px)] sm:h-auto sm:max-h-[300px] md:max-h-[calc(100vh-520px)] pr-3">
                 <div className="space-y-1">
                   {seriesPresentInFilter.map((series) => (
                     <Button

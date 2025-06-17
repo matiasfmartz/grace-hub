@@ -12,12 +12,11 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import DefineMeetingSeriesForm from '@/components/events/add-meeting-form'; // Renamed import
+import DefineMeetingSeriesForm from '@/components/events/add-meeting-form';
 import type { DefineMeetingSeriesFormValues, MeetingSeries, Meeting } from '@/lib/types';
 
 interface PageSpecificAddMeetingDialogProps {
-  defineMeetingSeriesAction: (data: DefineMeetingSeriesFormValues) => Promise<{ success: boolean; message: string; newSeries?: MeetingSeries, newInstance?: Meeting }>;
-  // Removed allMembers prop as it's not directly used by DefineMeetingSeriesForm anymore
+  defineMeetingSeriesAction: (data: DefineMeetingSeriesFormValues) => Promise<{ success: boolean; message: string; newSeries?: MeetingSeries, newInstances?: Meeting[] }>;
 }
 
 export default function PageSpecificAddMeetingDialog({ defineMeetingSeriesAction }: PageSpecificAddMeetingDialogProps) {
@@ -30,7 +29,7 @@ export default function PageSpecificAddMeetingDialog({ defineMeetingSeriesAction
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button className="w-full"> {/* Added w-full for better display in sidebar */}
           <PlusCircle className="mr-2 h-4 w-4" /> Definir Nueva Serie de Reunión
         </Button>
       </DialogTrigger>

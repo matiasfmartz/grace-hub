@@ -56,22 +56,25 @@ export default function DateRangeFilter({ initialStartDate, initialEndDate }: Da
   };
 
   return (
-    <div className="flex flex-col sm:flex-row gap-4 items-end">
-      <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="flex flex-col space-y-1.5">
-          <Label htmlFor="startDate">Fecha de Inicio</Label>
-          <DatePicker date={startDate} setDate={setStartDate} placeholder="Desde" />
-        </div>
-        <div className="flex flex-col space-y-1.5">
-          <Label htmlFor="endDate">Fecha de Fin</Label>
-          <DatePicker date={endDate} setDate={setEndDate} placeholder="Hasta" />
-        </div>
+    <div className="space-y-4"> {/* Main container for the filter component */}
+      <div className="space-y-1.5"> {/* Start Date */}
+        <Label htmlFor="startDateFilter">Fecha de Inicio</Label>
+        <DatePicker date={startDate} setDate={setStartDate} placeholder="Desde" />
       </div>
-      <div className="flex gap-2 mt-4 sm:mt-0">
-        <Button onClick={handleApplyFilters} disabled={!startDate || !endDate}>
+      <div className="space-y-1.5"> {/* End Date */}
+        <Label htmlFor="endDateFilter">Fecha de Fin</Label>
+        <DatePicker date={endDate} setDate={setEndDate} placeholder="Hasta" />
+      </div>
+      <div className="flex flex-col sm:flex-row gap-2 pt-2"> {/* Buttons container */}
+        <Button onClick={handleApplyFilters} disabled={!startDate || !endDate} className="w-full sm:w-auto">
           Aplicar Filtro
         </Button>
-        <Button onClick={handleClearFilters} variant="outline" disabled={!initialStartDate && !initialEndDate && !startDate && !endDate}>
+        <Button
+          onClick={handleClearFilters}
+          variant="outline"
+          disabled={!initialStartDate && !initialEndDate && !startDate && !endDate}
+          className="w-full sm:w-auto"
+        >
           <X className="mr-2 h-4 w-4" /> Limpiar
         </Button>
       </div>
