@@ -1,21 +1,23 @@
 
 'use server';
-import type { Meeting, DefineMeetingSeriesFormValues, MeetingSeries, Member, GDI, MinistryArea, AttendanceRecord } from '@/lib/types';
+import type { Meeting, DefineMeetingSeriesFormValues, MeetingSeries, Member, GDI, MinistryArea, AttendanceRecord, AddOccasionalMeetingFormValues } from '@/lib/types';
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Filter, Settings } from 'lucide-react'; // Added Settings icon
+import { CalendarDays, Filter, Settings, PlusSquare } from 'lucide-react';
 import { revalidatePath } from 'next/cache';
-import { format, parseISO, isValid, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
+import { format, parseISO, isValid, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { 
-    getAllMeetingSeries, 
-    addMeetingSeries, 
+import {
+    getAllMeetingSeries,
+    addMeetingSeries,
     updateMeetingSeries,
     deleteMeetingSeries,
-    getAllMeetings 
+    getAllMeetings,
+    addMeetingInstance // Added for occasional meetings
 } from '@/services/meetingService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
 import PageSpecificAddMeetingDialog from '@/components/events/page-specific-add-meeting-dialog';
-import ManageMeetingSeriesDialog from '@/components/events/manage-meeting-series-dialog'; // Changed import
+import ManageMeetingSeriesDialog from '@/components/events/manage-meeting-series-dialog';
+import AddOccasionalMeetingDialog from '@/components/events/add-occasional-meeting-dialog'; // New Dialog
 import { getAllGdis } from '@/services/gdiService';
 import { getAllMinistryAreas } from '@/services/ministryAreaService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,27 +27,18 @@ import DateRangeFilter from '@/components/events/date-range-filter';
 
 export async function defineMeetingSeriesAction(
   newSeriesData: DefineMeetingSeriesFormValues
-): Promise<{ success: boolean; message: string; newSeries?: MeetingSeries, newInstance?: Meeting }> {
+): Promise<{ success: boolean; message: string; newSeries?: MeetingSeries, newInstances?: Meeting[] }> {
   try {
-    const result = await addMeetingSeries(
-      {
-        name: newSeriesData.name,
-        description: newSeriesData.description,
-        defaultTime: newSeriesData.defaultTime,
-        defaultLocation: newSeriesData.defaultLocation,
-        defaultImageUrl: newSeriesData.defaultImageUrl,
-        targetAttendeeGroups: newSeriesData.targetAttendeeGroups,
-        frequency: newSeriesData.frequency,
-      },
-      newSeriesData.frequency === "OneTime" ? newSeriesData.oneTimeDate : undefined
-    );
+    const result = await addMeetingSeries(newSeriesData);
 
     revalidatePath('/events');
     let message = `Serie de reuniones "${result.series.name}" agregada exitosamente.`;
-    if (result.instance) {
-        message += ` Instancia creada para el ${format(parseISO(result.instance.date), "d 'de' MMMM", { locale: es })}.`
+    if (result.newInstances && result.newInstances.length > 0) {
+        message += ` ${result.newInstances.length} instancia(s) inicial(es) creada(s).`
+    } else if (result.series.frequency === "OneTime" && result.newInstances && result.newInstances.length === 1) {
+        message += ` Instancia creada para el ${format(parseISO(result.newInstances[0].date), "d 'de' MMMM", { locale: es })}.`
     }
-    return { success: true, message, newSeries: result.series, newInstance: result.instance };
+    return { success: true, message, newSeries: result.series, newInstances: result.newInstances };
   } catch (error: any) {
     console.error("Error defining meeting series:", error);
     return { success: false, message: `Error al definir serie de reuniones: ${error.message}` };
@@ -65,6 +58,12 @@ export async function updateMeetingSeriesAction(
         defaultImageUrl: updatedData.defaultImageUrl,
         targetAttendeeGroups: updatedData.targetAttendeeGroups,
         frequency: updatedData.frequency,
+        oneTimeDate: updatedData.oneTimeDate ? format(updatedData.oneTimeDate, 'yyyy-MM-dd') : undefined,
+        weeklyDays: updatedData.weeklyDays,
+        monthlyRuleType: updatedData.monthlyRuleType,
+        monthlyDayOfMonth: updatedData.monthlyDayOfMonth,
+        monthlyWeekOrdinal: updatedData.monthlyWeekOrdinal,
+        monthlyDayOfWeek: updatedData.monthlyDayOfWeek,
     };
     const updatedSeries = await updateMeetingSeries(seriesId, seriesToWrite);
     revalidatePath('/events');
@@ -88,6 +87,28 @@ export async function deleteMeetingSeriesAction(
   }
 }
 
+export async function addOccasionalMeetingAction(
+  seriesId: string,
+  formData: AddOccasionalMeetingFormValues
+): Promise<{ success: boolean; message: string; newInstance?: Meeting }> {
+  try {
+    const newInstance = await addMeetingInstance(seriesId, {
+      name: formData.name,
+      date: format(formData.date, 'yyyy-MM-dd'),
+      time: formData.time,
+      location: formData.location,
+      description: formData.description,
+      imageUrl: formData.imageUrl,
+    });
+    revalidatePath('/events');
+    return { success: true, message: `Instancia ocasional "${newInstance.name}" agregada exitosamente.`, newInstance };
+  } catch (error: any) {
+    console.error("Error adding occasional meeting instance:", error);
+    return { success: false, message: `Error al agregar instancia de reunión: ${error.message}` };
+  }
+}
+
+
 interface MeetingInstancesBySeries {
   [seriesId: string]: Meeting[];
 }
@@ -105,7 +126,7 @@ interface EventsPageData {
 
 interface EventsPageProps {
   searchParams?: {
-    series?: string; 
+    series?: string;
     startDate?: string;
     endDate?: string;
   };
@@ -114,14 +135,14 @@ interface EventsPageProps {
 async function getEventsPageData(startDateParam?: string, endDateParam?: string): Promise<EventsPageData> {
   const [
     allSeries,
-    allMeetingInstancesList, // Renamed for clarity
+    allMeetingInstancesList,
     allMembers,
     allGdis,
     allMinistryAreas,
     allAttendanceRecords
   ] = await Promise.all([
     getAllMeetingSeries(),
-    getAllMeetings(), 
+    getAllMeetings(),
     getAllMembersNonPaginated(),
     getAllGdis(),
     getAllMinistryAreas(),
@@ -141,20 +162,14 @@ async function getEventsPageData(startDateParam?: string, endDateParam?: string)
         return isValid(meetingDate) && isWithinInterval(meetingDate, { start: parsedStartDate, end: parsedEndDate });
       });
     } else {
-      // Invalid date params, reset to no filter
       appliedStartDate = undefined;
       appliedEndDate = undefined;
-      filteredMeetingInstances = allMeetingInstancesList; 
     }
-  } else if (startDateParam || endDateParam) {
-    // If only one is provided, or one is invalid, ignore filter
-    appliedStartDate = undefined;
-    appliedEndDate = undefined;
-    filteredMeetingInstances = allMeetingInstancesList;
-  } else {
-    // No date parameters, show all meetings by default
-    filteredMeetingInstances = allMeetingInstancesList;
+  } else if (startDateParam || endDateParam) { // Only one is provided or one is invalid
+      appliedStartDate = undefined;
+      appliedEndDate = undefined;
   }
+  // If no valid date filter, allMeetingInstancesList is used as is (all meetings)
 
 
   const meetingsBySeries: MeetingInstancesBySeries = {};
@@ -190,7 +205,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
   } = await getEventsPageData(searchParams?.startDate, searchParams?.endDate);
 
   const seriesPresentInFilter = allSeries.filter(series =>
-    meetingsBySeries[series.id]?.length > 0 || series.frequency === "Recurring" || series.frequency === "OneTime"
+    meetingsBySeries[series.id]?.length > 0 || series.frequency === "Weekly" || series.frequency === "Monthly" || series.frequency === "OneTime"
   ).sort((a,b) => a.name.localeCompare(b.name));
 
 
@@ -206,7 +221,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div className="flex-grow">
           <h1 className="font-headline text-4xl font-bold text-primary">Administración de Reuniones</h1>
-          <p className="text-muted-foreground mt-1">Defina series de reuniones y vea el historial de asistencia.</p>
+          <p className="text-muted-foreground mt-1">Defina series de reuniones, programe instancias y vea el historial de asistencia.</p>
         </div>
         <PageSpecificAddMeetingDialog
           defineMeetingSeriesAction={defineMeetingSeriesAction}
@@ -215,7 +230,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
       {seriesPresentInFilter.length > 0 ? (
         <Tabs defaultValue={defaultTabValue} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 mb-6 pb-2 overflow-x-auto">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 mb-6 pb-2 overflow-x-auto h-auto">
             {seriesPresentInFilter.map((series) => (
               <TabsTrigger
                 key={series.id}
@@ -230,17 +245,23 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           {seriesPresentInFilter.map((series) => (
             <TabsContent key={series.id} value={series.id}>
               <div className="mb-4 p-4 border rounded-lg bg-card shadow">
-                <div className="flex justify-between items-start">
-                    <div>
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                    <div className="flex-grow">
                         <h2 className="text-xl font-semibold text-primary">{series.name}</h2>
                         {series.description && <p className="text-sm text-muted-foreground mt-1 max-w-prose">{series.description}</p>}
                         <div className="text-xs text-muted-foreground mt-2">
                         <span>Hora Pred.: {series.defaultTime} | </span>
                         <span>Lugar Pred.: {series.defaultLocation} | </span>
-                        <span>Frecuencia: {series.frequency === "OneTime" ? "Única Vez" : "Recurrente"}</span>
+                        <span>Frecuencia: {series.frequency === "OneTime" ? "Única Vez" : series.frequency === "Weekly" ? "Semanal" : "Mensual"}</span>
                         </div>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0 ml-4">
+                    <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                        {series.frequency !== "OneTime" && (
+                             <AddOccasionalMeetingDialog
+                                series={series}
+                                addOccasionalMeetingAction={addOccasionalMeetingAction}
+                             />
+                        )}
                         <ManageMeetingSeriesDialog
                             series={series}
                             updateMeetingSeriesAction={updateMeetingSeriesAction}
@@ -257,7 +278,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                   allGdis={allGdis}
                   allMinistryAreas={allMinistryAreas}
                   allAttendanceRecords={allAttendanceRecords}
-                  seriesName={series.name} 
+                  seriesName={series.name}
                   filterStartDate={appliedStartDate}
                   filterEndDate={appliedEndDate}
                 />
@@ -272,7 +293,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                    <p className="text-muted-foreground mt-2">
                     {appliedStartDate && appliedEndDate
                       ? `(${format(parseISO(appliedStartDate), 'dd/MM/yy', { locale: es })} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', { locale: es })})`
-                      : "Agregue una nueva instancia para esta serie o ajuste los filtros de fecha."}
+                      : "Agregue una instancia para esta serie o ajuste los filtros de fecha."}
                   </p>
                 </div>
               )}

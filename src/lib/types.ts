@@ -65,12 +65,12 @@ export type MeetingFrequencyType = z.infer<typeof MeetingFrequencyEnum>;
 
 export interface MeetingSeries {
   id: string;
-  name: string; 
+  name: string;
   description?: string;
   defaultTime: string; // HH:MM
   defaultLocation: string;
   defaultImageUrl?: string;
-  targetAttendeeGroups: MeetingTargetRoleType[]; 
+  targetAttendeeGroups: MeetingTargetRoleType[];
   frequency: MeetingFrequencyType;
   oneTimeDate?: string; // YYYY-MM-DD, only if frequency is "OneTime"
 
@@ -87,14 +87,14 @@ export type MeetingSeriesWriteData = Omit<MeetingSeries, 'id'>;
 
 export interface Meeting {
   id: string;
-  seriesId: string; 
-  name: string; 
-  date: string; // YYYY-MM-DD 
-  time: string; // HH:MM 
-  location: string; 
-  description?: string; 
-  imageUrl?: string; 
-  attendeeUids: string[]; 
+  seriesId: string;
+  name: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM
+  location: string;
+  description?: string;
+  imageUrl?: string;
+  attendeeUids: string[];
   minute?: string | null;
 }
 export type MeetingWriteData = Omit<Meeting, 'id' | 'attendeeUids'> & { attendeeUids?: string[] };
@@ -169,7 +169,7 @@ export const DefineMeetingSeriesFormSchema = z.object({
   oneTimeDate: z.date().optional(),
   weeklyDays: z.array(DayOfWeekEnum).optional(),
   monthlyRuleType: MonthlyRuleTypeEnum.optional(),
-  monthlyDayOfMonth: z.coerce.number().min(1).max(31).optional(), // Coerce to number for input type=number
+  monthlyDayOfMonth: z.coerce.number().min(1).max(31).optional(),
   monthlyWeekOrdinal: WeekOrdinalEnum.optional(),
   monthlyDayOfWeek: DayOfWeekEnum.optional(),
 }).superRefine((data, ctx) => {
@@ -181,13 +181,7 @@ export const DefineMeetingSeriesFormSchema = z.object({
         path: ["oneTimeDate"],
       });
     }
-  } else {
-    // Clear oneTimeDate if frequency is not OneTime
-    // This should ideally be handled by form logic before submission,
-    // but as a safeguard, Zod can ensure it's not present or ignore it.
-    // For now, just ensure it's optional and not validated if not OneTime.
   }
-
   if (data.frequency === 'Weekly') {
     if (!data.weeklyDays || data.weeklyDays.length === 0) {
       ctx.addIssue({
@@ -197,7 +191,6 @@ export const DefineMeetingSeriesFormSchema = z.object({
       });
     }
   }
-
   if (data.frequency === 'Monthly') {
     if (!data.monthlyRuleType) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe seleccionar un tipo de regla mensual.", path: ['monthlyRuleType'] });
@@ -215,8 +208,19 @@ export const DefineMeetingSeriesFormSchema = z.object({
     }
   }
 });
-
 export type DefineMeetingSeriesFormValues = z.infer<typeof DefineMeetingSeriesFormSchema>;
+
+export const AddOccasionalMeetingFormSchema = z.object({
+  name: z.string().min(3, { message: "El nombre de la reunión debe tener al menos 3 caracteres." }),
+  date: z.date({ required_error: "La fecha es requerida." }),
+  time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Formato de hora inválido (HH:MM)." }),
+  location: z.string().min(3, { message: "La ubicación es requerida." }),
+  description: z.string().optional(),
+  imageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')),
+});
+export type AddOccasionalMeetingFormValues = z.infer<typeof AddOccasionalMeetingFormSchema>;
+
+
 export const daysOfWeek: { id: DayOfWeekType; label: string }[] = [
     { id: "Sunday", label: "Domingo" },
     { id: "Monday", label: "Lunes" },

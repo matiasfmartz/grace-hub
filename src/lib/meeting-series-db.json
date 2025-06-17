@@ -1,25 +1,40 @@
 
 [
   {
-    "id": "series-general",
-    "name": "Servicio General",
-    "description": "Servicio dominical de adoración y enseñanza para toda la congregación.",
+    "id": "series-domingo-general",
+    "name": "Servicio Dominical General",
+    "description": "Servicio principal de adoración y enseñanza para toda la congregación.",
     "defaultTime": "10:00",
     "defaultLocation": "Santuario Principal",
-    "defaultImageUrl": "https://placehold.co/600x400",
+    "defaultImageUrl": "https://placehold.co/600x400?text=Servicio+Dominical",
     "targetAttendeeGroups": [
-      "generalAttendees"
+      "generalAttendees",
+      "workers",
+      "leaders"
     ],
     "frequency": "Weekly",
     "weeklyDays": ["Sunday"]
   },
   {
-    "id": "series-obreros",
-    "name": "Reunión de Obreros",
-    "description": "Capacitación y coordinación para todos los obreros (guías de GDI y miembros/líderes de áreas ministeriales).",
-    "defaultTime": "09:00",
+    "id": "series-estudio-biblico-sem",
+    "name": "Estudio Bíblico Semanal",
+    "description": "Profundización en las escrituras abierto a todos.",
+    "defaultTime": "19:30",
     "defaultLocation": "Salón Multiusos",
-    "defaultImageUrl": "https://placehold.co/600x400",
+    "defaultImageUrl": "https://placehold.co/600x400?text=Estudio+Biblico",
+    "targetAttendeeGroups": [
+      "generalAttendees"
+    ],
+    "frequency": "Weekly",
+    "weeklyDays": ["Wednesday"]
+  },
+  {
+    "id": "series-obreros-mensual",
+    "name": "Capacitación de Obreros",
+    "description": "Entrenamiento y coordinación para todos los obreros.",
+    "defaultTime": "09:00",
+    "defaultLocation": "Aula 101",
+    "defaultImageUrl": "https://placehold.co/600x400?text=Obreros",
     "targetAttendeeGroups": [
       "workers"
     ],
@@ -29,17 +44,33 @@
     "monthlyDayOfWeek": "Saturday"
   },
   {
-    "id": "series-special-prayer",
-    "name": "Noche de Oración Especial",
-    "description": "Una noche especial de oración por necesidades de la comunidad.",
-    "defaultTime": "20:00",
-    "defaultLocation": "Capilla",
-    "defaultImageUrl": "https://placehold.co/600x400",
+    "id": "series-lideres-mensual",
+    "name": "Reunión de Líderes GDI y Área",
+    "description": "Planificación y estrategia con líderes de GDI y áreas de ministerio.",
+    "defaultTime": "18:00",
+    "defaultLocation": "Oficina Pastoral",
+    "defaultImageUrl": "https://placehold.co/600x400?text=Lideres",
+    "targetAttendeeGroups": [
+      "leaders"
+    ],
+    "frequency": "Monthly",
+    "monthlyRuleType": "DayOfWeekOfMonth",
+    "monthlyWeekOrdinal": "Third",
+    "monthlyDayOfWeek": "Monday"
+  },
+  {
+    "id": "series-evento-especial",
+    "name": "Conferencia Anual",
+    "description": "Conferencia especial de invitados.",
+    "defaultTime": "10:00",
+    "defaultLocation": "Santuario Principal",
+    "defaultImageUrl": "https://placehold.co/600x400?text=Evento+Especial",
     "targetAttendeeGroups": [
       "generalAttendees",
+      "workers",
       "leaders"
     ],
     "frequency": "OneTime",
-    "oneTimeDate": "2024-08-15"
+    "oneTimeDate": "2024-10-26"
   }
 ]
