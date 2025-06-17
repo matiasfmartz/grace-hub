@@ -1,7 +1,6 @@
 
-'use server';
 import type { Meeting, Member, GDI, MinistryArea, AttendanceRecord } from '@/lib/types';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { getMeetingById, updateMeetingMinute } from '@/services/meetingService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
 import { getAllGdis } from '@/services/gdiService';
@@ -32,7 +31,7 @@ async function getPageData(meetingId: string) {
     getAttendanceForMeeting(meetingId),
   ]);
 
-  const resolvedAttendees = getResolvedAttendees(meeting, allMembers, allGdis, allMinistryAreas);
+  const resolvedAttendees = await getResolvedAttendees(meeting, allMembers, allGdis, allMinistryAreas);
   return { meeting, resolvedAttendees, currentAttendance, allMembers };
 }
 
@@ -40,6 +39,7 @@ export async function handleSaveAttendance(
   meetingId: string,
   memberAttendances: Array<{ memberId: string; attended: boolean }>
 ) {
+  'use server';
   try {
     await saveMeetingAttendance(meetingId, memberAttendances);
     revalidatePath(`/events/${meetingId}/attendance`);
@@ -127,7 +127,6 @@ export default async function MeetingAttendancePage({ params }: MeetingAttendanc
               const minuteContent = formData.get('minuteContent') as string;
               const result = await handleUpdateMinute(meeting.id, minuteContent);
               if (!result.success) {
-                // Consider showing toast on client side if form was client component
                 console.error("Error updating minute:", result.message);
               }
             }}>
