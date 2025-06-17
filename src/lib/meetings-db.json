@@ -1,289 +1,49 @@
 [
   {
-    "id": "instance-1750131226122-efmjdvw-0",
-    "seriesId": "series-1750131226099-8q0ed",
-    "name": "General (21 jun)",
-    "date": "2025-06-21",
-    "time": "10:00",
-    "location": "Santuario Principal",
+    "id": "instance-1750198570442-dsqy77p-0",
+    "seriesId": "series-1750198570439-y83k8",
+    "name": "Santa Cena (6 jul)",
+    "date": "2025-07-06",
+    "time": "20:00",
+    "location": "Auditorio",
     "description": "",
     "imageUrl": "https://placehold.co/600x400",
     "attendeeUids": [
-      "5",
-      "6",
-      "1749877175613-ls6oqv6"
-    ],
-    "minute": null
-  },
-  {
-    "id": "instance-1750131226127-p7uwmkg-1",
-    "seriesId": "series-1750131226099-8q0ed",
-    "name": "General (22 jun)",
-    "date": "2025-06-22",
-    "time": "10:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": [
-      "5",
-      "6",
-      "1749877175613-ls6oqv6"
-    ],
-    "minute": null
-  },
-  {
-    "id": "instance-1750131226129-y0nfqh2-2",
-    "seriesId": "series-1750131226099-8q0ed",
-    "name": "General (24 jun)",
-    "date": "2025-06-24",
-    "time": "10:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": [
-      "5",
-      "6",
-      "1749877175613-ls6oqv6"
-    ],
-    "minute": null
-  },
-  {
-    "id": "instance-1750131226131-qvjnvyq-3",
-    "seriesId": "series-1750131226099-8q0ed",
-    "name": "General (29 jun)",
-    "date": "2025-06-29",
-    "time": "10:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": [
-      "5",
-      "6",
-      "1749877175613-ls6oqv6"
-    ],
-    "minute": null
-  },
-  {
-    "id": "instance-1750131257251-jg6jzmn-4",
-    "seriesId": "series-1750131226099-8q0ed",
-    "name": "General (Ocasional)",
-    "date": "2025-06-17",
-    "time": "10:00",
-    "location": "Sla",
-    "description": "",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": [
-      "5",
-      "6",
-      "1749877175613-ls6oqv6"
-    ],
-    "minute": null
-  },
-  {
-    "id": "instance-1750131270237-skdj1za-5",
-    "seriesId": "series-1750131226099-8q0ed",
-    "name": "General (Ocasional)",
-    "date": "2025-06-17",
-    "time": "10:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": [
-      "5",
-      "6",
-      "1749877175613-ls6oqv6"
-    ],
-    "minute": null
-  },
-  {
-    "id": "instance-1750132429860-zmrvilh-6",
-    "seriesId": "series-1750131226099-8q0ed",
-    "name": "General (Ocasional)",
-    "date": "2025-06-15",
-    "time": "02:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": [
-      "5",
-      "6",
-      "1749877175613-ls6oqv6"
-    ],
-    "minute": null
-  },
-  {
-    "id": "instance-1750132608777-u7t9h4g-7",
-    "seriesId": "series-1750132608775-k2yqg",
-    "name": "Especial (22 jun)",
-    "date": "2025-06-22",
-    "time": "10:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": [
-      "7",
+      "1",
       "2",
-      "1749877175613-ls6oqv6",
-      "1749880160940-30020fm",
-      "8"
-    ],
-    "minute": null
-  },
-  {
-    "id": "instance-1750132687956-bm5ffqc-8",
-    "seriesId": "series-1750132687953-5a1t7",
-    "name": "Entrenamiento Lideres (15 jul)",
-    "date": "2025-07-15",
-    "time": "10:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": [
-      "7",
-      "2",
-      "1749877175613-ls6oqv6",
-      "1749880160940-30020fm",
-      "8"
-    ],
-    "minute": null
-  },
-  {
-    "id": "instance-1750132687957-nx0zo4v-9",
-    "seriesId": "series-1750132687953-5a1t7",
-    "name": "Entrenamiento Lideres (15 ago)",
-    "date": "2025-08-15",
-    "time": "10:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": [
-      "7",
-      "2",
-      "1749877175613-ls6oqv6",
-      "1749880160940-30020fm",
-      "8"
-    ],
-    "minute": null
-  },
-  {
-    "id": "instance-1750133022968-zimlba1-10",
-    "seriesId": "series-1750132608775-k2yqg",
-    "name": "Especial (Ocasional)",
-    "date": "2025-06-30",
-    "time": "10:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": [
-      "7",
-      "2",
-      "1749877175613-ls6oqv6",
-      "1749880160940-30020fm",
-      "8"
-    ],
-    "minute": null
-  },
-  {
-    "id": "instance-1750133084562-shvhjel-11",
-    "seriesId": "series-1750132687953-5a1t7",
-    "name": "Entrenamiento Lideres (19 jun)",
-    "date": "2025-06-19",
-    "time": "10:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": [
-      "7",
-      "2",
-      "1749877175613-ls6oqv6",
-      "1749880160940-30020fm",
-      "8"
-    ],
-    "minute": null
-  },
-  {
-    "id": "instance-1750133084564-hafr7n2-12",
-    "seriesId": "series-1750132687953-5a1t7",
-    "name": "Entrenamiento Lideres (26 jun)",
-    "date": "2025-06-26",
-    "time": "10:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": [
-      "7",
-      "2",
-      "1749877175613-ls6oqv6",
-      "1749880160940-30020fm",
-      "8"
-    ],
-    "minute": null
-  },
-  {
-    "id": "instance-1750133084565-iv7auoz-13",
-    "seriesId": "series-1750132687953-5a1t7",
-    "name": "Entrenamiento Lideres ",
-    "date": "2025-06-20",
-    "time": "01:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": [
-      "7",
-      "2",
-      "1749877175613-ls6oqv6",
-      "1749880160940-30020fm",
-      "8"
-    ],
-    "minute": null
-  },
-  {
-    "id": "instance-1750133084567-axke84u-14",
-    "seriesId": "series-1750132687953-5a1t7",
-    "name": "Entrenamiento Lideres (10 jul)",
-    "date": "2025-07-10",
-    "time": "10:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": [
-      "7",
-      "2",
-      "1749877175613-ls6oqv6",
-      "1749880160940-30020fm",
-      "8"
-    ],
-    "minute": null
-  },
-  {
-    "id": "instance-1750192706688-mhdft92-15",
-    "seriesId": "series-1750192706678-zngwt",
-    "name": "Noche de uncion especial (15 jun)",
-    "date": "2025-06-15",
-    "time": "10:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "imageUrl": "https://placehold.co/600x400",
-    "attendeeUids": [
+      "3",
+      "4",
       "5",
       "6",
-      "1749877175613-ls6oqv6"
+      "7",
+      "8",
+      "1749877175613-ls6oqv6",
+      "1749877205345-hd6yhu7",
+      "1749880160940-30020fm"
     ],
     "minute": null
   },
   {
-    "id": "instance-1750192723722-z310kzs-16",
-    "seriesId": "series-1750192706678-zngwt",
-    "name": "Noche de uncion especial (Ocasional)",
-    "date": "2025-06-26",
-    "time": "10:00",
-    "location": "Santuario Principal",
+    "id": "instance-1750198570443-m87box2-1",
+    "seriesId": "series-1750198570439-y83k8",
+    "name": "Santa Cena (3 ago)",
+    "date": "2025-08-03",
+    "time": "20:00",
+    "location": "Auditorio",
     "description": "",
     "imageUrl": "https://placehold.co/600x400",
     "attendeeUids": [
+      "1",
+      "2",
+      "3",
+      "4",
       "5",
       "6",
-      "1749877175613-ls6oqv6"
+      "7",
+      "8",
+      "1749877175613-ls6oqv6",
+      "1749877205345-hd6yhu7",
+      "1749880160940-30020fm"
     ],
     "minute": null
   }

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,9 +10,11 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Filter, CalendarRange, Users, CheckCircle2, XCircle, Percent, ListChecks, UserX } from 'lucide-react';
-import { format, parseISO, isValid, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { Filter, CalendarRange, Users, CheckCircle2, XCircle, ListChecks, UserX, HelpCircle, Clock, PieChart } from 'lucide-react';
+import { format, parseISO, isValid, isWithinInterval, startOfDay, endOfDay, isPast, isFuture, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 interface MemberAttendanceSummaryProps {
   memberId: string;
@@ -22,12 +24,14 @@ interface MemberAttendanceSummaryProps {
   allAttendanceRecords: AttendanceRecord[];
 }
 
+type AttendanceStatus = 'attended' | 'absent' | 'pending_past' | 'pending_future';
+
 interface FilteredMeetingInfo {
   meetingId: string;
   meetingName: string;
-  meetingDate: string; // Store as YYYY-MM-DD string
+  meetingDate: string; 
   seriesName: string;
-  attended: boolean;
+  status: AttendanceStatus;
 }
 
 export default function MemberAttendanceSummary({
@@ -42,21 +46,18 @@ export default function MemberAttendanceSummary({
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
   const processedMeetingData = useMemo(() => {
-    // 1. Filter meetings where the member was expected
     const memberExpectedMeetings = allMeetings.filter(meeting =>
       meeting.attendeeUids && meeting.attendeeUids.includes(memberId)
     );
 
-    // 2. Filter by selected series (if any)
     let meetingsFilteredBySeries = selectedSeriesId === 'all'
       ? memberExpectedMeetings
       : memberExpectedMeetings.filter(meeting => meeting.seriesId === selectedSeriesId);
 
-    // 3. Filter by date range
     let meetingsFilteredByDate = meetingsFilteredBySeries;
     if (startDate && endDate && startDate <= endDate) {
       meetingsFilteredByDate = meetingsFilteredBySeries.filter(meeting => {
-        const meetingDateObj = parseISO(meeting.date); // meeting.date is YYYY-MM-DD
+        const meetingDateObj = parseISO(meeting.date);
         return isValid(meetingDateObj) && 
                isWithinInterval(meetingDateObj, { start: startOfDay(startDate), end: endOfDay(endDate) });
       });
@@ -72,35 +73,51 @@ export default function MemberAttendanceSummary({
         });
     }
     
-    // Sort meetings by date descending (newest first)
     const sortedMeetings = meetingsFilteredByDate.sort((a, b) => 
       parseISO(b.date).getTime() - parseISO(a.date).getTime()
     );
+
+    const today = startOfDay(new Date());
 
     const detailedInfo: FilteredMeetingInfo[] = sortedMeetings.map(meeting => {
       const attendanceRecord = allAttendanceRecords.find(
         record => record.meetingId === meeting.id && record.memberId === memberId
       );
       const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
+      const meetingDateObj = parseISO(meeting.date);
+      let currentStatus: AttendanceStatus;
+
+      if (isFuture(meetingDateObj) && !isToday(meetingDateObj)) {
+        currentStatus = 'pending_future';
+      } else if (attendanceRecord) {
+        currentStatus = attendanceRecord.attended ? 'attended' : 'absent';
+      } else { // Meeting is past or today, and no record
+        currentStatus = 'pending_past';
+      }
+      
       return {
         meetingId: meeting.id,
         meetingName: meeting.name,
-        meetingDate: meeting.date, // Keep as YYYY-MM-DD string
+        meetingDate: meeting.date,
         seriesName: series?.name || 'Serie Desconocida',
-        attended: attendanceRecord?.attended || false, // Default to false if no record
+        status: currentStatus,
       };
     });
 
     const totalConvocations = detailedInfo.length;
-    const totalAttendances = detailedInfo.filter(info => info.attended).length;
-    const totalAbsences = totalConvocations - totalAttendances;
-    const absenceRate = totalConvocations > 0 ? (totalAbsences / totalConvocations) * 100 : 0;
+    const totalAttendances = detailedInfo.filter(info => info.status === 'attended').length;
+    const totalReportedAbsences = detailedInfo.filter(info => info.status === 'absent').length;
+    
+    const reportedMeetingsCount = totalAttendances + totalReportedAbsences;
+    const reportedAbsenceRate = reportedMeetingsCount > 0 ? (totalReportedAbsences / reportedMeetingsCount) * 100 : 0;
+
 
     return {
       detailedInfo,
       totalConvocations,
       totalAttendances,
-      absenceRate, // Changed from attendanceRate
+      totalReportedAbsences,
+      reportedAbsenceRate,
     };
 
   }, [memberId, allMeetings, allMeetingSeries, allAttendanceRecords, selectedSeriesId, startDate, endDate]);
@@ -111,9 +128,8 @@ export default function MemberAttendanceSummary({
     setEndDate(undefined);
   };
   
-  const formatDateDisplay = (dateString: string) => { // Expects YYYY-MM-DD
+  const formatDateDisplay = (dateString: string) => {
     try {
-      // Add 'T00:00:00Z' to parse as UTC and avoid timezone issues with parseISO if only date is provided
       const dateObj = parseISO(dateString);
       if (!isValid(dateObj)) return dateString;
       return format(dateObj, "dd/MM/yyyy", { locale: es });
@@ -121,6 +137,37 @@ export default function MemberAttendanceSummary({
       return dateString;
     }
   };
+
+  const renderAttendanceStatusIcon = (status: AttendanceStatus) => {
+    switch (status) {
+      case 'attended':
+        return <TooltipTrigger asChild><CheckCircle2 className="h-5 w-5 text-green-600 inline-block" /></TooltipTrigger>;
+      case 'absent':
+        return <TooltipTrigger asChild><XCircle className="h-5 w-5 text-red-600 inline-block" /></TooltipTrigger>;
+      case 'pending_past':
+        return <TooltipTrigger asChild><HelpCircle className="h-5 w-5 text-muted-foreground inline-block" /></TooltipTrigger>;
+      case 'pending_future':
+        return <TooltipTrigger asChild><Clock className="h-5 w-5 text-primary inline-block" /></TooltipTrigger>;
+      default:
+        return null;
+    }
+  };
+  
+  const getAttendanceStatusTooltip = (status: AttendanceStatus) => {
+     switch (status) {
+      case 'attended':
+        return "Asistió";
+      case 'absent':
+        return "Ausente (Reportado)";
+      case 'pending_past':
+        return "Pendiente (Pasada - No informado)";
+      case 'pending_future':
+        return "Pendiente (Futura)";
+      default:
+        return "";
+    }
+  }
+
 
   return (
     <Card className="shadow-md">
@@ -135,9 +182,9 @@ export default function MemberAttendanceSummary({
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
           <div>
-            <Label htmlFor="seriesFilterSummary" className="text-xs font-medium">Filtrar por Serie:</Label>
+            <Label htmlFor="seriesFilterSummaryChart" className="text-xs font-medium">Filtrar por Serie:</Label>
             <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId}>
-              <SelectTrigger id="seriesFilterSummary" className="mt-1">
+              <SelectTrigger id="seriesFilterSummaryChart" className="mt-1">
                 <SelectValue placeholder="Seleccionar serie..." />
               </SelectTrigger>
               <SelectContent>
@@ -151,11 +198,11 @@ export default function MemberAttendanceSummary({
             </Select>
           </div>
           <div>
-            <Label htmlFor="startDateFilterSummary" className="text-xs font-medium">Fecha de Inicio:</Label>
+            <Label htmlFor="startDateFilterSummaryChart" className="text-xs font-medium">Fecha de Inicio:</Label>
             <DatePicker date={startDate} setDate={setStartDate} placeholder="Desde" />
           </div>
           <div>
-            <Label htmlFor="endDateFilterSummary" className="text-xs font-medium">Fecha de Fin:</Label>
+            <Label htmlFor="endDateFilterSummaryChart" className="text-xs font-medium">Fecha de Fin:</Label>
             <DatePicker date={endDate} setDate={setEndDate} placeholder="Hasta" />
           </div>
         </div>
@@ -166,23 +213,29 @@ export default function MemberAttendanceSummary({
         )}
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <Card className="bg-primary/5">
             <CardHeader className="pb-2">
-              <CardDescription className="text-xs font-medium flex items-center"><CalendarRange className="mr-2 h-4 w-4 text-primary" />Convocatorias</CardDescription>
+              <CardDescription className="text-xs font-medium flex items-center"><CalendarRange className="mr-2 h-4 w-4 text-primary" />Convocatorias (Filtradas)</CardDescription>
               <CardTitle className="text-3xl">{processedMeetingData.totalConvocations}</CardTitle>
             </CardHeader>
           </Card>
           <Card className="bg-green-500/5">
             <CardHeader className="pb-2">
-              <CardDescription className="text-xs font-medium flex items-center"><Users className="mr-2 h-4 w-4 text-green-600" />Asistencias</CardDescription>
+              <CardDescription className="text-xs font-medium flex items-center"><Users className="mr-2 h-4 w-4 text-green-600" />Asistencias (Reportadas)</CardDescription>
               <CardTitle className="text-3xl text-green-700">{processedMeetingData.totalAttendances}</CardTitle>
             </CardHeader>
           </Card>
-          <Card className="bg-red-500/5"> {/* Changed background for absence rate */}
+          <Card className="bg-red-500/5">
             <CardHeader className="pb-2">
-              <CardDescription className="text-xs font-medium flex items-center"><UserX className="mr-2 h-4 w-4 text-red-600" />Tasa de Ausencia</CardDescription> {/* Changed label and icon */}
-              <CardTitle className="text-3xl text-red-700">{processedMeetingData.absenceRate.toFixed(0)}%</CardTitle> {/* Changed to absenceRate */}
+              <CardDescription className="text-xs font-medium flex items-center"><UserX className="mr-2 h-4 w-4 text-red-600" />Inasistencias (Reportadas)</CardDescription>
+              <CardTitle className="text-3xl text-red-700">{processedMeetingData.totalReportedAbsences}</CardTitle>
+            </CardHeader>
+          </Card>
+           <Card className="bg-yellow-500/5">
+            <CardHeader className="pb-2">
+              <CardDescription className="text-xs font-medium flex items-center"><PieChart className="mr-2 h-4 w-4 text-yellow-700" />Tasa Inasistencia (Reportadas)</CardDescription>
+              <CardTitle className="text-3xl text-yellow-700">{processedMeetingData.reportedAbsenceRate.toFixed(0)}%</CardTitle>
             </CardHeader>
           </Card>
         </div>
@@ -190,30 +243,35 @@ export default function MemberAttendanceSummary({
         <h3 className="text-md font-semibold mb-2">Detalle de Reuniones Convocadas:</h3>
         <ScrollArea className="h-[250px] border rounded-md">
           {processedMeetingData.detailedInfo.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Reunión</TableHead>
-                  <TableHead>Serie</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead className="text-center">Asistió</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {processedMeetingData.detailedInfo.map(info => (
-                  <TableRow key={info.meetingId}>
-                    <TableCell className="font-medium">{info.meetingName}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{info.seriesName}</TableCell>
-                    <TableCell>{formatDateDisplay(info.meetingDate)}</TableCell>
-                    <TableCell className="text-center">
-                      {info.attended ? 
-                        <CheckCircle2 className="h-5 w-5 text-green-600 inline-block" title="Asistió" /> : 
-                        <XCircle className="h-5 w-5 text-red-600 inline-block" title="No Asistió / Sin Registro" />}
-                    </TableCell>
+            <TooltipProvider>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Reunión</TableHead>
+                    <TableHead>Serie</TableHead>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead className="text-center">Estado Asistencia</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {processedMeetingData.detailedInfo.map(info => (
+                    <TableRow key={info.meetingId}>
+                      <TableCell className="font-medium">{info.meetingName}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{info.seriesName}</TableCell>
+                      <TableCell>{formatDateDisplay(info.meetingDate)}</TableCell>
+                      <TableCell className="text-center">
+                        <Tooltip>
+                          {renderAttendanceStatusIcon(info.status)}
+                          <TooltipContent>
+                            <p>{getAttendanceStatusTooltip(info.status)}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TooltipProvider>
           ) : (
             <div className="text-center py-10 text-muted-foreground">
               <CalendarRange className="mx-auto h-12 w-12 mb-4" />

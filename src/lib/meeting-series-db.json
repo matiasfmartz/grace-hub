@@ -1,60 +1,17 @@
 [
   {
-    "id": "series-1750131226099-8q0ed",
-    "name": "General",
+    "id": "series-1750198570439-y83k8",
+    "name": "Santa Cena",
     "description": "",
-    "defaultTime": "10:00",
-    "defaultLocation": "Santuario Principal",
+    "defaultTime": "20:00",
+    "defaultLocation": "Auditorio",
     "defaultImageUrl": "https://placehold.co/600x400",
     "targetAttendeeGroups": [
-      "generalAttendees"
+      "allMembers"
     ],
-    "frequency": "Weekly",
-    "weeklyDays": [
-      "Sunday",
-      "Saturday",
-      "Tuesday"
-    ]
-  },
-  {
-    "id": "series-1750132608775-k2yqg",
-    "name": "Especial",
-    "description": "",
-    "defaultTime": "10:00",
-    "defaultLocation": "Santuario Principal",
-    "defaultImageUrl": "https://placehold.co/600x400",
-    "targetAttendeeGroups": [
-      "leaders"
-    ],
-    "frequency": "OneTime",
-    "oneTimeDate": "2025-06-22"
-  },
-  {
-    "id": "series-1750132687953-5a1t7",
-    "name": "Entrenamiento Lideres",
-    "description": "",
-    "defaultTime": "10:00",
-    "defaultLocation": "Santuario Principal",
-    "defaultImageUrl": "https://placehold.co/600x400",
-    "targetAttendeeGroups": [
-      "leaders"
-    ],
-    "frequency": "Weekly",
-    "weeklyDays": [
-      "Thursday"
-    ]
-  },
-  {
-    "id": "series-1750192706678-zngwt",
-    "name": "Noche de uncion especial",
-    "description": "",
-    "defaultTime": "10:00",
-    "defaultLocation": "Santuario Principal",
-    "defaultImageUrl": "https://placehold.co/600x400",
-    "targetAttendeeGroups": [
-      "generalAttendees"
-    ],
-    "frequency": "OneTime",
-    "oneTimeDate": "2025-06-15"
+    "frequency": "Monthly",
+    "monthlyRuleType": "DayOfWeekOfMonth",
+    "monthlyWeekOrdinal": "First",
+    "monthlyDayOfWeek": "Sunday"
   }
 ]
