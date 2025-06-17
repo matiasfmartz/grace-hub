@@ -35,7 +35,7 @@ export async function defineMeetingSeriesAction(
     const dataForService: DefineMeetingSeriesFormValues = {
       ...newSeriesData,
       oneTimeDate: newSeriesData.oneTimeDate instanceof Date && isValid(newSeriesData.oneTimeDate)
-        ? newSeriesData.oneTimeDate // Keep as Date for service layer if service layer expects Date
+        ? newSeriesData.oneTimeDate 
         : undefined,
     };
     if (newSeriesData.oneTimeDate instanceof Date && isValid(newSeriesData.oneTimeDate)) {
@@ -258,7 +258,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               Series de Reuniones
             </h2>
             {seriesPresentInFilter.length > 0 ? (
-              <ScrollArea className="h-[calc(50vh-200px)] sm:h-auto sm:max-h-[300px] md:max-h-[calc(100vh-520px)] pr-3">
+              <ScrollArea className="max-h-60 md:max-h-72 lg:max-h-80 pr-3">
                 <div className="space-y-1">
                   {seriesPresentInFilter.map((series) => (
                     <Button
@@ -351,7 +351,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               )}
             </>
           ) : (
-             <div className="text-center py-10 flex flex-col items-center justify-center h-full">
+             <div className="text-center py-10 flex flex-col items-center justify-center"> {/* Removed h-full */}
               <CalendarDays className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
               <h2 className="text-2xl font-semibold text-muted-foreground">
                 {seriesPresentInFilter.length > 0 ? "Seleccione una Serie" : 
@@ -370,3 +370,4 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     </div>
   );
 }
+
