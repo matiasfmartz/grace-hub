@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Button } from '@/components/ui/button';
-import { Filter, CalendarRange, LineChart as LineChartIcon, Check, X, HelpCircle, Clock } from 'lucide-react';
-import { format, parseISO, isValid, isWithinInterval, startOfDay, endOfDay, isPast, isToday } from 'date-fns';
+import { Filter, CalendarRange, LineChart as LineChartIcon } from 'lucide-react'; // Removed Check, X, HelpCircle, Clock
+import { format, parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   Line,
@@ -35,38 +35,18 @@ interface MemberAttendanceLineChartProps {
   allAttendanceRecords: AttendanceRecord[];
 }
 
-type AttendanceStatusForChart = 'attended' | 'absent' | 'pending_past' | 'pending_future';
-
-interface ChartDataPoint {
-  meetingDisplay: string; // For X-axis label
-  date: Date; // For sorting
-  attendanceValue: number | null; // 1 for attended, 0 for absent, null for pending
-  statusTooltip: string;
+interface MonthlyChartDataPoint {
+  monthValue: string; // YYYY-MM for sorting
+  monthDisplay: string; // Formatted month for X-axis label (e.g., "Ene 2024")
+  attendedCount: number;
 }
 
 const chartConfig = {
-  attendanceValue: {
-    label: "Estado Asistencia",
+  attendedCount: {
+    label: "Asistencias/Mes",
     color: "hsl(var(--primary))",
   },
 } satisfies ChartConfig;
-
-// Moved function definition before its use in useMemo
-const formatMeetingDisplayForChart = (dateString: string, timeString: string, name: string, isDuplicateDate: boolean): string => {
-  try {
-    const parsedDate = parseISO(dateString);
-    if (!isValid(parsedDate)) {
-        return isDuplicateDate ? `${name.substring(0,10)}..(${dateString} ${timeString})` : `${name.substring(0,10)}..(${dateString})`;
-    }
-    const datePart = format(parsedDate, "d MMM yy", { locale: es });
-    if (isDuplicateDate) {
-      return `${name.substring(0,10)}..(${datePart} ${timeString})`;
-    }
-    return `${name.substring(0,10)}..(${datePart})`;
-  } catch (error) {
-    return isDuplicateDate ? `${name.substring(0,10)}..(${dateString} ${timeString})` : `${name.substring(0,10)}..(${dateString})`;
-  }
-};
 
 export default function MemberAttendanceLineChart({
   memberId,
@@ -84,7 +64,9 @@ export default function MemberAttendanceLineChart({
     let relevantMeetings = allMeetings.filter(meeting => {
       const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
       if (!series) return false;
+      // If series targets "allMembers", this meeting is relevant
       if (series.targetAttendeeGroups.includes('allMembers')) return true;
+      // Otherwise, check if member's UID is in the specific meeting's attendeeUids
       return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
     });
 
@@ -93,7 +75,7 @@ export default function MemberAttendanceLineChart({
       relevantMeetings = relevantMeetings.filter(meeting => meeting.seriesId === selectedSeriesId);
     }
 
-    // 3. Apply date filter
+    // 3. Apply date filter to individual meetings
     if (startDate || endDate) {
         relevantMeetings = relevantMeetings.filter(meeting => {
             const meetingDateObj = parseISO(meeting.date);
@@ -104,55 +86,38 @@ export default function MemberAttendanceLineChart({
         });
     }
     
-    // 4. Sort meetings by date ascending for correct line chart progression
-    relevantMeetings.sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+    // 4. Group by Month and Count Attendances
+    const monthlyAttendanceMap: Record<string, number> = {};
 
-    // 5. Map to ChartDataPoint structure
-    return relevantMeetings.map(meeting => {
+    relevantMeetings.forEach(meeting => {
+      const meetingDateObj = parseISO(meeting.date);
+      if (!isValid(meetingDateObj)) return;
+
+      const yearMonth = format(meetingDateObj, 'yyyy-MM');
+      
       const attendanceRecord = allAttendanceRecords.find(
         record => record.meetingId === meeting.id && record.memberId === memberId
       );
-      const meetingDateObj = parseISO(meeting.date);
-      let attendanceStatus: AttendanceStatusForChart;
-      let attendanceValue: number | null;
-      let statusTooltip: string;
 
-      if (isPast(meetingDateObj) && !isToday(meetingDateObj)) {
-        if (attendanceRecord) {
-          attendanceStatus = attendanceRecord.attended ? 'attended' : 'absent';
-          attendanceValue = attendanceRecord.attended ? 1 : 0;
-          statusTooltip = attendanceRecord.attended ? "Asistió" : "Ausente";
-        } else {
-          attendanceStatus = 'pending_past';
-          attendanceValue = null; // Gap in line for pending past
-          statusTooltip = "Pendiente (Pasada)";
-        }
-      } else { // Meeting is today or in the future
-        if (attendanceRecord) {
-          attendanceStatus = attendanceRecord.attended ? 'attended' : 'absent';
-          attendanceValue = attendanceRecord.attended ? 1 : 0;
-          statusTooltip = attendanceRecord.attended ? "Asistió (Pre-marcado)" : "Ausente (Pre-marcado)";
-        } else {
-          attendanceStatus = 'pending_future';
-          attendanceValue = null; // Gap in line for pending future
-          statusTooltip = "Pendiente (Futura/Hoy)";
-        }
+      if (attendanceRecord?.attended) {
+        monthlyAttendanceMap[yearMonth] = (monthlyAttendanceMap[yearMonth] || 0) + 1;
+      } else if (!(yearMonth in monthlyAttendanceMap)) {
+        // Ensure month is present even if no attendance, if there were meetings
+        monthlyAttendanceMap[yearMonth] = 0;
       }
-      
-      const dateCounts = new Map<string, number>();
-        relevantMeetings.forEach(m => {
-            dateCounts.set(m.date, (dateCounts.get(m.date) || 0) + 1);
-        });
-      const isDuplicateDate = (dateCounts.get(meeting.date) || 0) > 1;
-
-
-      return {
-        meetingDisplay: formatMeetingDisplayForChart(meeting.date, meeting.time, meeting.name, isDuplicateDate),
-        date: meetingDateObj,
-        attendanceValue,
-        statusTooltip,
-      };
     });
+
+    // 5. Convert to ChartDataPoint structure
+    const dataPoints: MonthlyChartDataPoint[] = Object.entries(monthlyAttendanceMap)
+      .map(([yearMonth, count]) => ({
+        monthValue: yearMonth,
+        monthDisplay: format(parseISO(`${yearMonth}-01`), 'MMM yyyy', { locale: es }),
+        attendedCount: count,
+      }))
+      .sort((a, b) => a.monthValue.localeCompare(b.monthValue)); // Sort chronologically
+
+    return dataPoints;
+
   }, [memberId, allMeetings, allMeetingSeries, allAttendanceRecords, selectedSeriesId, startDate, endDate]);
 
   const clearDateFilters = () => {
@@ -160,29 +125,22 @@ export default function MemberAttendanceLineChart({
     setEndDate(undefined);
   };
 
-  const yAxisTickFormatter = (value: number) => {
-    if (value === 1) return 'Sí';
-    if (value === 0) return 'No';
-    return '';
-  };
-
-
   return (
     <Card className="shadow-sm">
       <CardHeader>
         <CardTitle className="font-headline text-lg text-primary flex items-center">
           <LineChartIcon className="mr-2 h-5 w-5" />
-          Progresión de Asistencia Individual
+          Tendencia Mensual de Asistencia
         </CardTitle>
         <CardDescription className="text-xs text-muted-foreground pt-1">
-          Visualice la tendencia de asistencia de {memberName}.
+          Asistencias por mes para {memberName}.
         </CardDescription>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3">
           <div>
-            <Label htmlFor="seriesFilterChart" className="text-xs font-medium">Filtrar Serie:</Label>
+            <Label htmlFor="seriesFilterMonthlyChart" className="text-xs font-medium">Filtrar Serie:</Label>
             <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId}>
-              <SelectTrigger id="seriesFilterChart" className="mt-1 h-9 text-xs">
+              <SelectTrigger id="seriesFilterMonthlyChart" className="mt-1 h-9 text-xs">
                 <SelectValue placeholder="Seleccionar serie..." />
               </SelectTrigger>
               <SelectContent>
@@ -196,11 +154,11 @@ export default function MemberAttendanceLineChart({
             </Select>
           </div>
           <div>
-            <Label htmlFor="startDateFilterChart" className="text-xs font-medium">Desde:</Label>
+            <Label htmlFor="startDateFilterMonthlyChart" className="text-xs font-medium">Desde:</Label>
             <DatePicker date={startDate} setDate={setStartDate} placeholder="Fecha Inicio" />
           </div>
           <div>
-            <Label htmlFor="endDateFilterChart" className="text-xs font-medium">Hasta:</Label>
+            <Label htmlFor="endDateFilterMonthlyChart" className="text-xs font-medium">Hasta:</Label>
             <DatePicker date={endDate} setDate={setEndDate} placeholder="Fecha Fin" />
           </div>
         </div>
@@ -216,36 +174,34 @@ export default function MemberAttendanceLineChart({
             <RechartsLineChart data={chartData} margin={{ top: 5, right: 20, left: -15, bottom: 50 }}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
               <XAxis
-                dataKey="meetingDisplay"
+                dataKey="monthDisplay"
                 tickLine={false}
                 axisLine={false}
                 tickMargin={10}
                 angle={-40}
                 textAnchor="end"
                 height={70} 
-                interval={chartData.length > 10 ? Math.floor(chartData.length / 10) : 0} // Show fewer labels if many points
+                interval={0} // Show all month labels if space allows
                 tick={{ fontSize: 9 }}
               />
               <YAxis
-                dataKey="attendanceValue"
+                dataKey="attendedCount"
                 tickLine={false}
                 axisLine={false}
                 tickMargin={5}
-                domain={[0, 1]}
-                ticks={[0, 1]}
-                tickFormatter={yAxisTickFormatter}
+                allowDecimals={false} // Counts are integers
                 tick={{ fontSize: 10 }}
               />
               <Tooltip
                 cursor={true}
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
-                    const data = payload[0].payload as ChartDataPoint;
+                    const data = payload[0].payload as MonthlyChartDataPoint;
                     return (
                       <ChartTooltipContent
-                        className="w-[200px]"
-                        label={data.meetingDisplay}
-                        payload={[{ name: "Estado", value: data.statusTooltip, color: "hsl(var(--primary))" }]}
+                        className="w-[150px]"
+                        label={data.monthDisplay}
+                        payload={[{ name: "Asistencias", value: data.attendedCount.toString(), color: "hsl(var(--primary))" }]}
                         indicator="line"
                       />
                     );
@@ -254,19 +210,19 @@ export default function MemberAttendanceLineChart({
                 }}
               />
               <Line
-                dataKey="attendanceValue"
-                type="linear"
-                stroke="var(--color-attendanceValue)"
+                dataKey="attendedCount"
+                type="linear" 
+                stroke="var(--color-attendedCount)"
                 strokeWidth={2}
                 dot={{
-                  fill: "var(--color-attendanceValue)",
+                  fill: "var(--color-attendedCount)",
                   r: 3,
                 }}
                 activeDot={{
                   r: 5,
                 }}
-                name="Asistencia"
-                connectNulls={false} // Create gaps for null values (pending)
+                name="Asistencias por Mes"
+                connectNulls={true} // Connect line even if a month has 0 attendance
               />
             </RechartsLineChart>
           </ChartContainer>
