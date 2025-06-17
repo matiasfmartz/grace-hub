@@ -18,7 +18,7 @@
     "assignedAreaIds": [
       "1749880199537-cvuyxy3"
     ],
-    "roles": []
+    "roles": ["GeneralAttendee", "Worker"]
   },
   {
     "id": "2",
@@ -39,7 +39,7 @@
       "ma2",
       "1749880199537-cvuyxy3"
     ],
-    "roles": []
+    "roles": ["Worker", "Leader"]
   },
   {
     "id": "3",
@@ -57,7 +57,7 @@
     "assignedGDIId": "gdi2",
     "assignedAreaIds": [],
     "baptismDate": "",
-    "roles": []
+    "roles": ["GeneralAttendee"]
   },
   {
     "id": "4",
@@ -77,7 +77,7 @@
     "assignedAreaIds": [
       "ma3"
     ],
-    "roles": []
+    "roles": ["Worker"]
   },
   {
     "id": "5",
@@ -97,7 +97,7 @@
     "assignedAreaIds": [
       "1749880199537-cvuyxy3"
     ],
-    "roles": []
+    "roles": ["GeneralAttendee", "Worker"]
   },
   {
     "id": "6",
@@ -115,7 +115,7 @@
     "fromAnotherChurch": false,
     "assignedGDIId": "gdi1",
     "assignedAreaIds": [],
-    "roles": []
+    "roles": ["GeneralAttendee"]
   },
   {
     "id": "7",
@@ -133,7 +133,7 @@
     "fromAnotherChurch": true,
     "assignedGDIId": null,
     "assignedAreaIds": [],
-    "roles": []
+    "roles": ["Worker", "Leader"] 
   },
   {
     "id": "8",
@@ -151,7 +151,7 @@
     "fromAnotherChurch": false,
     "assignedGDIId": null,
     "assignedAreaIds": [],
-    "roles": []
+    "roles": ["Worker", "Leader"] 
   },
   {
     "firstName": "Matias",
@@ -173,7 +173,7 @@
       "ma2"
     ],
     "id": "1749877175613-ls6oqv6",
-    "roles": []
+    "roles": ["GeneralAttendee", "Worker", "Leader"]
   },
   {
     "firstName": "Juan",
@@ -194,7 +194,7 @@
       "ma3"
     ],
     "id": "1749877205345-hd6yhu7",
-    "roles": []
+    "roles": ["GeneralAttendee", "Worker"]
   },
   {
     "firstName": "Maximo",
@@ -214,6 +214,6 @@
       "ma1"
     ],
     "id": "1749880160940-30020fm",
-    "roles": []
+    "roles": ["Worker", "Leader"]
   }
 ]
