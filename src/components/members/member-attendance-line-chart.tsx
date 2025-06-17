@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Button } from '@/components/ui/button';
-import { Filter, CalendarRange, LineChart as LineChartIcon } from 'lucide-react'; // Removed Check, X, HelpCircle, Clock
+import { Filter, CalendarRange, LineChart as LineChartIcon } from 'lucide-react';
 import { format, parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -39,6 +39,7 @@ interface MonthlyChartDataPoint {
   monthValue: string; // YYYY-MM for sorting
   monthDisplay: string; // Formatted month for X-axis label (e.g., "Ene 2024")
   attendedCount: number;
+  convocatedCount: number; // Total meetings member was expected to attend in this month
 }
 
 const chartConfig = {
@@ -64,9 +65,7 @@ export default function MemberAttendanceLineChart({
     let relevantMeetings = allMeetings.filter(meeting => {
       const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
       if (!series) return false;
-      // If series targets "allMembers", this meeting is relevant
       if (series.targetAttendeeGroups.includes('allMembers')) return true;
-      // Otherwise, check if member's UID is in the specific meeting's attendeeUids
       return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
     });
 
@@ -86,8 +85,12 @@ export default function MemberAttendanceLineChart({
         });
     }
     
-    // 4. Group by Month and Count Attendances
-    const monthlyAttendanceMap: Record<string, number> = {};
+    // 4. Group by Month and Count Attendances & Convocations
+    interface MonthlyAggregation {
+      attended: number;
+      convocated: number;
+    }
+    const monthlyAggregationMap: Record<string, MonthlyAggregation> = {};
 
     relevantMeetings.forEach(meeting => {
       const meetingDateObj = parseISO(meeting.date);
@@ -95,24 +98,27 @@ export default function MemberAttendanceLineChart({
 
       const yearMonth = format(meetingDateObj, 'yyyy-MM');
       
+      if (!monthlyAggregationMap[yearMonth]) {
+        monthlyAggregationMap[yearMonth] = { attended: 0, convocated: 0 };
+      }
+      monthlyAggregationMap[yearMonth].convocated += 1; // Increment for every meeting member was expected at
+
       const attendanceRecord = allAttendanceRecords.find(
         record => record.meetingId === meeting.id && record.memberId === memberId
       );
 
       if (attendanceRecord?.attended) {
-        monthlyAttendanceMap[yearMonth] = (monthlyAttendanceMap[yearMonth] || 0) + 1;
-      } else if (!(yearMonth in monthlyAttendanceMap)) {
-        // Ensure month is present even if no attendance, if there were meetings
-        monthlyAttendanceMap[yearMonth] = 0;
+        monthlyAggregationMap[yearMonth].attended += 1;
       }
     });
 
     // 5. Convert to ChartDataPoint structure
-    const dataPoints: MonthlyChartDataPoint[] = Object.entries(monthlyAttendanceMap)
-      .map(([yearMonth, count]) => ({
+    const dataPoints: MonthlyChartDataPoint[] = Object.entries(monthlyAggregationMap)
+      .map(([yearMonth, counts]) => ({
         monthValue: yearMonth,
         monthDisplay: format(parseISO(`${yearMonth}-01`), 'MMM yyyy', { locale: es }),
-        attendedCount: count,
+        attendedCount: counts.attended,
+        convocatedCount: counts.convocated,
       }))
       .sort((a, b) => a.monthValue.localeCompare(b.monthValue)); // Sort chronologically
 
@@ -181,7 +187,7 @@ export default function MemberAttendanceLineChart({
                 angle={-40}
                 textAnchor="end"
                 height={70} 
-                interval={0} // Show all month labels if space allows
+                interval={0} 
                 tick={{ fontSize: 9 }}
               />
               <YAxis
@@ -189,7 +195,7 @@ export default function MemberAttendanceLineChart({
                 tickLine={false}
                 axisLine={false}
                 tickMargin={5}
-                allowDecimals={false} // Counts are integers
+                allowDecimals={false}
                 tick={{ fontSize: 10 }}
               />
               <Tooltip
@@ -199,9 +205,13 @@ export default function MemberAttendanceLineChart({
                     const data = payload[0].payload as MonthlyChartDataPoint;
                     return (
                       <ChartTooltipContent
-                        className="w-[150px]"
+                        className="w-[180px]" // Adjusted width for longer text
                         label={data.monthDisplay}
-                        payload={[{ name: "Asistencias", value: data.attendedCount.toString(), color: "hsl(var(--primary))" }]}
+                        payload={[{ 
+                            name: "Asistencias", 
+                            value: `${data.attendedCount} de ${data.convocatedCount} convoc.`, 
+                            color: "hsl(var(--primary))" 
+                        }]}
                         indicator="line"
                       />
                     );
@@ -222,7 +232,7 @@ export default function MemberAttendanceLineChart({
                   r: 5,
                 }}
                 name="Asistencias por Mes"
-                connectNulls={true} // Connect line even if a month has 0 attendance
+                connectNulls={true}
               />
             </RechartsLineChart>
           </ChartContainer>
@@ -235,3 +245,4 @@ export default function MemberAttendanceLineChart({
     </Card>
   );
 }
+
