@@ -39,11 +39,17 @@ export default function AttendanceManagerView({
   const { toast } = useToast();
 
   useEffect(() => {
-    const mergedAttendees = initialAttendees.map(member => {
-      const record = initialAttendanceRecords.find(r => r.memberId === member.id);
-      return { ...member, attended: record ? record.attended : false };
-    });
-    setAttendees(mergedAttendees);
+    if (Array.isArray(initialAttendees)) {
+      const mergedAttendees = initialAttendees.map(member => {
+        const record = initialAttendanceRecords.find(r => r.memberId === member.id);
+        return { ...member, attended: record ? record.attended : false };
+      });
+      setAttendees(mergedAttendees);
+    } else {
+      // Fallback if initialAttendees is not an array
+      setAttendees([]); 
+      // console.warn("AttendanceManagerView: initialAttendees was not an array.", initialAttendees);
+    }
   }, [initialAttendees, initialAttendanceRecords]);
 
   const handleAttendanceChange = (memberId: string, isChecked: boolean) => {
@@ -148,7 +154,7 @@ export default function AttendanceManagerView({
           )}
         </ScrollArea>
         <div className="mt-6 flex justify-end">
-          <Button onClick={handleSubmit} disabled={isPending || initialAttendees.length === 0}>
+          <Button onClick={handleSubmit} disabled={isPending || initialAttendees === null || initialAttendees === undefined || initialAttendees.length === 0}>
             {isPending ? <Loader2 className="animate-spin mr-2" /> : null}
             {isPending ? "Guardando..." : "Guardar Asistencia"}
           </Button>
@@ -157,3 +163,4 @@ export default function AttendanceManagerView({
     </Card>
   );
 }
+
