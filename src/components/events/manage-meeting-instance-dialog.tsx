@@ -19,13 +19,13 @@ import { Settings, Edit2, Trash2, Info, CalendarDays, Clock, MapPin, FileText, I
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO, isValid as isValidDateFn } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useRouter } from 'next/navigation'; // Added useRouter
 
 interface ManageMeetingInstanceDialogProps {
   instance: Meeting;
-  series?: MeetingSeries | null; // Series can be optional if instance is standalone, or for display
+  series?: MeetingSeries | null;
   updateInstanceAction: (instanceId: string, data: MeetingInstanceFormValues) => Promise<{ success: boolean; message: string; updatedInstance?: Meeting }>;
   deleteInstanceAction: (instanceId: string) => Promise<{ success: boolean; message: string }>;
-  onInstanceDeleted: () => void; // Callback to handle redirection or UI update
   triggerButton?: React.ReactNode;
 }
 
@@ -34,7 +34,6 @@ export default function ManageMeetingInstanceDialog({
   series,
   updateInstanceAction,
   deleteInstanceAction,
-  onInstanceDeleted,
   triggerButton,
 }: ManageMeetingInstanceDialogProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -42,6 +41,7 @@ export default function ManageMeetingInstanceDialog({
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const router = useRouter(); // Initialized useRouter
 
   const handleEditSuccess = () => {
     setIsEditing(false);
@@ -53,9 +53,14 @@ export default function ManageMeetingInstanceDialog({
     if (result.success) {
       setIsDeleteAlertOpen(false);
       setIsDialogOpen(false);
-      onInstanceDeleted(); // Let parent handle redirection/UI update
+      toast({ // Moved toast here from alert for better control flow
+        title: "Instancia Eliminada",
+        description: result.message,
+      });
+      router.push('/events'); // Navigate after successful deletion
     }
-    return result; // Return result for alert to show toast
+    // The alert itself will also show a toast if needed based on result
+    return result; 
   };
 
   const parsedDate = useMemo(() => {
@@ -68,7 +73,7 @@ export default function ManageMeetingInstanceDialog({
 
   const initialFormValues: MeetingInstanceFormValues = useMemo(() => ({
     name: instance.name,
-    date: parsedDate || new Date(), // Fallback to new Date if parsing fails
+    date: parsedDate || new Date(), 
     time: instance.time,
     location: instance.location,
     description: instance.description || "",

@@ -19,7 +19,7 @@ interface DeleteMeetingInstanceAlertProps {
   instanceName: string;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirmDelete: () => Promise<{ success: boolean; message: string }>;
+  onConfirmDelete: () => Promise<{ success: boolean; message: string }>; // This promise is key
 }
 
 export default function DeleteMeetingInstanceAlert({
@@ -31,22 +31,19 @@ export default function DeleteMeetingInstanceAlert({
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     startTransition(async () => {
-      const result = await onConfirmDelete();
-      if (result.success) {
-        toast({
-          title: "Instancia Eliminada",
-          description: result.message,
-        });
-        onOpenChange(false);
-      } else {
+      const result = await onConfirmDelete(); // Call the promise passed from parent
+      // The parent (ManageMeetingInstanceDialog) will handle toast and navigation for success.
+      // Only show toast here if there's an error during the delete action itself.
+      if (!result.success) {
         toast({
           title: "Error",
           description: result.message,
           variant: "destructive",
         });
       }
+      // Parent will close the alert via onOpenChange if successful.
     });
   };
 

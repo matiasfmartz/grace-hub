@@ -94,7 +94,7 @@ async function handleDeleteMeetingInstanceAction(
   try {
     await deleteMeetingInstance(instanceId);
     revalidatePath(`/events`); // Revalidate main events page as instance will be gone
-    // No need to revalidate `/events/${instanceId}/attendance` as it will 404
+    // No need to revalidate `/events/${instanceId}/attendance` as it will 404 after deletion
     return { success: true, message: "Instancia de reunión eliminada exitosamente." };
   } catch (error: any) {
     console.error("Error deleting meeting instance:", error);
@@ -119,14 +119,6 @@ export default async function MeetingAttendancePage({ params }: MeetingAttendanc
   const meetingDateTime = `${formatDateDisplay(meetingInstance.date)} a las ${meetingInstance.time}`;
   const meetingLocation = meetingInstance.location;
 
-  // For the ManageMeetingInstanceDialog - we need to pass the instance and actions
-  // The redirection on delete will be handled client-side by the dialog or a wrapper.
-  const onInstanceDeletedClientSide = () => {
-    // This function will be called client-side after successful deletion confirmed by server.
-    // The ManageMeetingInstanceDialog component itself will likely handle client-side redirection using router.push('/events').
-  };
-
-
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-6 flex justify-between items-center">
@@ -141,7 +133,6 @@ export default async function MeetingAttendancePage({ params }: MeetingAttendanc
             series={meetingSeries}
             updateInstanceAction={handleUpdateMeetingInstanceAction}
             deleteInstanceAction={handleDeleteMeetingInstanceAction}
-            onInstanceDeleted={onInstanceDeletedClientSide} 
              triggerButton={
                 <Button variant="outline">
                     <Settings className="mr-2 h-4 w-4" /> Gestionar Reunión
@@ -186,8 +177,6 @@ export default async function MeetingAttendancePage({ params }: MeetingAttendanc
             const minuteContent = formData.get('minuteContent') as string;
             const result = await handleUpdateMinuteAction(meetingInstance.id, minuteContent);
             if (!result.success) {
-              // For server actions, we typically rely on toast notifications triggered by the client
-              // or revalidation to show updates. Direct console.error is fine for server logs.
               console.error("Error updating minute:", result.message);
             }
           }}>
