@@ -46,12 +46,12 @@ export async function saveMeetingAttendance(
 }
 
 
-export function getResolvedAttendees(
+export async function getResolvedAttendees(
     meeting: Meeting,
     allMembers: Member[],
     allGdis: GDI[],
     allMinistryAreas: MinistryArea[]
-): Member[] {
+): Promise<Member[]> {
     const resolvedAttendeesSet = new Set<string>();
 
     switch (meeting.type) {
