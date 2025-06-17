@@ -22,7 +22,7 @@ interface DatePickerProps {
 }
 
 export function DatePicker({ date, setDate, placeholder = "Pick a date", disabled }: DatePickerProps) {
-  const isDateValid = date instanceof Date && isValid(date);
+  const isDateValidAnInstance = date instanceof Date && isValid(date);
 
   return (
     <Popover>
@@ -32,20 +32,20 @@ export function DatePicker({ date, setDate, placeholder = "Pick a date", disable
           disabled={disabled}
           className={cn(
             "w-full justify-start text-left font-normal",
-            !isDateValid && "text-muted-foreground"
+            !isDateValidAnInstance && "text-muted-foreground"
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {isDateValid ? format(date, "PPP") : <span>{placeholder}</span>}
+          {isDateValidAnInstance ? format(date, "PPP") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0">
         <Calendar
           mode="single"
-          selected={isDateValid ? date : undefined} // Pass undefined if date is not valid
+          selected={isDateValidAnInstance ? date : undefined}
           onSelect={setDate}
           disabled={disabled}
-          initialFocus
+          // initialFocus prop removed
         />
       </PopoverContent>
     </Popover>
