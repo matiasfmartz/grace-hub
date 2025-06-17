@@ -106,7 +106,8 @@ export default function MeetingTypeAttendanceTable({
     return <p className="text-muted-foreground py-4 text-center">No hay instancias de reunión para la serie "{seriesName}"{dateRangeInfo}.</p>;
   }
   
-  const columnMeetings = displayedInstances; 
+  // Sort meeting instances by date ascending (oldest first) for column display
+  const columnMeetings = [...displayedInstances].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
 
   const dateCounts = new Map<string, number>();
   columnMeetings.forEach(meeting => {

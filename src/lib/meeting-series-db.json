@@ -13,5 +13,20 @@
     "monthlyRuleType": "DayOfWeekOfMonth",
     "monthlyWeekOrdinal": "First",
     "monthlyDayOfWeek": "Sunday"
+  },
+  {
+    "id": "series-1750200635989-xyqu2",
+    "name": "Reunion de Lideres",
+    "description": "",
+    "defaultTime": "20:00",
+    "defaultLocation": "Auditorio",
+    "defaultImageUrl": "https://placehold.co/600x400",
+    "targetAttendeeGroups": [
+      "leaders"
+    ],
+    "frequency": "Weekly",
+    "weeklyDays": [
+      "Friday"
+    ]
   }
 ]

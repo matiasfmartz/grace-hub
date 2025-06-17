@@ -46,5 +46,77 @@
       "1749880160940-30020fm"
     ],
     "minute": null
+  },
+  {
+    "id": "instance-1750200635998-jp6u7me-2",
+    "seriesId": "series-1750200635989-xyqu2",
+    "name": "Reunion de Lideres (20 jun)",
+    "date": "2025-06-20",
+    "time": "20:00",
+    "location": "Auditorio",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "7",
+      "2",
+      "1749877175613-ls6oqv6",
+      "1749880160940-30020fm",
+      "8"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750200636000-7mgs95g-3",
+    "seriesId": "series-1750200635989-xyqu2",
+    "name": "Reunion de Lideres (27 jun)",
+    "date": "2025-06-27",
+    "time": "20:00",
+    "location": "Auditorio",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "7",
+      "2",
+      "1749877175613-ls6oqv6",
+      "1749880160940-30020fm",
+      "8"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750200636002-x8zxr4w-4",
+    "seriesId": "series-1750200635989-xyqu2",
+    "name": "Reunion de Lideres (4 jul)",
+    "date": "2025-07-04",
+    "time": "20:00",
+    "location": "Auditorio",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "7",
+      "2",
+      "1749877175613-ls6oqv6",
+      "1749880160940-30020fm",
+      "8"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750200636003-cg00ygg-5",
+    "seriesId": "series-1750200635989-xyqu2",
+    "name": "Reunion de Lideres (11 jul)",
+    "date": "2025-07-11",
+    "time": "20:00",
+    "location": "Auditorio",
+    "description": "",
+    "imageUrl": "https://placehold.co/600x400",
+    "attendeeUids": [
+      "7",
+      "2",
+      "1749877175613-ls6oqv6",
+      "1749880160940-30020fm",
+      "8"
+    ],
+    "minute": null
   }
 ]
