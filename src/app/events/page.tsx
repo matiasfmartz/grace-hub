@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import Link from 'next/link';
 import { CalendarDays, Clock, MapPin, Users, Briefcase, Award, CheckSquare, Sparkles, Building2, HandHelping, Edit } from 'lucide-react';
 import { revalidatePath } from 'next/cache';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getAllMeetings, addMeeting as addMeetingSvc } from '@/services/meetingService';
 import { getAllMembersNonPaginated } from '@/services/memberService'; 
@@ -90,10 +90,20 @@ interface EventsPageData {
   allGdis: GDI[];
   allMinistryAreas: MinistryArea[];
   allAttendanceRecords: AttendanceRecord[];
+  appliedStartDate?: string;
+  appliedEndDate?: string;
 }
 
-async function getEventsPageData(): Promise<EventsPageData> {
-  const [allMeetingsList, allMembers, allGdis, allMinistryAreas, allAttendanceRecords] = await Promise.all([
+interface EventsPageProps {
+  searchParams?: {
+    type?: string;
+    startDate?: string;
+    endDate?: string;
+  };
+}
+
+async function getEventsPageData(startDateParam?: string, endDateParam?: string): Promise<EventsPageData> {
+  let [allMeetingsList, allMembers, allGdis, allMinistryAreas, allAttendanceRecords] = await Promise.all([
     getAllMeetings(),
     getAllMembersNonPaginated(),
     getAllGdis(),
@@ -101,6 +111,34 @@ async function getEventsPageData(): Promise<EventsPageData> {
     getAllAttendanceRecords()
   ]);
   
+  let appliedStartDate: string | undefined = undefined;
+  let appliedEndDate: string | undefined = undefined;
+
+  if (startDateParam && endDateParam) {
+    const parsedStartDate = parseISO(startDateParam);
+    const parsedEndDate = parseISO(endDateParam);
+    if (isValid(parsedStartDate) && isValid(parsedEndDate) && parsedStartDate <= parsedEndDate) {
+      allMeetingsList = allMeetingsList.filter(meeting => {
+        const meetingDate = parseISO(meeting.date);
+        return isValid(meetingDate) && isWithinInterval(meetingDate, { start: parsedStartDate, end: parsedEndDate });
+      });
+      appliedStartDate = startDateParam;
+      appliedEndDate = endDateParam;
+    }
+  } else if (!startDateParam && !endDateParam) {
+    // Default to current month if no params are provided
+    const today = new Date();
+    const firstDayOfMonth = startOfMonth(today);
+    const lastDayOfMonth = endOfMonth(today);
+    allMeetingsList = allMeetingsList.filter(meeting => {
+      const meetingDate = parseISO(meeting.date);
+      return isValid(meetingDate) && isWithinInterval(meetingDate, { start: firstDayOfMonth, end: lastDayOfMonth });
+    });
+    appliedStartDate = format(firstDayOfMonth, 'yyyy-MM-dd');
+    appliedEndDate = format(lastDayOfMonth, 'yyyy-MM-dd');
+  }
+  // If only one param is provided, or params are invalid, we might show all or handle error - for now, showing filtered or default.
+
   const meetingsByType: Record<string, Meeting[]> = {};
   allMeetingsList.forEach(meeting => {
     if (!meetingsByType[meeting.type]) {
@@ -110,16 +148,15 @@ async function getEventsPageData(): Promise<EventsPageData> {
   });
 
   for (const type in meetingsByType) {
-    // Sort meetings within each type, most recent first
     meetingsByType[type].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 
-  return { meetingsByType, allMembers, allGdis, allMinistryAreas, allAttendanceRecords };
+  return { meetingsByType, allMembers, allGdis, allMinistryAreas, allAttendanceRecords, appliedStartDate, appliedEndDate };
 }
 
 
-export default async function EventsPage() {
-  const { meetingsByType, allMembers, allGdis, allMinistryAreas, allAttendanceRecords } = await getEventsPageData();
+export default async function EventsPage({ searchParams }: EventsPageProps) {
+  const { meetingsByType, allMembers, allGdis, allMinistryAreas, allAttendanceRecords, appliedStartDate, appliedEndDate } = await getEventsPageData(searchParams?.startDate, searchParams?.endDate);
   const meetingTypesPresent = Object.keys(meetingsByType).filter(type => meetingsByType[type] && meetingsByType[type].length > 0);
   
   const orderedMeetingTypes = [
@@ -130,8 +167,8 @@ export default async function EventsPage() {
   const sortedMeetingTypesPresent = orderedMeetingTypes.filter(type => meetingTypesPresent.includes(type))
     .concat(meetingTypesPresent.filter(type => !orderedMeetingTypes.includes(type)));
 
-
   const defaultTabValue = 
+    searchParams?.type && sortedMeetingTypesPresent.includes(searchParams.type) ? searchParams.type :
     sortedMeetingTypesPresent.includes('General_Service') ? 'General_Service' : 
     sortedMeetingTypesPresent.length > 0 ? sortedMeetingTypesPresent[0] : '';
 
@@ -141,6 +178,7 @@ export default async function EventsPage() {
         <div className="mb-4 sm:mb-0">
           <h1 className="font-headline text-4xl font-bold text-primary">Administración de Reuniones</h1>
           <p className="text-muted-foreground mt-2">Organice y vea el historial de asistencia a reuniones por tipo.</p>
+          {/* TODO: Add UI for date range selection here */}
         </div>
         <PageSpecificAddMeetingDialog 
           addMeetingAction={addMeetingAction} 
@@ -150,7 +188,7 @@ export default async function EventsPage() {
 
       {sortedMeetingTypesPresent.length > 0 ? (
         <Tabs defaultValue={defaultTabValue} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 mb-6 overflow-x-auto pb-2">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 mb-6 pb-2">
             {sortedMeetingTypesPresent.map((type) => (
               <TabsTrigger key={type} value={type} className="whitespace-normal text-xs sm:text-sm h-auto py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 {meetingTypeTranslations[type as MeetingType] || type} ({meetingsByType[type].length})
@@ -168,12 +206,18 @@ export default async function EventsPage() {
                   allMinistryAreas={allMinistryAreas}
                   allAttendanceRecords={allAttendanceRecords}
                   meetingTypeLabel={meetingTypeTranslations[type as MeetingType] || type}
+                  filterStartDate={appliedStartDate}
+                  filterEndDate={appliedEndDate}
                 />
               ) : (
                 <div className="text-center py-10">
                   <CalendarDays className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                   <h2 className="text-xl font-semibold text-muted-foreground">No Hay Reuniones Programadas para este Tipo</h2>
-                  <p className="text-muted-foreground mt-2">Agregue una nueva reunión de este tipo para comenzar.</p>
+                  <p className="text-muted-foreground mt-2">
+                    {appliedStartDate && appliedEndDate 
+                      ? `No hay reuniones para el rango de fechas seleccionado (${format(parseISO(appliedStartDate), 'dd/MM/yy', {locale: es})} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', {locale: es})}).`
+                      : "Agregue una nueva reunión de este tipo para comenzar."}
+                  </p>
                 </div>
               )}
             </TabsContent>
@@ -183,10 +227,13 @@ export default async function EventsPage() {
          <div className="text-center py-10">
           <CalendarDays className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
           <h2 className="text-xl font-semibold text-muted-foreground">No Hay Reuniones Programadas</h2>
-          <p className="text-muted-foreground mt-2">Agregue una nueva reunión para comenzar.</p>
+           <p className="text-muted-foreground mt-2">
+            {appliedStartDate && appliedEndDate 
+              ? `No hay reuniones para el rango de fechas seleccionado (${format(parseISO(appliedStartDate), 'dd/MM/yy', {locale: es})} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', {locale: es})}).`
+              : "Agregue una nueva reunión para comenzar."}
+          </p>
         </div>
       )}
     </div>
   );
 }
-

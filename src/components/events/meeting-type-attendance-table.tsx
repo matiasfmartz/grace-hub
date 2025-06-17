@@ -3,7 +3,7 @@ import type { Meeting, Member, GDI, MinistryArea, AttendanceRecord } from '@/lib
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { getResolvedAttendees } from '@/services/attendanceService';
 import Link from 'next/link';
-import { CheckCircle2, XCircle, HelpCircle, MinusCircle, ArrowRight } from 'lucide-react';
+import { CheckCircle2, XCircle, HelpCircle, MinusCircle, ArrowRight, CalendarRange } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -16,15 +16,27 @@ interface MeetingTypeAttendanceTableProps {
   allMinistryAreas: MinistryArea[];
   allAttendanceRecords: AttendanceRecord[];
   meetingTypeLabel: string;
+  filterStartDate?: string;
+  filterEndDate?: string;
 }
 
 const formatDateDisplay = (dateString: string) => {
   try {
-    // Using a more compact format like "28 Jul 24"
     return format(parseISO(dateString), "d MMM yy", { locale: es });
   } catch (error) {
     return dateString; 
   }
+};
+
+const formatDateRange = (startDate?: string, endDate?: string): string => {
+  if (startDate && endDate) {
+    return `Mostrando reuniones entre ${format(parseISO(startDate), "dd/MM/yyyy", { locale: es })} y ${format(parseISO(endDate), "dd/MM/yyyy", { locale: es })}`;
+  } else if (startDate) {
+    return `Mostrando reuniones desde ${format(parseISO(startDate), "dd/MM/yyyy", { locale: es })}`;
+  } else if (endDate) {
+    return `Mostrando reuniones hasta ${format(parseISO(endDate), "dd/MM/yyyy", { locale: es })}`;
+  }
+  return "Mostrando todas las reuniones disponibles para este tipo.";
 };
 
 export default async function MeetingTypeAttendanceTable({
@@ -33,14 +45,18 @@ export default async function MeetingTypeAttendanceTable({
   allGdis,
   allMinistryAreas,
   allAttendanceRecords,
-  meetingTypeLabel
+  meetingTypeLabel,
+  filterStartDate,
+  filterEndDate,
 }: MeetingTypeAttendanceTableProps) {
 
   if (!meetingsForType || meetingsForType.length === 0) {
-    return <p className="text-muted-foreground">No hay reuniones para mostrar en esta categoría.</p>;
+     const dateRangeText = filterStartDate && filterEndDate ? 
+      ` para el rango de ${format(parseISO(filterStartDate), 'dd/MM/yy', {locale: es})} a ${format(parseISO(filterEndDate), 'dd/MM/yy', {locale: es})}` :
+      "";
+    return <p className="text-muted-foreground py-4 text-center">No hay reuniones de {meetingTypeLabel.toLowerCase()}{dateRangeText}.</p>;
   }
 
-  // Determine unique row members based on who was expected for any meeting of this type
   const rowMemberIds = new Set<string>();
   const expectedAttendeesByMeetingId: Record<string, Set<string>> = {};
 
@@ -54,20 +70,24 @@ export default async function MeetingTypeAttendanceTable({
     .filter(member => rowMemberIds.has(member.id))
     .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
 
-  // Columns are the meetings, sorted by date (most recent first by default from page.tsx)
   const columnMeetings = meetingsForType; 
+
+  const tableCaptionText = formatDateRange(filterStartDate, filterEndDate);
 
   return (
     <div className="border rounded-lg shadow-md">
       <ScrollArea className="w-full whitespace-nowrap">
         <Table className="min-w-full">
-          <TableCaption className="mt-4 text-lg font-semibold">{meetingTypeLabel} - Historial de Asistencia</TableCaption>
+          <TableCaption className="my-4 text-lg font-semibold flex items-center justify-center">
+            <CalendarRange className="mr-2 h-5 w-5 text-primary" />
+            {meetingTypeLabel} - {tableCaptionText}
+          </TableCaption>
           <TableHeader>
             <TableRow>
               <TableHead className="sticky left-0 bg-card z-10 w-[200px] min-w-[200px] border-r">Miembro</TableHead>
               {columnMeetings.map(meeting => (
-                <TableHead key={meeting.id} className="text-center min-w-[100px]">
-                  <Link href={`/events/${meeting.id}/attendance`} className="hover:underline text-primary font-medium block p-2">
+                <TableHead key={meeting.id} className="text-center min-w-[100px] p-2">
+                  <Link href={`/events/${meeting.id}/attendance`} className="hover:underline text-primary font-medium block">
                     {formatDateDisplay(meeting.date)}
                   </Link>
                 </TableHead>
@@ -77,7 +97,7 @@ export default async function MeetingTypeAttendanceTable({
           <TableBody>
             {rowMembers.map(member => (
               <TableRow key={member.id}>
-                <TableCell className="sticky left-0 bg-card z-10 font-medium w-[200px] min-w-[200px] border-r">
+                <TableCell className="sticky left-0 bg-card z-10 font-medium w-[200px] min-w-[200px] border-r p-2">
                   {member.firstName} {member.lastName}
                 </TableCell
                 >
@@ -99,8 +119,8 @@ export default async function MeetingTypeAttendanceTable({
                   }
                   
                   return (
-                    <TableCell key={`${member.id}-${meeting.id}`} className="text-center">
-                      <Link href={`/events/${meeting.id}/attendance`} className="flex justify-center items-center h-full w-full p-2">
+                    <TableCell key={`${member.id}-${meeting.id}`} className="text-center p-0">
+                      <Link href={`/events/${meeting.id}/attendance`} className="flex justify-center items-center h-full w-full p-2 hover:bg-muted/50">
                         {cellContent}
                       </Link>
                     </TableCell>
@@ -111,7 +131,7 @@ export default async function MeetingTypeAttendanceTable({
             {rowMembers.length === 0 && (
               <TableRow>
                 <TableCell colSpan={columnMeetings.length + 1} className="text-center text-muted-foreground py-8">
-                  No hay miembros esperados para las reuniones de este tipo o no se pudieron determinar los asistentes.
+                  No hay miembros esperados para las reuniones de este tipo o no se pudieron determinar los asistentes para el rango seleccionado.
                 </TableCell>
               </TableRow>
             )}
@@ -119,17 +139,7 @@ export default async function MeetingTypeAttendanceTable({
         </Table>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
-      {meetingsForType.length > 0 && (
-        <div className="p-4 border-t text-center">
-           <Button asChild variant="outline">
-              {/* This link could eventually include date range parameters if implemented */}
-              <Link href={`/events?type=${meetingsForType[0].type}`}> 
-                Ver Todas las Reuniones de {meetingTypeLabel} <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-        </div>
-      )}
+      {/* Removing the "Ver Todas las Reuniones" button as the filter controls will handle this */}
     </div>
   );
 }
-
