@@ -3,9 +3,9 @@
 import type { Meeting, AddGeneralMeetingFormValues, MeetingType, MeetingWriteData, Member, GDI, MinistryArea, AttendanceRecord } from '@/lib/types';
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
-import { CalendarDays, Clock, MapPin, Users, Briefcase, Award, CheckSquare, Sparkles, Building2, HandHelping, Edit } from 'lucide-react';
+import { CalendarDays, Clock, MapPin, Users, Briefcase, Award, CheckSquare, Sparkles, Building2, HandHelping, Edit, Filter } from 'lucide-react';
 import { revalidatePath } from 'next/cache';
-import { format, parseISO, isValid, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
+import { format, parseISO, isValid, isWithinInterval, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getAllMeetings, addMeeting as addMeetingSvc } from '@/services/meetingService';
 import { getAllMembersNonPaginated } from '@/services/memberService'; 
@@ -16,6 +16,7 @@ import { getAllMinistryAreas } from '@/services/ministryAreaService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAllAttendanceRecords } from '@/services/attendanceService';
 import MeetingTypeAttendanceTable from '@/components/events/meeting-type-attendance-table';
+import DateRangeFilter from '@/components/events/date-range-filter';
 
 export async function addMeetingAction(
   newMeetingData: AddGeneralMeetingFormValues
@@ -125,11 +126,12 @@ async function getEventsPageData(startDateParam?: string, endDateParam?: string)
       appliedStartDate = startDateParam;
       appliedEndDate = endDateParam;
     }
-    // If date params are present but invalid, no filter is applied, all meetings are shown.
-    // appliedStartDate and appliedEndDate remain undefined.
+  } else if (!startDateParam && !endDateParam) {
+    // Default: Show meetings from the last month if no specific range is given.
+    // Or, if you prefer to show ALL meetings by default, remove this block.
+    // For now, let's keep showing all if no params.
   }
-  // If no date params are provided, allMeetingsList remains unfiltered.
-  // appliedStartDate and appliedEndDate remain undefined.
+
 
   const meetingsByType: Record<string, Meeting[]> = {};
   allMeetingsList.forEach(meeting => {
@@ -166,15 +168,25 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="flex flex-wrap justify-between items-center mb-10">
-        <div className="mb-4 sm:mb-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div className="flex-grow">
           <h1 className="font-headline text-4xl font-bold text-primary">Administración de Reuniones</h1>
-          <p className="text-muted-foreground mt-2">Organice y vea el historial de asistencia a reuniones por tipo.</p>
-          {/* TODO: Add UI for date range selection here */}
+          <p className="text-muted-foreground mt-1">Organice y vea el historial de asistencia a reuniones por tipo.</p>
         </div>
         <PageSpecificAddMeetingDialog 
           addMeetingAction={addMeetingAction} 
           allMembers={allMembers} 
+        />
+      </div>
+
+      <div className="mb-8 p-4 border rounded-lg shadow-sm bg-card">
+        <h2 className="text-lg font-semibold mb-3 flex items-center">
+          <Filter className="mr-2 h-5 w-5 text-primary" />
+          Filtrar Reuniones por Fecha
+        </h2>
+        <DateRangeFilter 
+          initialStartDate={appliedStartDate} 
+          initialEndDate={appliedEndDate} 
         />
       </div>
 
@@ -216,7 +228,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                   <p className="text-muted-foreground mt-2">
                     {appliedStartDate && appliedEndDate 
                       ? `(${format(parseISO(appliedStartDate), 'dd/MM/yy', { locale: es })} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', { locale: es })})`
-                      : "Agregue una nueva reunión de este tipo para comenzar."}
+                      : "Agregue una nueva reunión de este tipo o ajuste los filtros de fecha."}
                   </p>
                 </div>
               )}
@@ -230,11 +242,10 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
            <p className="text-muted-foreground mt-2">
             {appliedStartDate && appliedEndDate 
               ? `No hay reuniones para el rango de fechas seleccionado (${format(parseISO(appliedStartDate), 'dd/MM/yy', { locale: es })} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', { locale: es })})`
-              : "Agregue una nueva reunión para comenzar."}
+              : "Agregue una nueva reunión o ajuste los filtros de fecha para comenzar."}
           </p>
         </div>
       )}
     </div>
   );
 }
-
