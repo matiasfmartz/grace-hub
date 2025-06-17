@@ -1,14 +1,15 @@
 
 'use server';
-import type { Meeting, MeetingWriteData, MeetingSeries, MeetingSeriesWriteData, Member, GDI, MinistryArea, MeetingTargetRoleType } from '@/lib/types';
+import type { Meeting, MeetingWriteData, MeetingSeries, MeetingSeriesWriteData, Member, GDI, MinistryArea, MeetingTargetRoleType, AttendanceRecord } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
 import { format, parseISO } from 'date-fns';
 
 const MEETINGS_DB_FILE = 'meetings-db.json';
 const MEETING_SERIES_DB_FILE = 'meeting-series-db.json';
-const MEMBERS_DB_FILE = 'members-db.json'; // For resolving target groups
+const MEMBERS_DB_FILE = 'members-db.json'; 
 const GDIS_DB_FILE = 'gdis-db.json';
 const MINISTRY_AREAS_DB_FILE = 'ministry-areas-db.json';
+const ATTENDANCE_DB_FILE = 'attendance-db.json';
 
 
 // Meeting Series Functions
@@ -92,6 +93,45 @@ export async function addMeetingSeries(
   return {series: newSeries, instance: meetingInstance};
 }
 
+export async function updateMeetingSeries(seriesId: string, updates: Partial<MeetingSeriesWriteData>): Promise<MeetingSeries> {
+  const seriesList = await getAllMeetingSeries();
+  const seriesIndex = seriesList.findIndex(s => s.id === seriesId);
+  if (seriesIndex === -1) {
+    throw new Error(`MeetingSeries with ID ${seriesId} not found.`);
+  }
+
+  const updatedSeries: MeetingSeries = {
+    ...seriesList[seriesIndex],
+    ...updates,
+    defaultImageUrl: updates.defaultImageUrl || seriesList[seriesIndex].defaultImageUrl || 'https://placehold.co/600x400',
+  };
+
+  seriesList[seriesIndex] = updatedSeries;
+  await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, seriesList);
+  return updatedSeries;
+}
+
+export async function deleteMeetingSeries(seriesId: string): Promise<void> {
+  // 1. Delete the series itself
+  const seriesList = await getAllMeetingSeries();
+  const updatedSeriesList = seriesList.filter(s => s.id !== seriesId);
+  await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, updatedSeriesList);
+
+  // 2. Delete associated meeting instances
+  const allMeetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []);
+  const meetingsToDelete = allMeetings.filter(m => m.seriesId === seriesId);
+  const meetingIdsToDelete = meetingsToDelete.map(m => m.id);
+  const remainingMeetings = allMeetings.filter(m => m.seriesId !== seriesId);
+  await writeDbFile<Meeting>(MEETINGS_DB_FILE, remainingMeetings);
+
+  // 3. Delete attendance records for the deleted meetings
+  if (meetingIdsToDelete.length > 0) {
+    const allAttendance = await readDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, []);
+    const remainingAttendance = allAttendance.filter(att => !meetingIdsToDelete.includes(att.meetingId));
+    await writeDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, remainingAttendance);
+  }
+}
+
 
 // Meeting Instance Functions
 export async function getAllMeetings(): Promise<Meeting[]> {
@@ -116,7 +156,7 @@ export async function addMeetingInstance(meetingInstanceData: Omit<Meeting, 'id'
   const newMeetingInstance: Meeting = {
     id: `instance-${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}`,
     ...meetingInstanceData,
-    attendeeUids: meetingInstanceData.attendeeUids || [] // Ensure it's always an array
+    attendeeUids: meetingInstanceData.attendeeUids || [] 
   };
   const updatedMeetings = [...meetings, newMeetingInstance];
   await writeDbFile<Meeting>(MEETINGS_DB_FILE, updatedMeetings);
@@ -162,3 +202,4 @@ export async function updateMeetingMinute(meetingId: string, minute: string | nu
   await writeDbFile<Meeting>(MEETINGS_DB_FILE, meetings);
   return meetings[meetingIndex];
 }
+

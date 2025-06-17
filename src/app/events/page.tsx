@@ -3,13 +3,21 @@
 import type { Meeting, DefineMeetingSeriesFormValues, MeetingSeries, Member, GDI, MinistryArea, AttendanceRecord } from '@/lib/types';
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
-import { CalendarDays, Clock, MapPin, Users, Briefcase, Award, CheckSquare, Sparkles, Building2, HandHelping, Edit, Filter } from 'lucide-react';
+import { CalendarDays, Clock, MapPin, Users, Briefcase, Award, CheckSquare, Sparkles, Building2, HandHelping, Edit, Filter, Trash2, Edit2 } from 'lucide-react';
 import { revalidatePath } from 'next/cache';
-import { format, parseISO, isValid, isWithinInterval, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format, parseISO, isValid, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { getAllMeetingSeries, addMeetingSeries, getMeetingsBySeriesId, getMeetingById, updateMeetingMinute, getAllMeetings } from '@/services/meetingService'; // Added getAllMeetings
+import { 
+    getAllMeetingSeries, 
+    addMeetingSeries, 
+    updateMeetingSeries,
+    deleteMeetingSeries,
+    getAllMeetings 
+} from '@/services/meetingService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
 import PageSpecificAddMeetingDialog from '@/components/events/page-specific-add-meeting-dialog';
+import EditMeetingSeriesDialog from '@/components/events/edit-meeting-series-dialog';
+import DeleteMeetingSeriesAlert from '@/components/events/delete-meeting-series-alert';
 import { getAllGdis } from '@/services/gdiService';
 import { getAllMinistryAreas } from '@/services/ministryAreaService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,6 +54,41 @@ export async function defineMeetingSeriesAction(
   }
 }
 
+export async function updateMeetingSeriesAction(
+  seriesId: string,
+  updatedData: DefineMeetingSeriesFormValues
+): Promise<{ success: boolean; message: string; updatedSeries?: MeetingSeries }> {
+  try {
+    const seriesToWrite = {
+        name: updatedData.name,
+        description: updatedData.description,
+        defaultTime: updatedData.defaultTime,
+        defaultLocation: updatedData.defaultLocation,
+        defaultImageUrl: updatedData.defaultImageUrl,
+        targetAttendeeGroups: updatedData.targetAttendeeGroups,
+        frequency: updatedData.frequency,
+    };
+    const updatedSeries = await updateMeetingSeries(seriesId, seriesToWrite);
+    revalidatePath('/events');
+    return { success: true, message: `Serie de reuniones "${updatedSeries.name}" actualizada exitosamente.`, updatedSeries };
+  } catch (error: any) {
+    console.error("Error updating meeting series:", error);
+    return { success: false, message: `Error al actualizar serie de reuniones: ${error.message}` };
+  }
+}
+
+export async function deleteMeetingSeriesAction(
+  seriesId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    await deleteMeetingSeries(seriesId);
+    revalidatePath('/events');
+    return { success: true, message: "Serie de reuniones eliminada exitosamente, junto con sus instancias y registros de asistencia." };
+  } catch (error: any) {
+    console.error("Error deleting meeting series:", error);
+    return { success: false, message: `Error al eliminar serie de reuniones: ${error.message}` };
+  }
+}
 
 interface MeetingInstancesBySeries {
   [seriesId: string]: Meeting[];
@@ -64,7 +107,7 @@ interface EventsPageData {
 
 interface EventsPageProps {
   searchParams?: {
-    series?: string; // To pre-select a tab
+    series?: string; 
     startDate?: string;
     endDate?: string;
   };
@@ -73,14 +116,14 @@ interface EventsPageProps {
 async function getEventsPageData(startDateParam?: string, endDateParam?: string): Promise<EventsPageData> {
   const [
     allSeries,
-    allMeetingInstances, // Fetch all instances first
+    allMeetingInstances,
     allMembers,
     allGdis,
     allMinistryAreas,
     allAttendanceRecords
   ] = await Promise.all([
     getAllMeetingSeries(),
-    getAllMeetings(), // Fetch all instances
+    getAllMeetings(), 
     getAllMembersNonPaginated(),
     getAllGdis(),
     getAllMinistryAreas(),
@@ -101,14 +144,11 @@ async function getEventsPageData(startDateParam?: string, endDateParam?: string)
         return isValid(meetingDate) && isWithinInterval(meetingDate, { start: parsedStartDate, end: parsedEndDate });
       });
     } else {
-      // Invalid range, default to showing all meetings if params are bad
       appliedStartDate = undefined;
       appliedEndDate = undefined;
-      // Keep allMeetingInstances if date range is invalid
       filteredMeetingInstances = allMeetingInstances;
     }
   } else {
-      // No date params, show all meetings
       appliedStartDate = undefined;
       appliedEndDate = undefined;
       filteredMeetingInstances = allMeetingInstances;
@@ -147,9 +187,8 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     appliedEndDate
   } = await getEventsPageData(searchParams?.startDate, searchParams?.endDate);
 
-  // Filter series that have meetings within the date range or are "Recurring" (always show tab for recurring)
   const seriesPresentInFilter = allSeries.filter(series =>
-    meetingsBySeries[series.id]?.length > 0 || series.frequency === "Recurring"
+    meetingsBySeries[series.id]?.length > 0 || series.frequency === "Recurring" || series.frequency === "OneTime"
   ).sort((a,b) => a.name.localeCompare(b.name));
 
 
@@ -189,12 +228,27 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           {seriesPresentInFilter.map((series) => (
             <TabsContent key={series.id} value={series.id}>
               <div className="mb-4 p-4 border rounded-lg bg-card shadow">
-                <h2 className="text-xl font-semibold text-primary">{series.name}</h2>
-                {series.description && <p className="text-sm text-muted-foreground mt-1">{series.description}</p>}
-                <div className="text-xs text-muted-foreground mt-2">
-                  <span>Hora Pred.: {series.defaultTime} | </span>
-                  <span>Lugar Pred.: {series.defaultLocation} | </span>
-                  <span>Frecuencia: {series.frequency === "OneTime" ? "Única Vez" : "Recurrente (Instancias Manuales)"}</span>
+                <div className="flex justify-between items-start">
+                    <div>
+                        <h2 className="text-xl font-semibold text-primary">{series.name}</h2>
+                        {series.description && <p className="text-sm text-muted-foreground mt-1 max-w-prose">{series.description}</p>}
+                        <div className="text-xs text-muted-foreground mt-2">
+                        <span>Hora Pred.: {series.defaultTime} | </span>
+                        <span>Lugar Pred.: {series.defaultLocation} | </span>
+                        <span>Frecuencia: {series.frequency === "OneTime" ? "Única Vez" : "Recurrente"}</span>
+                        </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0 ml-4">
+                        <EditMeetingSeriesDialog
+                          series={series}
+                          updateMeetingSeriesAction={updateMeetingSeriesAction}
+                        />
+                        <DeleteMeetingSeriesAlert
+                          seriesId={series.id}
+                          seriesName={series.name}
+                          deleteMeetingSeriesAction={deleteMeetingSeriesAction}
+                        />
+                    </div>
                 </div>
                 {/* TODO: Button "Schedule New Instance for this Series" to be added here later */}
               </div>
@@ -202,12 +256,11 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               {meetingsBySeries[series.id] && meetingsBySeries[series.id].length > 0 ? (
                 <MeetingTypeAttendanceTable
                   meetingsForSeries={meetingsBySeries[series.id]}
-                  allMembers={allMembers} // Pass all members for resolving names and potential future use
-                  // GDI/Area data no longer directly used by table, but passed for getResolvedAttendees if needed later
+                  allMembers={allMembers}
                   allGdis={allGdis}
                   allMinistryAreas={allMinistryAreas}
                   allAttendanceRecords={allAttendanceRecords}
-                  seriesName={series.name} // Pass series name instead of type label
+                  seriesName={series.name} 
                   filterStartDate={appliedStartDate}
                   filterEndDate={appliedEndDate}
                 />

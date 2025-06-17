@@ -3,7 +3,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { DefineMeetingSeriesFormValues, MeetingTargetRoleType, MeetingFrequencyType } from "@/lib/types";
+import type { DefineMeetingSeriesFormValues, MeetingTargetRoleType, MeetingFrequencyType, MeetingSeries } from "@/lib/types";
 import { DefineMeetingSeriesFormSchema, MeetingTargetRoleEnum, MeetingFrequencyEnum } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,14 +26,16 @@ import {
 import { DatePicker } from "@/components/ui/date-picker"; 
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useTransition } from "react";
+import { useTransition, useEffect } from "react";
 import { DialogClose } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
 interface DefineMeetingSeriesFormProps {
-  defineMeetingSeriesAction: (data: DefineMeetingSeriesFormValues) => Promise<{ success: boolean; message: string; newSeries?: any, newInstance?: any }>;
+  defineMeetingSeriesAction: (data: DefineMeetingSeriesFormValues) => Promise<{ success: boolean; message: string; newSeries?: any, newInstance?: any, updatedSeries?: MeetingSeries }>;
   onSuccess?: () => void;
+  initialValues?: DefineMeetingSeriesFormValues; // For editing
+  isEditing?: boolean; // To change button text etc.
 }
 
 const targetAttendeeGroupOptions: { id: MeetingTargetRoleType; label: string }[] = [
@@ -47,23 +49,36 @@ const frequencyOptions: { value: MeetingFrequencyType; label: string }[] = [
     { value: "OneTime", label: "Única Vez"},
 ];
 
-export default function DefineMeetingSeriesForm({ defineMeetingSeriesAction, onSuccess }: DefineMeetingSeriesFormProps) {
+const defaultFormValues: DefineMeetingSeriesFormValues = {
+  name: "",
+  description: "",
+  defaultTime: "10:00",
+  defaultLocation: "Santuario Principal",
+  defaultImageUrl: "",
+  targetAttendeeGroups: [],
+  frequency: "Recurring",
+  oneTimeDate: undefined,
+};
+
+export default function DefineMeetingSeriesForm({ 
+  defineMeetingSeriesAction, 
+  onSuccess,
+  initialValues,
+  isEditing = false 
+}: DefineMeetingSeriesFormProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
   const form = useForm<DefineMeetingSeriesFormValues>({
     resolver: zodResolver(DefineMeetingSeriesFormSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      defaultTime: "10:00",
-      defaultLocation: "Santuario Principal",
-      defaultImageUrl: "",
-      targetAttendeeGroups: [],
-      frequency: "Recurring",
-      oneTimeDate: undefined,
-    },
+    defaultValues: initialValues || defaultFormValues,
   });
+
+  useEffect(() => {
+    if (initialValues) {
+      form.reset(initialValues);
+    }
+  }, [initialValues, form]);
 
   const watchedFrequency = form.watch("frequency");
 
@@ -77,10 +92,9 @@ export default function DefineMeetingSeriesForm({ defineMeetingSeriesAction, onS
       const result = await defineMeetingSeriesAction(dataToSend);
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
-        form.reset({
-          name: "", description: "", defaultTime: "10:00", defaultLocation: "Santuario Principal",
-          defaultImageUrl: "", targetAttendeeGroups: [], frequency: "Recurring", oneTimeDate: undefined,
-        });
+        if (!isEditing) { // Only reset fully if not editing
+            form.reset(defaultFormValues);
+        }
         if (onSuccess) {
           onSuccess();
         }
@@ -222,7 +236,7 @@ export default function DefineMeetingSeriesForm({ defineMeetingSeriesAction, onS
                     }
                 }} 
                 value={field.value} 
-                disabled={isPending}
+                disabled={isPending || (isEditing && field.value === "OneTime")} // Prevent changing frequency of a OneTime event once created
                >
                 <FormControl>
                   <SelectTrigger>
@@ -231,10 +245,11 @@ export default function DefineMeetingSeriesForm({ defineMeetingSeriesAction, onS
                 </FormControl>
                 <SelectContent>
                   {frequencyOptions.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    <SelectItem key={opt.value} value={opt.value} disabled={isEditing && initialValues?.frequency === "OneTime" && opt.value !== "OneTime"}>{opt.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {isEditing && initialValues?.frequency === "OneTime" && <FormMessage>La frecuencia de una reunión de 'Única Vez' no se puede cambiar después de su creación.</FormMessage>}
               <FormMessage />
             </FormItem>
           )}
@@ -247,7 +262,8 @@ export default function DefineMeetingSeriesForm({ defineMeetingSeriesAction, onS
             render={({ field }) => (
                 <FormItem className="flex flex-col">
                 <FormLabel>Fecha de Reunión (para Única Vez)</FormLabel>
-                <DatePicker date={field.value} setDate={field.onChange} placeholder="Seleccionar fecha" />
+                <DatePicker date={field.value} setDate={field.onChange} placeholder="Seleccionar fecha" disabled={isPending || (isEditing && initialValues?.frequency === "OneTime")} />
+                 {isEditing && initialValues?.frequency === "OneTime" && <FormMessage>La fecha de una reunión de 'Única Vez' no se puede cambiar después de su creación.</FormMessage>}
                 <FormMessage />
                 </FormItem>
             )}
@@ -257,19 +273,17 @@ export default function DefineMeetingSeriesForm({ defineMeetingSeriesAction, onS
         <div className="flex justify-end space-x-2 pt-4 border-t">
            <DialogClose asChild>
             <Button type="button" variant="outline" onClick={() => { 
-                form.reset({
-                    name: "", description: "", defaultTime: "10:00", defaultLocation: "Santuario Principal",
-                    defaultImageUrl: "", targetAttendeeGroups: [], frequency: "Recurring", oneTimeDate: undefined,
-                });
+                if (!isEditing) form.reset(defaultFormValues);
             }} disabled={isPending}>
                 Cancelar
             </Button>
           </DialogClose>
           <Button type="submit" disabled={isPending}>
-             {isPending ? <Loader2 className="animate-spin mr-2" /> : "Definir Serie de Reunión"}
+             {isPending ? <Loader2 className="animate-spin mr-2" /> : (isEditing ? "Guardar Cambios" : "Definir Serie")}
           </Button>
         </div>
       </form>
     </Form>
   );
 }
+
