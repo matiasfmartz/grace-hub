@@ -1,32 +1,20 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
-import { BarChart3, CalendarRange, Filter } from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Filter, CalendarRange, Users, CheckCircle2, XCircle, Percent, ListChecks } from 'lucide-react';
+import { format, parseISO, isValid, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import {
-  Line,
-  LineChart as RechartsLineChart,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  Legend,
-} from 'recharts';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
 
-interface MemberAttendanceChartProps {
+interface MemberAttendanceSummaryProps {
   memberId: string;
   memberName: string;
   allMeetings: Meeting[];
@@ -34,161 +22,197 @@ interface MemberAttendanceChartProps {
   allAttendanceRecords: AttendanceRecord[];
 }
 
-interface ChartDataPoint {
-  meetingDisplay: string; // e.g., "Serie Name (15 Jun)"
-  attended: number; // 1 for attended, 0 for not attended/no record for an expected meeting
-  meetingDate: Date; // For sorting
+interface FilteredMeetingInfo {
+  meetingId: string;
+  meetingName: string;
+  meetingDate: string;
+  seriesName: string;
+  attended: boolean;
 }
 
-const chartConfig = {
-  attended: {
-    label: "Asistió",
-    color: "hsl(var(--primary))",
-  },
-} satisfies ChartConfig;
-
-const formatMeetingDisplayForChart = (meetingName: string, dateString: string): string => {
-  try {
-    const parsedDate = parseISO(dateString);
-    const datePart = isValid(parsedDate) ? format(parsedDate, "d MMM yy", { locale: es }) : dateString;
-    // Truncate meeting name if too long for X-axis display
-    const shortName = meetingName.length > 20 ? `${meetingName.substring(0, 18)}...` : meetingName;
-    return `${shortName} (${datePart})`;
-  } catch (error) {
-    return `${meetingName} (${dateString})`;
-  }
-};
-
-export default function MemberAttendanceChart({
+export default function MemberAttendanceSummary({
   memberId,
   memberName,
   allMeetings,
   allMeetingSeries,
   allAttendanceRecords,
-}: MemberAttendanceChartProps) {
+}: MemberAttendanceSummaryProps) {
   const [selectedSeriesId, setSelectedSeriesId] = useState<string>('all');
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
-  const chartData = useMemo(() => {
+  const processedMeetingData = useMemo(() => {
     const memberExpectedMeetings = allMeetings.filter(meeting =>
       meeting.attendeeUids && meeting.attendeeUids.includes(memberId)
     );
 
-    const filteredBySeries = selectedSeriesId === 'all'
+    let meetingsFilteredBySeries = selectedSeriesId === 'all'
       ? memberExpectedMeetings
       : memberExpectedMeetings.filter(meeting => meeting.seriesId === selectedSeriesId);
 
-    const sortedMeetings = filteredBySeries.sort((a, b) => 
-      parseISO(a.date).getTime() - parseISO(b.date).getTime()
+    let meetingsFilteredByDate = meetingsFilteredBySeries;
+    if (startDate && endDate && startDate <= endDate) {
+      meetingsFilteredByDate = meetingsFilteredBySeries.filter(meeting => {
+        const meetingDate = parseISO(meeting.date);
+        return isValid(meetingDate) && 
+               isWithinInterval(meetingDate, { start: startOfDay(startDate), end: endOfDay(endDate) });
+      });
+    } else if (startDate) {
+        meetingsFilteredByDate = meetingsFilteredBySeries.filter(meeting => {
+            const meetingDate = parseISO(meeting.date);
+            return isValid(meetingDate) && meetingDate >= startOfDay(startDate);
+        });
+    } else if (endDate) {
+        meetingsFilteredByDate = meetingsFilteredBySeries.filter(meeting => {
+            const meetingDate = parseISO(meeting.date);
+            return isValid(meetingDate) && meetingDate <= endOfDay(endDate);
+        });
+    }
+    
+    const sortedMeetings = meetingsFilteredByDate.sort((a, b) => 
+      parseISO(b.date).getTime() - parseISO(a.date).getTime()
     );
 
-    return sortedMeetings.map(meeting => {
+    const detailedInfo: FilteredMeetingInfo[] = sortedMeetings.map(meeting => {
       const attendanceRecord = allAttendanceRecords.find(
         record => record.meetingId === meeting.id && record.memberId === memberId
       );
-      const seriesName = allMeetingSeries.find(s => s.id === meeting.seriesId)?.name || 'Serie desc.';
+      const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
       return {
-        meetingDisplay: formatMeetingDisplayForChart(meeting.name, meeting.date),
-        attended: attendanceRecord?.attended ? 1 : 0,
-        meetingDate: parseISO(meeting.date), 
+        meetingId: meeting.id,
+        meetingName: meeting.name,
+        meetingDate: meeting.date,
+        seriesName: series?.name || 'Serie Desconocida',
+        attended: attendanceRecord?.attended || false,
       };
     });
-  }, [memberId, allMeetings, allMeetingSeries, allAttendanceRecords, selectedSeriesId]);
+
+    const totalConvocations = detailedInfo.length;
+    const totalAttendances = detailedInfo.filter(info => info.attended).length;
+    const attendanceRate = totalConvocations > 0 ? (totalAttendances / totalConvocations) * 100 : 0;
+
+    return {
+      detailedInfo,
+      totalConvocations,
+      totalAttendances,
+      attendanceRate,
+    };
+
+  }, [memberId, allMeetings, allMeetingSeries, allAttendanceRecords, selectedSeriesId, startDate, endDate]);
+
+
+  const clearDateFilters = () => {
+    setStartDate(undefined);
+    setEndDate(undefined);
+  };
+  
+  const formatDateDisplay = (dateString: string) => {
+    try {
+      return format(parseISO(dateString), "dd/MM/yyyy", { locale: es });
+    } catch (e) {
+      return dateString;
+    }
+  };
 
   return (
     <Card className="shadow-md">
       <CardHeader>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-            <div>
-                <CardTitle className="font-headline text-xl text-primary flex items-center">
-                    <BarChart3 className="mr-2 h-5 w-5" />
-                    Progresión de Asistencia: {memberName}
-                </CardTitle>
-                <CardDescription className="text-xs text-muted-foreground pt-1">
-                    Visualice la asistencia a reuniones donde se esperaba su participación.
-                </CardDescription>
-            </div>
-            <div className="w-full sm:w-auto min-w-[200px]">
-                <Label htmlFor="seriesFilterChart" className="text-xs font-medium">Filtrar por Serie de Reunión:</Label>
-                <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId}>
-                    <SelectTrigger id="seriesFilterChart" className="mt-1">
-                        <SelectValue placeholder="Seleccionar serie..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Todas las Series</SelectItem>
-                        {allMeetingSeries.map(series => (
-                        <SelectItem key={series.id} value={series.id}>
-                            {series.name}
-                        </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
+        <CardTitle className="font-headline text-xl text-primary flex items-center">
+          <ListChecks className="mr-2 h-5 w-5" />
+          Resumen de Asistencia: {memberName}
+        </CardTitle>
+        <CardDescription className="text-xs text-muted-foreground pt-1">
+          Filtre y vea el historial de participación del miembro.
+        </CardDescription>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+          <div>
+            <Label htmlFor="seriesFilterSummary" className="text-xs font-medium">Filtrar por Serie:</Label>
+            <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId}>
+              <SelectTrigger id="seriesFilterSummary" className="mt-1">
+                <SelectValue placeholder="Seleccionar serie..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las Series</SelectItem>
+                {allMeetingSeries.map(series => (
+                  <SelectItem key={series.id} value={series.id}>
+                    {series.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="startDateFilterSummary" className="text-xs font-medium">Fecha de Inicio:</Label>
+            <DatePicker date={startDate} setDate={setStartDate} placeholder="Desde" />
+          </div>
+          <div>
+            <Label htmlFor="endDateFilterSummary" className="text-xs font-medium">Fecha de Fin:</Label>
+            <DatePicker date={endDate} setDate={setEndDate} placeholder="Hasta" />
+          </div>
         </div>
+        {(startDate || endDate) && (
+            <Button onClick={clearDateFilters} variant="link" size="sm" className="px-0 text-xs h-auto mt-1">
+                <Filter className="mr-1 h-3 w-3"/> Limpiar filtro de fechas
+            </Button>
+        )}
       </CardHeader>
       <CardContent>
-        {chartData.length > 0 ? (
-          <ChartContainer config={chartConfig} className="h-[300px] w-full">
-            <RechartsLineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 60 }}>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" />
-              <XAxis
-                dataKey="meetingDisplay"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={10}
-                angle={-40} 
-                textAnchor="end"
-                height={80} 
-                interval={0}
-                tick={{ fontSize: 10 }}
-              />
-              <YAxis
-                dataKey="attended"
-                tickFormatter={(value) => (value === 1 ? 'Asistió' : 'No Asistió')}
-                domain={[0, 1]}
-                ticks={[0, 1]}
-                allowDecimals={false}
-                tickLine={false}
-                axisLine={false}
-                tickMargin={5}
-                tick={{ fontSize: 10 }}
-              />
-              <Tooltip
-                cursor={true}
-                content={<ChartTooltipContent 
-                            indicator="line" 
-                            formatter={(value, name, props) => {
-                                const label = props.payload.attended === 1 ? "Asistió" : "No Asistió / Sin Registro";
-                                return [label, "Estado"];
-                            }}
-                         />}
-              />
-              <Line
-                dataKey="attended"
-                type="step" 
-                stroke="var(--color-attended)"
-                strokeWidth={2}
-                dot={{
-                  fill: "var(--color-attended)",
-                  r: 4,
-                }}
-                activeDot={{
-                  r: 6,
-                }}
-                name="Asistencia"
-              />
-            </RechartsLineChart>
-          </ChartContainer>
-        ) : (
-          <div className="text-center py-10 text-muted-foreground">
-            <CalendarRange className="mx-auto h-12 w-12 mb-4" />
-            <p>No hay datos de asistencia para mostrar para {memberName}
-            {selectedSeriesId !== 'all' ? ` en la serie seleccionada` : ''}.</p>
-            <p className="text-xs mt-1">
-                Esto puede significar que no se esperaba su asistencia a ninguna reunión (según filtros),
-                o no hay reuniones en la serie/periodo seleccionado.
-            </p>
-          </div>
-        )}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <Card className="bg-primary/5">
+            <CardHeader className="pb-2">
+              <CardDescription className="text-xs font-medium flex items-center"><CalendarRange className="mr-2 h-4 w-4 text-primary" />Convocatorias</CardDescription>
+              <CardTitle className="text-3xl">{processedMeetingData.totalConvocations}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card className="bg-green-500/5">
+            <CardHeader className="pb-2">
+              <CardDescription className="text-xs font-medium flex items-center"><Users className="mr-2 h-4 w-4 text-green-600" />Asistencias</CardDescription>
+              <CardTitle className="text-3xl text-green-700">{processedMeetingData.totalAttendances}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card className="bg-accent/10">
+            <CardHeader className="pb-2">
+              <CardDescription className="text-xs font-medium flex items-center"><Percent className="mr-2 h-4 w-4 text-amber-600" />Tasa de Asistencia</CardDescription>
+              <CardTitle className="text-3xl text-amber-700">{processedMeetingData.attendanceRate.toFixed(0)}%</CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+
+        <h3 className="text-md font-semibold mb-2">Detalle de Reuniones Convocadas:</h3>
+        <ScrollArea className="h-[250px] border rounded-md">
+          {processedMeetingData.detailedInfo.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Reunión</TableHead>
+                  <TableHead>Serie</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead className="text-center">Asistió</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {processedMeetingData.detailedInfo.map(info => (
+                  <TableRow key={info.meetingId}>
+                    <TableCell className="font-medium">{info.meetingName}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{info.seriesName}</TableCell>
+                    <TableCell>{formatDateDisplay(info.meetingDate)}</TableCell>
+                    <TableCell className="text-center">
+                      {info.attended ? 
+                        <CheckCircle2 className="h-5 w-5 text-green-600 inline-block" title="Asistió" /> : 
+                        <XCircle className="h-5 w-5 text-red-600 inline-block" title="No Asistió / Sin Registro" />}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-10 text-muted-foreground">
+              <CalendarRange className="mx-auto h-12 w-12 mb-4" />
+              <p>No hay reuniones convocadas para {memberName} con los filtros actuales.</p>
+            </div>
+          )}
+        </ScrollArea>
       </CardContent>
     </Card>
   );

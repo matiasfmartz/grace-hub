@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, ShieldCheck, BarChart3, ListChecks } from 'lucide-react';
 import AddMemberForm from './add-member-form';
-import MemberAttendanceChart from './member-attendance-chart';
+import MemberAttendanceSummary from './member-attendance-chart'; // Corrected import path
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useTransition } from 'react';
 import { useToast } from "@/hooks/use-toast";
@@ -85,7 +85,7 @@ export default function MemberDetailsDialog({
   const handleEditToggle = () => {
     setIsEditing(!isEditing);
     if (!isEditing) {
-        setActiveTab("details"); // Switch back to details tab when entering edit mode
+        setActiveTab("details"); 
     }
   };
 
@@ -239,7 +239,7 @@ export default function MemberDetailsDialog({
                 </div>
             </TabsContent>
             <TabsContent value="attendance" className="flex-grow overflow-y-auto p-6 min-h-0">
-                <MemberAttendanceChart
+                <MemberAttendanceSummary
                     memberId={member.id}
                     memberName={`${member.firstName} ${member.lastName}`}
                     allMeetings={allMeetings}
