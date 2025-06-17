@@ -1,9 +1,10 @@
 
 'use server';
-import type { AttendanceRecord, AttendanceRecordWriteData, GDI, Meeting, Member, MinistryArea } from '@/lib/types';
+import type { AttendanceRecord, Meeting, Member } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
 
 const ATTENDANCE_DB_FILE = 'attendance-db.json';
+const MEMBERS_DB_FILE = 'members-db.json'; // For fetching member details
 
 export async function getAllAttendanceRecords(): Promise<AttendanceRecord[]> {
   return readDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, []);
@@ -26,13 +27,11 @@ export async function saveMeetingAttendance(
     );
 
     if (recordIndex !== -1) {
-      // Update existing record
       allRecords[recordIndex].attended = newAtt.attended;
-      allRecords[recordIndex].notes = newAtt.notes || allRecords[recordIndex].notes; // Keep existing notes if new one isn't provided
+      allRecords[recordIndex].notes = newAtt.notes || allRecords[recordIndex].notes; 
     } else {
-      // Add new record
       const newRecord: AttendanceRecord = {
-        id: `${meetingId}-${newAtt.memberId}-${Date.now()}`, // More unique ID
+        id: `${meetingId}-${newAtt.memberId}-${Date.now()}`, 
         meetingId,
         memberId: newAtt.memberId,
         attended: newAtt.attended,
@@ -45,78 +44,18 @@ export async function saveMeetingAttendance(
   await writeDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, allRecords);
 }
 
-
+// Returns Member objects for UIDs provided in meeting.attendeeUids
 export async function getResolvedAttendees(
     meeting: Meeting,
-    allMembers: Member[],
-    allGdis: GDI[],
-    allMinistryAreas: MinistryArea[]
+    allMembers?: Member[] // Optional: pass all members to avoid re-reading file
 ): Promise<Member[]> {
-    const resolvedAttendeesSet = new Set<string>();
-
-    switch (meeting.type) {
-        case 'General_Service':
-            // All active members are potential attendees for a general service.
-            // For simplicity, we might list all active members or those in GDIs.
-            // Let's assume for now it's all active members who are part of a GDI.
-            allMembers.forEach(member => {
-                if (member.status === 'Active' && member.assignedGDIId) {
-                    resolvedAttendeesSet.add(member.id);
-                }
-            });
-            break;
-
-        case 'GDI_Meeting':
-            if (meeting.relatedGdiId) {
-                const gdi = allGdis.find(g => g.id === meeting.relatedGdiId);
-                if (gdi) {
-                    resolvedAttendeesSet.add(gdi.guideId);
-                    gdi.memberIds.forEach(id => resolvedAttendeesSet.add(id));
-                }
-            }
-            break;
-
-        case 'Obreros_Meeting':
-            // GDI Guides
-            allGdis.forEach(gdi => resolvedAttendeesSet.add(gdi.guideId));
-            // Ministry Area Leaders and Members
-            allMinistryAreas.forEach(area => {
-                resolvedAttendeesSet.add(area.leaderId);
-                area.memberIds.forEach(memberId => resolvedAttendeesSet.add(memberId));
-            });
-            break;
-
-        case 'Lideres_Meeting':
-            // GDI Guides
-            allGdis.forEach(gdi => resolvedAttendeesSet.add(gdi.guideId));
-            // Ministry Area Leaders
-            allMinistryAreas.forEach(area => resolvedAttendeesSet.add(area.leaderId));
-            break;
-
-        case 'Area_Meeting':
-            if (meeting.relatedAreaId) {
-                const area = allMinistryAreas.find(a => a.id === meeting.relatedAreaId);
-                if (area) {
-                    resolvedAttendeesSet.add(area.leaderId);
-                    area.memberIds.forEach(id => resolvedAttendeesSet.add(id));
-                }
-            }
-            break;
-
-        case 'Special_Meeting':
-            // Attendees are directly listed in meeting.attendeeUids
-            if (meeting.attendeeUids) {
-                meeting.attendeeUids.forEach(id => resolvedAttendeesSet.add(id));
-            }
-            break;
-        
-        default:
-            // For unknown types, or if more granular logic is needed later
-            break;
-    }
+    const membersToFetch = allMembers || await readDbFile<Member>(MEMBERS_DB_FILE, []);
     
-    // Filter out inactive/new members and map IDs to Member objects
-    return allMembers.filter(member => 
-        resolvedAttendeesSet.has(member.id) && member.status === 'Active'
-    ).sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+    if (!meeting.attendeeUids || meeting.attendeeUids.length === 0) {
+        return [];
+    }
+
+    return membersToFetch
+        .filter(member => meeting.attendeeUids.includes(member.id) && member.status === 'Active')
+        .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
 }

@@ -9,12 +9,12 @@ import { es } from 'date-fns/locale';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 interface MeetingTypeAttendanceTableProps {
-  meetingsForType: Meeting[];
+  meetingsForSeries: Meeting[]; // Changed from meetingsForType
   allMembers: Member[];
-  allGdis: GDI[];
-  allMinistryAreas: MinistryArea[];
+  allGdis: GDI[]; // Kept for now, might be removed if getResolvedAttendees simplifies
+  allMinistryAreas: MinistryArea[]; // Kept for now
   allAttendanceRecords: AttendanceRecord[];
-  meetingTypeLabel: string; // Still passed but not used in caption directly
+  seriesName: string; // Changed from meetingTypeLabel
   filterStartDate?: string;
   filterEndDate?: string;
 }
@@ -32,46 +32,49 @@ const formatDateRangeText = (startDate?: string, endDate?: string): string => {
     try {
       const formattedStart = format(parseISO(startDate), "dd/MM/yyyy", { locale: es });
       const formattedEnd = format(parseISO(endDate), "dd/MM/yyyy", { locale: es });
-      return `Mostrando reuniones entre ${formattedStart} y ${formattedEnd}`;
+      return `Mostrando instancias entre ${formattedStart} y ${formattedEnd}`;
     } catch (e) {
         return "Rango de fechas inválido";
     }
   }
-  return "Mostrando todas las reuniones para este tipo.";
+  return `Mostrando todas las instancias para esta serie.`;
 };
 
 export default async function MeetingTypeAttendanceTable({
-  meetingsForType,
+  meetingsForSeries,
   allMembers,
-  allGdis,
-  allMinistryAreas,
+  allGdis, // To be passed to getResolvedAttendees if needed
+  allMinistryAreas, // To be passed to getResolvedAttendees if needed
   allAttendanceRecords,
-  meetingTypeLabel, // Kept for potential future use, but not in caption
+  seriesName,
   filterStartDate,
   filterEndDate,
 }: MeetingTypeAttendanceTableProps) {
 
-  if (!meetingsForType || meetingsForType.length === 0) {
+  if (!meetingsForSeries || meetingsForSeries.length === 0) {
      const dateRangeInfo = filterStartDate && filterEndDate ? 
       ` para el rango de ${format(parseISO(filterStartDate), 'dd/MM/yy', {locale: es})} a ${format(parseISO(filterEndDate), 'dd/MM/yy', {locale: es})}` :
       "";
-    return <p className="text-muted-foreground py-4 text-center">No hay reuniones de {meetingTypeLabel.toLowerCase()}{dateRangeInfo}.</p>;
+    return <p className="text-muted-foreground py-4 text-center">No hay instancias de reunión para la serie "{seriesName}"{dateRangeInfo}.</p>;
   }
 
+  // Determine unique members expected across all meetings in this series
   const rowMemberIds = new Set<string>();
-  const expectedAttendeesByMeetingId: Record<string, Set<string>> = {};
+  // Store expected UIDs per meeting instance to avoid re-resolving if getResolvedAttendees is slow
+  const expectedAttendeesByMeetingId: Record<string, Set<string>> = {}; 
 
-  for (const meeting of meetingsForType) {
-    const expectedForThisMeeting = await getResolvedAttendees(meeting, allMembers, allGdis, allMinistryAreas);
-    expectedForThisMeeting.forEach(member => rowMemberIds.add(member.id));
-    expectedAttendeesByMeetingId[meeting.id] = new Set(expectedForThisMeeting.map(m => m.id));
+  for (const meeting of meetingsForSeries) {
+    // getResolvedAttendees now directly uses meeting.attendeeUids, which should be populated.
+    const expectedForThisInstance = await getResolvedAttendees(meeting, allMembers);
+    expectedAttendeesByMeetingId[meeting.id] = new Set(expectedForThisInstance.map(m => m.id));
+    expectedForThisInstance.forEach(member => rowMemberIds.add(member.id));
   }
   
   const rowMembers = allMembers
     .filter(member => rowMemberIds.has(member.id))
     .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
 
-  const columnMeetings = meetingsForType; 
+  const columnMeetings = meetingsForSeries; // Already sorted by parent
 
   const captionDateRangeText = formatDateRangeText(filterStartDate, filterEndDate);
 
@@ -79,13 +82,12 @@ export default async function MeetingTypeAttendanceTable({
     <div className="border rounded-lg shadow-md">
       <ScrollArea className="w-full whitespace-nowrap">
         <Table className="min-w-full">
-          {/* TableCaption removed from here */}
           <TableHeader>
             <TableRow>
               <TableHead className="sticky left-0 bg-card z-10 w-[200px] min-w-[200px] border-r p-2">Miembro</TableHead>
               {columnMeetings.map(meeting => (
                 <TableHead key={meeting.id} className="text-center min-w-[80px] p-2">
-                  <Link href={`/events/${meeting.id}/attendance`} className="hover:underline text-primary font-medium block">
+                  <Link href={`/events/${meeting.id}/attendance`} className="hover:underline text-primary font-medium block" title={meeting.name}>
                     {formatDateDisplay(meeting.date)}
                   </Link>
                 </TableHead>
@@ -129,7 +131,7 @@ export default async function MeetingTypeAttendanceTable({
             {rowMembers.length === 0 && (
               <TableRow>
                 <TableCell colSpan={columnMeetings.length + 1} className="text-center text-muted-foreground py-8">
-                  No hay miembros esperados para las reuniones de este tipo
+                  No hay miembros esperados para las instancias de esta serie
                   {filterStartDate && filterEndDate ? ` en el rango de fechas seleccionado` : ""}.
                 </TableCell>
               </TableRow>

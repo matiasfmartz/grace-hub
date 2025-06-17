@@ -3,8 +3,8 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { AddGeneralMeetingFormValues, MeetingType, Member, MeetingRoleType } from "@/lib/types";
-import { AddGeneralMeetingFormSchema, MeetingRoleEnum } from "@/lib/types";
+import type { DefineMeetingSeriesFormValues, MeetingTargetRoleType, MeetingFrequencyType } from "@/lib/types";
+import { DefineMeetingSeriesFormSchema, MeetingTargetRoleEnum, MeetingFrequencyEnum } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -26,73 +26,60 @@ import {
 import { DatePicker } from "@/components/ui/date-picker"; 
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { DialogClose } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-// Removed Search and ScrollArea as individual member selection is removed for roles
 
-interface AddMeetingFormProps {
-  addMeetingAction: (data: AddGeneralMeetingFormValues) => Promise<{ success: boolean; message: string; newMeeting?: any }>;
+interface DefineMeetingSeriesFormProps {
+  defineMeetingSeriesAction: (data: DefineMeetingSeriesFormValues) => Promise<{ success: boolean; message: string; newSeries?: any, newInstance?: any }>;
   onSuccess?: () => void;
-  allMembers: Member[]; // Still needed if other parts of the form use it, but not for role selection logic here.
 }
 
-const creatableMeetingTypes: MeetingType[] = [
-  "General_Service",
-  "Obreros_Meeting",
-  "Lideres_Meeting",
-  "Special_Meeting"
-];
-
-const meetingTypeTranslations: Record<string, string> = {
-  General_Service: "Servicio General",
-  GDI_Meeting: "Reunión de GDI",
-  Obreros_Meeting: "Reunión de Obreros",
-  Lideres_Meeting: "Reunión de Líderes",
-  Area_Meeting: "Reunión de Área Ministerial",
-  Special_Meeting: "Reunión Especial",
-};
-
-const meetingRoles: { id: MeetingRoleType; label: string }[] = [
+const targetAttendeeGroupOptions: { id: MeetingTargetRoleType; label: string }[] = [
   { id: "generalAttendees", label: "Asistentes Generales (Miembros de GDI)" },
   { id: "workers", label: "Obreros (Guías, Líderes de Área, Miembros de Área)" },
   { id: "leaders", label: "Líderes (Guías de GDI, Líderes de Área)" },
 ];
 
+const frequencyOptions: { value: MeetingFrequencyType; label: string }[] = [
+    { value: "Recurring", label: "Recurrente (Instancias manuales)"},
+    { value: "OneTime", label: "Única Vez"},
+];
 
-export default function AddMeetingForm({ addMeetingAction, onSuccess, allMembers }: AddMeetingFormProps) {
+export default function DefineMeetingSeriesForm({ defineMeetingSeriesAction, onSuccess }: DefineMeetingSeriesFormProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  const form = useForm<AddGeneralMeetingFormValues>({
-    resolver: zodResolver(AddGeneralMeetingFormSchema),
+  const form = useForm<DefineMeetingSeriesFormValues>({
+    resolver: zodResolver(DefineMeetingSeriesFormSchema),
     defaultValues: {
       name: "",
-      type: "General_Service", 
-      time: "10:00",
-      location: "",
       description: "",
-      imageUrl: "",
-      selectedRoles: [],
+      defaultTime: "10:00",
+      defaultLocation: "Santuario Principal",
+      defaultImageUrl: "",
+      targetAttendeeGroups: [],
+      frequency: "Recurring",
+      oneTimeDate: undefined,
     },
   });
 
-  const watchedMeetingType = form.watch("type");
+  const watchedFrequency = form.watch("frequency");
 
-  async function onSubmit(values: AddGeneralMeetingFormValues) {
+  async function onSubmit(values: DefineMeetingSeriesFormValues) {
     startTransition(async () => {
       const dataToSend = { ...values };
-      if (dataToSend.type !== 'Special_Meeting') {
-        delete dataToSend.selectedRoles; 
+      if (dataToSend.frequency !== 'OneTime') {
+        delete dataToSend.oneTimeDate; 
       }
       
-      const result = await addMeetingAction(dataToSend);
+      const result = await defineMeetingSeriesAction(dataToSend);
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
         form.reset({
-          name: "", type: "General_Service", time: "10:00", location: "",
-          description: "", imageUrl: "", selectedRoles: [],
+          name: "", description: "", defaultTime: "10:00", defaultLocation: "Santuario Principal",
+          defaultImageUrl: "", targetAttendeeGroups: [], frequency: "Recurring", oneTimeDate: undefined,
         });
         if (onSuccess) {
           onSuccess();
@@ -111,129 +98,9 @@ export default function AddMeetingForm({ addMeetingAction, onSuccess, allMembers
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nombre de la Reunión</FormLabel>
+              <FormLabel>Nombre de la Serie/Tipo de Reunión</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Servicio Dominical" {...field} disabled={isPending} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="type"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Tipo de Reunión</FormLabel>
-              <Select 
-                onValueChange={(value) => {
-                    field.onChange(value);
-                    if (value !== 'Special_Meeting') {
-                        form.setValue('selectedRoles', []); // Clear roles if not special meeting
-                    }
-                }} 
-                defaultValue={field.value} 
-                disabled={isPending}
-               >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar tipo de reunión" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {creatableMeetingTypes.map(type => (
-                    <SelectItem key={type} value={type}>{(meetingTypeTranslations[type as MeetingType]) || type}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {watchedMeetingType === "Special_Meeting" && (
-          <FormField
-            control={form.control}
-            name="selectedRoles"
-            render={() => ( // Outer render for FormItem structure
-              <FormItem className="space-y-3">
-                <FormLabel>Seleccionar Grupos de Asistentes (para Reunión Especial)</FormLabel>
-                <div className="space-y-2 p-2 border rounded-md">
-                  {meetingRoles.map((role) => (
-                    <FormField
-                      key={role.id}
-                      control={form.control}
-                      name="selectedRoles"
-                      render={({ field }) => { // Inner render for each checkbox field
-                        return (
-                          <FormItem
-                            key={role.id}
-                            className="flex flex-row items-start space-x-3 space-y-0"
-                          >
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(role.id)}
-                                onCheckedChange={(checked) => {
-                                  const currentRoles = field.value || [];
-                                  return checked
-                                    ? field.onChange([...currentRoles, role.id])
-                                    : field.onChange(
-                                        currentRoles.filter(
-                                          (value) => value !== role.id
-                                        )
-                                      );
-                                }}
-                                disabled={isPending}
-                              />
-                            </FormControl>
-                            <Label className="font-normal cursor-pointer">
-                              {role.label}
-                            </Label>
-                          </FormItem>
-                        );
-                      }}
-                    />
-                  ))}
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-
-
-        <FormField
-          control={form.control}
-          name="date"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Fecha</FormLabel>
-              <DatePicker date={field.value} setDate={field.onChange} placeholder="Seleccionar fecha" />
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="time"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Hora (HH:MM)</FormLabel>
-              <FormControl>
-                <Input type="time" {...field} disabled={isPending} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="location"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Ubicación</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., Santuario Principal" {...field} disabled={isPending} />
+                <Input placeholder="e.g., Servicio Dominical, Estudio Bíblico" {...field} disabled={isPending} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -246,18 +113,46 @@ export default function AddMeetingForm({ addMeetingAction, onSuccess, allMembers
             <FormItem>
               <FormLabel>Descripción (Opcional)</FormLabel>
               <FormControl>
-                <Textarea placeholder="Breve descripción de la reunión." {...field} disabled={isPending} />
+                <Textarea placeholder="Breve descripción de esta serie de reuniones." {...field} disabled={isPending} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+            control={form.control}
+            name="defaultTime"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Hora Predeterminada</FormLabel>
+                <FormControl>
+                    <Input type="time" {...field} disabled={isPending} />
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+            <FormField
+            control={form.control}
+            name="defaultLocation"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Ubicación Predeterminada</FormLabel>
+                <FormControl>
+                    <Input placeholder="e.g., Santuario Principal" {...field} disabled={isPending} />
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+        </div>
         <FormField
           control={form.control}
-          name="imageUrl"
+          name="defaultImageUrl"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>URL de Imagen (Opcional)</FormLabel>
+              <FormLabel>URL de Imagen Predeterminada (Opcional)</FormLabel>
               <FormControl>
                 <Input type="url" placeholder="https://example.com/image.png" {...field} value={field.value ?? ''} disabled={isPending} />
               </FormControl>
@@ -265,20 +160,113 @@ export default function AddMeetingForm({ addMeetingAction, onSuccess, allMembers
             </FormItem>
           )}
         />
+        <FormField
+            control={form.control}
+            name="targetAttendeeGroups"
+            render={() => (
+              <FormItem className="space-y-3">
+                <FormLabel>Grupos de Asistentes Objetivo</FormLabel>
+                <div className="space-y-2 p-2 border rounded-md">
+                  {targetAttendeeGroupOptions.map((group) => (
+                    <FormField
+                      key={group.id}
+                      control={form.control}
+                      name="targetAttendeeGroups"
+                      render={({ field }) => {
+                        return (
+                          <FormItem
+                            key={group.id}
+                            className="flex flex-row items-start space-x-3 space-y-0"
+                          >
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes(group.id)}
+                                onCheckedChange={(checked) => {
+                                  const currentGroups = field.value || [];
+                                  return checked
+                                    ? field.onChange([...currentGroups, group.id])
+                                    : field.onChange(
+                                        currentGroups.filter(
+                                          (value) => value !== group.id
+                                        )
+                                      );
+                                }}
+                                disabled={isPending}
+                              />
+                            </FormControl>
+                            <Label className="font-normal cursor-pointer">
+                              {group.label}
+                            </Label>
+                          </FormItem>
+                        );
+                      }}
+                    />
+                  ))}
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+        <FormField
+          control={form.control}
+          name="frequency"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Frecuencia</FormLabel>
+              <Select 
+                onValueChange={(value: MeetingFrequencyType) => {
+                    field.onChange(value);
+                    if (value !== 'OneTime') {
+                        form.setValue('oneTimeDate', undefined); 
+                    }
+                }} 
+                value={field.value} 
+                disabled={isPending}
+               >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar frecuencia" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {frequencyOptions.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        {watchedFrequency === "OneTime" && (
+            <FormField
+            control={form.control}
+            name="oneTimeDate"
+            render={({ field }) => (
+                <FormItem className="flex flex-col">
+                <FormLabel>Fecha de Reunión (para Única Vez)</FormLabel>
+                <DatePicker date={field.value} setDate={field.onChange} placeholder="Seleccionar fecha" />
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+        )}
         
         <div className="flex justify-end space-x-2 pt-4 border-t">
            <DialogClose asChild>
             <Button type="button" variant="outline" onClick={() => { 
                 form.reset({
-                    name: "", type: "General_Service", time: "10:00", location: "",
-                    description: "", imageUrl: "", selectedRoles: [],
+                    name: "", description: "", defaultTime: "10:00", defaultLocation: "Santuario Principal",
+                    defaultImageUrl: "", targetAttendeeGroups: [], frequency: "Recurring", oneTimeDate: undefined,
                 });
             }} disabled={isPending}>
                 Cancelar
             </Button>
           </DialogClose>
           <Button type="submit" disabled={isPending}>
-             {isPending ? <Loader2 className="animate-spin mr-2" /> : "Agregar Reunión"}
+             {isPending ? <Loader2 className="animate-spin mr-2" /> : "Definir Serie de Reunión"}
           </Button>
         </div>
       </form>

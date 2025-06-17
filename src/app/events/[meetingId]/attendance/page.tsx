@@ -1,7 +1,7 @@
 
 import type { Meeting, Member, GDI, MinistryArea, AttendanceRecord } from '@/lib/types';
 import { notFound } from 'next/navigation';
-import { getMeetingById, updateMeetingMinute } from '@/services/meetingService';
+import { getMeetingById, updateMeetingMinute, getMeetingSeriesById } from '@/services/meetingService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
 import { getAllGdis } from '@/services/gdiService';
 import { getAllMinistryAreas } from '@/services/ministryAreaService';
@@ -21,21 +21,24 @@ interface MeetingAttendancePageProps {
 }
 
 async function getPageData(meetingId: string) {
-  const meeting = await getMeetingById(meetingId);
-  if (!meeting) notFound();
+  const meetingInstance = await getMeetingById(meetingId);
+  if (!meetingInstance) notFound();
 
+  const meetingSeries = await getMeetingSeriesById(meetingInstance.seriesId);
+  
   const [allMembers, allGdis, allMinistryAreas, currentAttendance] = await Promise.all([
     getAllMembersNonPaginated(),
-    getAllGdis(),
-    getAllMinistryAreas(),
+    getAllGdis(), // Still needed if getResolvedAttendees uses them as fallback or for other logic
+    getAllMinistryAreas(), // Still needed
     getAttendanceForMeeting(meetingId),
   ]);
 
-  const resolvedAttendees = await getResolvedAttendees(meeting, allMembers, allGdis, allMinistryAreas);
-  return { meeting, resolvedAttendees, currentAttendance, allMembers };
+  // getResolvedAttendees now primarily uses meetingInstance.attendeeUids
+  const resolvedAttendees = await getResolvedAttendees(meetingInstance, allMembers);
+  return { meetingInstance, meetingSeries, resolvedAttendees, currentAttendance, allMembers };
 }
 
-export async function handleSaveAttendance(
+async function handleSaveAttendance(
   meetingId: string,
   memberAttendances: Array<{ memberId: string; attended: boolean }>
 ) {
@@ -49,7 +52,8 @@ export async function handleSaveAttendance(
   }
 }
 
-export async function handleUpdateMinute(meetingId: string, minute: string) {
+async function handleUpdateMinuteAction(meetingId: string, minute: string) {
+  'use server';
   try {
     await updateMeetingMinute(meetingId, minute.trim() === '' ? null : minute.trim());
     revalidatePath(`/events/${meetingId}/attendance`);
@@ -58,15 +62,6 @@ export async function handleUpdateMinute(meetingId: string, minute: string) {
     return { success: false, message: `Error al actualizar minuta: ${error.message}` };
   }
 }
-
-const meetingTypeTranslations: Record<string, string> = {
-  General_Service: "Servicio General",
-  GDI_Meeting: "Reunión de GDI",
-  Obreros_Meeting: "Reunión de Obreros",
-  Lideres_Meeting: "Reunión de Líderes",
-  Area_Meeting: "Reunión de Área Ministerial",
-  Special_Meeting: "Reunión Especial",
-};
 
 const formatDateDisplay = (dateString: string) => {
   try {
@@ -77,7 +72,12 @@ const formatDateDisplay = (dateString: string) => {
 };
 
 export default async function MeetingAttendancePage({ params }: MeetingAttendancePageProps) {
-  const { meeting, resolvedAttendees, currentAttendance } = await getPageData(params.meetingId);
+  const { meetingInstance, meetingSeries, resolvedAttendees, currentAttendance } = await getPageData(params.meetingId);
+
+  const seriesName = meetingSeries ? meetingSeries.name : "Serie Desconocida";
+  const pageTitle = `${meetingInstance.name} - ${seriesName}`;
+  const meetingDateTime = `${formatDateDisplay(meetingInstance.date)} a las ${meetingInstance.time}`;
+  const meetingLocation = meetingInstance.location;
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -92,56 +92,58 @@ export default async function MeetingAttendancePage({ params }: MeetingAttendanc
 
       <Card className="mb-8 shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline text-3xl text-primary">{meeting.name}</CardTitle>
+          <CardTitle className="font-headline text-3xl text-primary">{pageTitle}</CardTitle>
           <CardDescription className="text-md">
-            {meetingTypeTranslations[meeting.type]} - {formatDateDisplay(meeting.date)} a las {meeting.time} - {meeting.location}
+            {meetingDateTime} - {meetingLocation}
           </CardDescription>
         </CardHeader>
-        {meeting.description && (
+        {meetingInstance.description && (
           <CardContent>
-            <p className="text-muted-foreground">{meeting.description}</p>
+            <p className="text-muted-foreground">{meetingInstance.description}</p>
           </CardContent>
         )}
       </Card>
 
       <AttendanceManagerView
-        meetingId={meeting.id}
+        meetingId={meetingInstance.id}
         initialAttendees={resolvedAttendees}
         initialAttendanceRecords={currentAttendance}
         saveAttendanceAction={handleSaveAttendance}
       />
 
-      {meeting.type === 'Area_Meeting' && (
-        <Card className="mt-8 shadow-lg">
-          <CardHeader>
-            <CardTitle className="font-headline text-2xl text-primary flex items-center">
-              <FileText className="mr-2 h-5 w-5" /> Minuta de la Reunión
-            </CardTitle>
-            <CardDescription>
-              Registre los puntos tratados, decisiones y acuerdos de la reunión.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form action={async (formData: FormData) => {
-              'use server';
-              const minuteContent = formData.get('minuteContent') as string;
-              const result = await handleUpdateMinute(meeting.id, minuteContent);
-              if (!result.success) {
-                console.error("Error updating minute:", result.message);
-              }
-            }}>
-              <Textarea
-                name="minuteContent"
-                defaultValue={meeting.minute || ''}
-                placeholder="Escriba la minuta aquí..."
-                rows={8}
-                className="mb-4"
-              />
-              <Button type="submit">Guardar Minuta</Button>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+      {/* Minute taking can be enabled for any series if desired, or conditioned on series.frequency or other properties */}
+      {/* For now, let's assume minute is applicable if the series allows for it (e.g., not a quick general service) */}
+      {/* This logic can be refined based on series properties if needed */}
+      <Card className="mt-8 shadow-lg">
+        <CardHeader>
+          <CardTitle className="font-headline text-2xl text-primary flex items-center">
+            <FileText className="mr-2 h-5 w-5" /> Minuta de la Reunión
+          </CardTitle>
+          <CardDescription>
+            Registre los puntos tratados, decisiones y acuerdos de la reunión.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={async (formData: FormData) => {
+            'use server';
+            const minuteContent = formData.get('minuteContent') as string;
+            const result = await handleUpdateMinuteAction(meetingInstance.id, minuteContent);
+            if (!result.success) {
+              console.error("Error updating minute:", result.message);
+              // Potentially show a toast message here for client feedback
+            }
+          }}>
+            <Textarea
+              name="minuteContent"
+              defaultValue={meetingInstance.minute || ''}
+              placeholder="Escriba la minuta aquí..."
+              rows={8}
+              className="mb-4"
+            />
+            <Button type="submit">Guardar Minuta</Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

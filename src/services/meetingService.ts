@@ -1,14 +1,108 @@
 
 'use server';
-import type { Meeting, MeetingWriteData, Member, GDI, MinistryArea } from '@/lib/types';
+import type { Meeting, MeetingWriteData, MeetingSeries, MeetingSeriesWriteData, Member, GDI, MinistryArea, MeetingTargetRoleType } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 const MEETINGS_DB_FILE = 'meetings-db.json';
+const MEETING_SERIES_DB_FILE = 'meeting-series-db.json';
+const MEMBERS_DB_FILE = 'members-db.json'; // For resolving target groups
+const GDIS_DB_FILE = 'gdis-db.json';
+const MINISTRY_AREAS_DB_FILE = 'ministry-areas-db.json';
 
+
+// Meeting Series Functions
+export async function getAllMeetingSeries(): Promise<MeetingSeries[]> {
+  return readDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, []);
+}
+
+export async function getMeetingSeriesById(id: string): Promise<MeetingSeries | undefined> {
+  const seriesList = await getAllMeetingSeries();
+  return seriesList.find(series => series.id === id);
+}
+
+async function resolveAttendeeUids(targetGroups: MeetingTargetRoleType[]): Promise<string[]> {
+    const allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, []);
+    const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, []);
+    const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
+    const attendeeSet = new Set<string>();
+
+    for (const role of targetGroups) {
+        if (role === 'generalAttendees') {
+            allMembers.forEach(member => {
+                if (member.assignedGDIId && member.status === 'Active') { 
+                    attendeeSet.add(member.id);
+                }
+            });
+        } else if (role === 'workers') {
+            allGdis.forEach(gdi => {
+                const guide = allMembers.find(m => m.id === gdi.guideId && m.status === 'Active');
+                if(guide) attendeeSet.add(gdi.guideId);
+            });
+            allMinistryAreas.forEach(area => {
+                const leader = allMembers.find(m => m.id === area.leaderId && m.status === 'Active');
+                if(leader) attendeeSet.add(area.leaderId);
+                area.memberIds.forEach(memberId => {
+                    const member = allMembers.find(m => m.id === memberId && m.status === 'Active');
+                    if (member && memberId !== area.leaderId) attendeeSet.add(memberId);
+                });
+            });
+        } else if (role === 'leaders') {
+            allGdis.forEach(gdi => {
+                 const guide = allMembers.find(m => m.id === gdi.guideId && m.status === 'Active');
+                 if(guide) attendeeSet.add(gdi.guideId);
+            });
+            allMinistryAreas.forEach(area => {
+                const leader = allMembers.find(m => m.id === area.leaderId && m.status === 'Active');
+                if(leader) attendeeSet.add(area.leaderId);
+            });
+        }
+    }
+    return Array.from(attendeeSet);
+}
+
+export async function addMeetingSeries(
+  seriesData: MeetingSeriesWriteData,
+  oneTimeDate?: Date
+): Promise<{series: MeetingSeries, instance?: Meeting}> {
+  const seriesList = await getAllMeetingSeries();
+  const newSeriesId = `series-${Date.now().toString()}-${Math.random().toString(36).substring(2, 7)}`;
+  const newSeries: MeetingSeries = {
+    id: newSeriesId,
+    ...seriesData,
+    defaultImageUrl: seriesData.defaultImageUrl || 'https://placehold.co/600x400',
+  };
+  await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, [...seriesList, newSeries]);
+
+  let meetingInstance: Meeting | undefined = undefined;
+  if (newSeries.frequency === "OneTime" && oneTimeDate) {
+    const resolvedUids = await resolveAttendeeUids(newSeries.targetAttendeeGroups);
+    meetingInstance = await addMeetingInstance({
+        seriesId: newSeries.id,
+        name: `${newSeries.name} (${format(oneTimeDate, 'd MMM')})`,
+        date: format(oneTimeDate, 'yyyy-MM-dd'),
+        time: newSeries.defaultTime,
+        location: newSeries.defaultLocation,
+        description: newSeries.description,
+        imageUrl: newSeries.defaultImageUrl,
+        attendeeUids: resolvedUids,
+        minute: null,
+    });
+  }
+  return {series: newSeries, instance: meetingInstance};
+}
+
+
+// Meeting Instance Functions
 export async function getAllMeetings(): Promise<Meeting[]> {
   const meetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []); 
   return meetings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
+export async function getMeetingsBySeriesId(seriesId: string): Promise<Meeting[]> {
+  const allMeetings = await getAllMeetings();
+  return allMeetings.filter(meeting => meeting.seriesId === seriesId)
+                    .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
 }
 
 export async function getMeetingById(id: string): Promise<Meeting | undefined> {
@@ -16,30 +110,17 @@ export async function getMeetingById(id: string): Promise<Meeting | undefined> {
   return meetings.find(meeting => meeting.id === id);
 }
 
-export async function addMeeting(meetingData: MeetingWriteData): Promise<Meeting> {
+export async function addMeetingInstance(meetingInstanceData: Omit<Meeting, 'id'>): Promise<Meeting> {
   const meetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []);
   
-  const formattedDate = typeof meetingData.date === 'string' 
-    ? meetingData.date 
-    : format(meetingData.date as Date, 'yyyy-MM-dd');
-
-  const newMeeting: Meeting = {
-    id: `${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}`,
-    name: meetingData.name,
-    type: meetingData.type,
-    date: formattedDate,
-    time: meetingData.time,
-    location: meetingData.location,
-    description: meetingData.description || '',
-    imageUrl: meetingData.imageUrl || 'https://placehold.co/600x400',
-    relatedGdiId: meetingData.relatedGdiId || null,
-    relatedAreaId: meetingData.relatedAreaId || null,
-    attendeeUids: meetingData.attendeeUids || null,
-    minute: meetingData.minute || null, // Initialize minute
+  const newMeetingInstance: Meeting = {
+    id: `instance-${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}`,
+    ...meetingInstanceData,
+    attendeeUids: meetingInstanceData.attendeeUids || [] // Ensure it's always an array
   };
-  const updatedMeetings = [...meetings, newMeeting];
+  const updatedMeetings = [...meetings, newMeetingInstance];
   await writeDbFile<Meeting>(MEETINGS_DB_FILE, updatedMeetings);
-  return newMeeting;
+  return newMeetingInstance;
 }
 
 export async function updateMeeting(meetingId: string, updates: Partial<MeetingWriteData>): Promise<Meeting> {
@@ -49,24 +130,18 @@ export async function updateMeeting(meetingId: string, updates: Partial<MeetingW
   if (meetingIndex === -1) {
     throw new Error(`Meeting with ID ${meetingId} not found.`);
   }
-
-  // Ensure date is formatted correctly if it's part of updates and is a Date object
-  let formattedUpdates = { ...updates };
+  
+  let formattedUpdates = { ...updates } as Partial<Meeting>;
   if (updates.date && updates.date instanceof Date) {
     formattedUpdates.date = format(updates.date, 'yyyy-MM-dd');
-  } else if (updates.date && typeof updates.date === 'string') {
-    // If date is already a string, ensure it's in YYYY-MM-DD or handle other formats if necessary
-    // For simplicity, assuming it's already correctly formatted or parseISO can handle it
   }
-
 
   const updatedMeeting: Meeting = {
     ...meetings[meetingIndex],
     ...formattedUpdates,
-    // Ensure specific fields like attendeeUids are handled correctly if they are part of `updates`
-    attendeeUids: 'attendeeUids' in updates ? updates.attendeeUids : meetings[meetingIndex].attendeeUids,
-    minute: 'minute' in updates ? updates.minute : meetings[meetingIndex].minute,
-
+    attendeeUids: 'attendeeUids' in updates && Array.isArray(updates.attendeeUids) 
+                  ? updates.attendeeUids 
+                  : meetings[meetingIndex].attendeeUids,
   };
 
   meetings[meetingIndex] = updatedMeeting;

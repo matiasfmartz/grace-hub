@@ -23,7 +23,6 @@ export interface Member {
   roles?: MemberRoleType[];
 }
 
-// Type for data sent to server action for CREATING (ID will be generated server-side)
 export type MemberWriteData = Omit<Member, 'id'>;
 
 
@@ -48,39 +47,47 @@ export interface GDI { // Grupo de Integración
 
 export type GDIWriteData = Omit<GDI, 'id'>;
 
-export const MeetingTypeSchema = z.enum([
-  "General_Service",  // e.g., Sunday Service for all
-  "GDI_Meeting",      // Weekly meeting for a specific GDI
-  "Obreros_Meeting",  // For active workers in any ministry area + GDI guides
-  "Lideres_Meeting",  // For Ministry Area Leaders AND GDI Guides
-  "Area_Meeting",     // For members of a specific ministry area
-  "Special_Meeting"   // Manually selected group of attendees
-]);
-export type MeetingType = z.infer<typeof MeetingTypeSchema>;
+// For Meeting Series target roles
+export const MeetingTargetRoleEnum = z.enum(["generalAttendees", "workers", "leaders"]);
+export type MeetingTargetRoleType = z.infer<typeof MeetingTargetRoleEnum>;
+
+export const MeetingFrequencyEnum = z.enum(["OneTime", "Recurring"]); // Simplified: "Recurring" covers Weekly, Monthly, Irregular for now.
+export type MeetingFrequencyType = z.infer<typeof MeetingFrequencyEnum>;
+
+export interface MeetingSeries {
+  id: string;
+  name: string; // This will be the "Type" displayed in tabs
+  description?: string;
+  defaultTime: string; // HH:MM
+  defaultLocation: string;
+  defaultImageUrl?: string;
+  targetAttendeeGroups: MeetingTargetRoleType[]; // Roles to determine attendees for new instances
+  frequency: MeetingFrequencyType;
+  // For future expansion: dayOfWeek, dayOfMonth, etc.
+}
+export type MeetingSeriesWriteData = Omit<MeetingSeries, 'id'>;
 
 export interface Meeting {
   id: string;
-  name: string;
-  type: MeetingType;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:MM, e.g., "10:00" or "19:30"
-  location: string;
-  description?: string;
-  imageUrl?: string;
-  relatedGdiId?: string | null;    // For GDI_Meeting type
-  relatedAreaId?: string | null;   // For Area_Meeting type
-  attendeeUids?: string[] | null; // For Special_Meeting type (specific UIDs, resolved from roles or manual selection)
-  minute?: string | null;          // For Area_Meeting or others requiring minutes
+  seriesId: string; // Links to MeetingSeries
+  name: string; // Instance-specific name, can default from series name + date
+  date: string; // YYYY-MM-DD (Always specific to the instance)
+  time: string; // HH:MM (Can default from series, but can be overridden)
+  location: string; // (Can default from series, but can be overridden)
+  description?: string; // (Can default from series, but can be overridden)
+  imageUrl?: string; // (Can default from series, but can be overridden)
+  attendeeUids: string[]; // Definitive list of member IDs expected for THIS instance
+  minute?: string | null;
 }
-export type MeetingWriteData = Omit<Meeting, 'id'>;
+export type MeetingWriteData = Omit<Meeting, 'id' | 'attendeeUids'> & { attendeeUids?: string[] }; // attendeeUids is populated by server logic
 
 
 export interface AttendanceRecord {
-  id: string; // meetingId-memberId could be a unique key
+  id: string;
   meetingId: string;
   memberId: string;
   attended: boolean;
-  notes?: string; // Optional notes for an individual's attendance
+  notes?: string;
 }
 export type AttendanceRecordWriteData = Omit<AttendanceRecord, 'id'>;
 
@@ -97,7 +104,6 @@ export interface Resource {
 // Zod Schemas for Forms
 
 export const MemberStatusSchema = z.enum(['Active', 'Inactive', 'New']);
-
 export const NONE_GDI_OPTION_VALUE = "__NONE__";
 
 export const AddMemberFormSchema = z.object({
@@ -133,37 +139,38 @@ export const AddGdiFormSchema = z.object({
 });
 export type AddGdiFormValues = z.infer<typeof AddGdiFormSchema>;
 
-export const UpdateMinistryAreaLeaderFormSchema = z.object({
-  leaderId: z.string().min(1, { message: "A leader must be selected." }),
-});
-export type UpdateMinistryAreaLeaderFormValues = z.infer<typeof UpdateMinistryAreaLeaderFormSchema>;
 
-export const AssignMinistryAreaMembersFormSchema = z.object({
-  memberIds: z.array(z.string()).min(0, { message: "Select at least one member or an empty list." }),
-});
-export type AssignMinistryAreaMembersFormValues = z.infer<typeof AssignMinistryAreaMembersFormSchema>;
-
-
-export const MeetingRoleSelectionEnum = z.enum(["generalAttendees", "workers", "leaders"]);
-export type MeetingRoleType = z.infer<typeof MeetingRoleSelectionEnum>;
-
-export const AddGeneralMeetingFormSchema = z.object({
-  name: z.string().min(3, { message: "El nombre de la reunión debe tener al menos 3 caracteres." }),
-  type: z.enum([
-    "General_Service",
-    "Obreros_Meeting",
-    "Lideres_Meeting",
-    "Special_Meeting",
-    "Area_Meeting", // Added for completeness, though not directly creatable from this general form
-    "GDI_Meeting"   // Added for completeness
-  ]),
-  date: z.date({ required_error: "La fecha es requerida." }),
-  time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Formato de hora inválido (HH:MM)." }),
-  location: z.string().min(3, { message: "La ubicación es requerida." }),
+export const DefineMeetingSeriesFormSchema = z.object({
+  name: z.string().min(3, { message: "El nombre de la serie debe tener al menos 3 caracteres." }),
   description: z.string().optional(),
-  imageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')),
-  selectedRoles: z.array(MeetingRoleSelectionEnum).optional(), 
-  minute: z.string().optional(), // Added for minute taking
+  defaultTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Formato de hora inválido (HH:MM)." }),
+  defaultLocation: z.string().min(3, { message: "La ubicación por defecto es requerida." }),
+  defaultImageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')),
+  targetAttendeeGroups: z.array(MeetingTargetRoleEnum).min(1,{message: "Debe seleccionar al menos un grupo de asistentes."}),
+  frequency: MeetingFrequencyEnum,
+  oneTimeDate: z.date().optional(), // Required only if frequency is "OneTime"
+}).refine(data => {
+  if (data.frequency === "OneTime") {
+    return !!data.oneTimeDate;
+  }
+  return true;
+}, {
+  message: "La fecha es requerida para reuniones de 'Única Vez'.",
+  path: ["oneTimeDate"], 
 });
 
-export type AddGeneralMeetingFormValues = z.infer<typeof AddGeneralMeetingFormSchema>;
+export type DefineMeetingSeriesFormValues = z.infer<typeof DefineMeetingSeriesFormSchema>;
+
+
+// This is for adding an ad-hoc instance to an existing series (Future use)
+// export const AddMeetingInstanceFormSchema = z.object({
+//   seriesId: z.string(),
+//   date: z.date({ required_error: "La fecha es requerida." }),
+//   time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Formato de hora inválido (HH:MM)." }).optional(),
+//   location: z.string().optional(),
+//   name: z.string().optional(),
+//   description: z.string().optional(),
+//   imageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')),
+//   // attendeeUids will be resolved by server or inherited + customizable
+// });
+// export type AddMeetingInstanceFormValues = z.infer<typeof AddMeetingInstanceFormSchema>;

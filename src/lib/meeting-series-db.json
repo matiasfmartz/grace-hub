@@ -1,0 +1,73 @@
+
+[
+  {
+    "id": "series-general",
+    "name": "Servicio General",
+    "description": "Servicio dominical de adoración y enseñanza para toda la congregación.",
+    "defaultTime": "10:00",
+    "defaultLocation": "Santuario Principal",
+    "defaultImageUrl": "https://placehold.co/600x400",
+    "targetAttendeeGroups": ["generalAttendees"],
+    "frequency": "Recurring"
+  },
+  {
+    "id": "series-obreros",
+    "name": "Reunión de Obreros",
+    "description": "Capacitación y coordinación para todos los obreros (guías de GDI y miembros/líderes de áreas ministeriales).",
+    "defaultTime": "09:00",
+    "defaultLocation": "Salón Multiusos",
+    "defaultImageUrl": "https://placehold.co/600x400",
+    "targetAttendeeGroups": ["workers"],
+    "frequency": "Recurring"
+  },
+  {
+    "id": "series-lideres",
+    "name": "Consejo de Líderes",
+    "description": "Reunión mensual de planificación y estrategia para líderes de GDI y Áreas Ministeriales.",
+    "defaultTime": "18:00",
+    "defaultLocation": "Oficina Pastoral",
+    "defaultImageUrl": "https://placehold.co/600x400",
+    "targetAttendeeGroups": ["leaders"],
+    "frequency": "Recurring"
+  },
+  {
+    "id": "series-gdi-alpha",
+    "name": "GDI Alpha",
+    "description": "Reunión semanal del GDI Alpha.",
+    "defaultTime": "19:00",
+    "defaultLocation": "Salón Anexo",
+    "defaultImageUrl": "https://placehold.co/600x400",
+    "targetAttendeeGroups": ["generalAttendees"], 
+    "frequency": "Recurring"
+  },
+  {
+    "id": "series-gdi-beta",
+    "name": "GDI Beta",
+    "description": "Reunión semanal del GDI Beta.",
+    "defaultTime": "19:30",
+    "defaultLocation": "Hogar Familia Smith",
+    "defaultImageUrl": "https://placehold.co/600x400",
+    "targetAttendeeGroups": ["generalAttendees"],
+    "frequency": "Recurring"
+  },
+  {
+    "id": "series-area-youth",
+    "name": "Ministerio de Jóvenes",
+    "description": "Reuniones y actividades para el Ministerio de Jóvenes.",
+    "defaultTime": "14:00",
+    "defaultLocation": "Salón de Jóvenes",
+    "defaultImageUrl": "https://placehold.co/600x400",
+    "targetAttendeeGroups": ["workers"], 
+    "frequency": "Recurring"
+  },
+  {
+    "id": "series-area-worship",
+    "name": "Ministerio de Alabanza",
+    "description": "Ensayos y reuniones del equipo de alabanza y adoración.",
+    "defaultTime": "17:00",
+    "defaultLocation": "Santuario Principal",
+    "defaultImageUrl": "https://placehold.co/600x400",
+    "targetAttendeeGroups": ["workers"],
+    "frequency": "Recurring"
+  }
+]
