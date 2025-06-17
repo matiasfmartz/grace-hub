@@ -1,6 +1,6 @@
 
 'use server';
-import type { Meeting, MeetingWriteData, MeetingSeries, MeetingSeriesWriteData, Member, GDI, MinistryArea, MeetingTargetRoleType, AttendanceRecord } from '@/lib/types';
+import type { Meeting, MeetingWriteData, MeetingSeries, MeetingSeriesWriteData, Member, GDI, MinistryArea, MeetingTargetRoleType, AttendanceRecord, DayOfWeekType, MonthlyRuleType, WeekOrdinalType, MeetingFrequencyType } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
 import { format, parseISO } from 'date-fns';
 
@@ -64,24 +64,37 @@ async function resolveAttendeeUids(targetGroups: MeetingTargetRoleType[]): Promi
 
 export async function addMeetingSeries(
   seriesData: MeetingSeriesWriteData,
-  oneTimeDate?: Date
 ): Promise<{series: MeetingSeries, instance?: Meeting}> {
   const seriesList = await getAllMeetingSeries();
   const newSeriesId = `series-${Date.now().toString()}-${Math.random().toString(36).substring(2, 7)}`;
+  
   const newSeries: MeetingSeries = {
     id: newSeriesId,
-    ...seriesData,
+    name: seriesData.name,
+    description: seriesData.description,
+    defaultTime: seriesData.defaultTime,
+    defaultLocation: seriesData.defaultLocation,
     defaultImageUrl: seriesData.defaultImageUrl || 'https://placehold.co/600x400',
+    targetAttendeeGroups: seriesData.targetAttendeeGroups,
+    frequency: seriesData.frequency,
+    oneTimeDate: seriesData.frequency === "OneTime" ? seriesData.oneTimeDate : undefined,
+    weeklyDays: seriesData.frequency === "Weekly" ? seriesData.weeklyDays : undefined,
+    monthlyRuleType: seriesData.frequency === "Monthly" ? seriesData.monthlyRuleType : undefined,
+    monthlyDayOfMonth: seriesData.frequency === "Monthly" && seriesData.monthlyRuleType === "DayOfMonth" ? seriesData.monthlyDayOfMonth : undefined,
+    monthlyWeekOrdinal: seriesData.frequency === "Monthly" && seriesData.monthlyRuleType === "DayOfWeekOfMonth" ? seriesData.monthlyWeekOrdinal : undefined,
+    monthlyDayOfWeek: seriesData.frequency === "Monthly" && seriesData.monthlyRuleType === "DayOfWeekOfMonth" ? seriesData.monthlyDayOfWeek : undefined,
   };
+  
   await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, [...seriesList, newSeries]);
 
   let meetingInstance: Meeting | undefined = undefined;
-  if (newSeries.frequency === "OneTime" && oneTimeDate) {
+  if (newSeries.frequency === "OneTime" && newSeries.oneTimeDate) {
     const resolvedUids = await resolveAttendeeUids(newSeries.targetAttendeeGroups);
+    const oneTimeDateObj = parseISO(newSeries.oneTimeDate); // oneTimeDate is string YYYY-MM-DD
     meetingInstance = await addMeetingInstance({
         seriesId: newSeries.id,
-        name: `${newSeries.name} (${format(oneTimeDate, 'd MMM')})`,
-        date: format(oneTimeDate, 'yyyy-MM-dd'),
+        name: `${newSeries.name} (${format(oneTimeDateObj, 'd MMM')})`,
+        date: newSeries.oneTimeDate, // Already YYYY-MM-DD
         time: newSeries.defaultTime,
         location: newSeries.defaultLocation,
         description: newSeries.description,
@@ -100,11 +113,35 @@ export async function updateMeetingSeries(seriesId: string, updates: Partial<Mee
     throw new Error(`MeetingSeries with ID ${seriesId} not found.`);
   }
 
+  const existingSeries = seriesList[seriesIndex];
   const updatedSeries: MeetingSeries = {
-    ...seriesList[seriesIndex],
+    ...existingSeries,
     ...updates,
-    defaultImageUrl: updates.defaultImageUrl || seriesList[seriesIndex].defaultImageUrl || 'https://placehold.co/600x400',
+    defaultImageUrl: updates.defaultImageUrl || existingSeries.defaultImageUrl || 'https://placehold.co/600x400',
+    // Conditionally keep or clear recurrence fields based on new frequency
+    oneTimeDate: updates.frequency === "OneTime" ? updates.oneTimeDate ?? existingSeries.oneTimeDate : undefined,
+    weeklyDays: updates.frequency === "Weekly" ? updates.weeklyDays ?? existingSeries.weeklyDays : undefined,
+    monthlyRuleType: updates.frequency === "Monthly" ? updates.monthlyRuleType ?? existingSeries.monthlyRuleType : undefined,
+    monthlyDayOfMonth: updates.frequency === "Monthly" && (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) === "DayOfMonth" ? updates.monthlyDayOfMonth ?? existingSeries.monthlyDayOfMonth : undefined,
+    monthlyWeekOrdinal: updates.frequency === "Monthly" && (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) === "DayOfWeekOfMonth" ? updates.monthlyWeekOrdinal ?? existingSeries.monthlyWeekOrdinal : undefined,
+    monthlyDayOfWeek: updates.frequency === "Monthly" && (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) === "DayOfWeekOfMonth" ? updates.monthlyDayOfWeek ?? existingSeries.monthlyDayOfWeek : undefined,
   };
+  
+  // If frequency changed FROM OneTime, ensure oneTimeDate is cleared
+  if (existingSeries.frequency === "OneTime" && updates.frequency && updates.frequency !== "OneTime") {
+    updatedSeries.oneTimeDate = undefined;
+  }
+  // Similar logic for weekly and monthly fields if frequency changes away from them
+  if (existingSeries.frequency === "Weekly" && updates.frequency && updates.frequency !== "Weekly") {
+    updatedSeries.weeklyDays = undefined;
+  }
+  if (existingSeries.frequency === "Monthly" && updates.frequency && updates.frequency !== "Monthly") {
+    updatedSeries.monthlyRuleType = undefined;
+    updatedSeries.monthlyDayOfMonth = undefined;
+    updatedSeries.monthlyWeekOrdinal = undefined;
+    updatedSeries.monthlyDayOfWeek = undefined;
+  }
+
 
   seriesList[seriesIndex] = updatedSeries;
   await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, seriesList);
@@ -172,9 +209,13 @@ export async function updateMeeting(meetingId: string, updates: Partial<MeetingW
   }
   
   let formattedUpdates = { ...updates } as Partial<Meeting>;
-  if (updates.date && updates.date instanceof Date) {
-    formattedUpdates.date = format(updates.date, 'yyyy-MM-dd');
+  if (updates.date && typeof updates.date === 'string' && !isNaN(parseISO(updates.date).getTime())) {
+    // Assuming updates.date is already YYYY-MM-DD string
+    formattedUpdates.date = updates.date;
+  } else if (updates.date && updates.date instanceof Date) {
+     formattedUpdates.date = format(updates.date, 'yyyy-MM-dd');
   }
+
 
   const updatedMeeting: Meeting = {
     ...meetings[meetingIndex],
@@ -202,4 +243,3 @@ export async function updateMeetingMinute(meetingId: string, minute: string | nu
   await writeDbFile<Meeting>(MEETINGS_DB_FILE, meetings);
   return meetings[meetingIndex];
 }
-

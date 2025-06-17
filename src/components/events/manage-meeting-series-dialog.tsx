@@ -11,13 +11,15 @@ import {
   DialogDescription,
   DialogTrigger,
   DialogFooter,
-  DialogClose,
 } from "@/components/ui/dialog";
 import DefineMeetingSeriesForm from '@/components/events/add-meeting-form';
 import DeleteMeetingSeriesAlert from '@/components/events/delete-meeting-series-alert';
-import type { DefineMeetingSeriesFormValues, MeetingSeries } from '@/lib/types';
-import { Settings, Edit2, Trash2, Info, Loader2 } from 'lucide-react';
+import type { DefineMeetingSeriesFormValues, MeetingSeries, DayOfWeekType } from '@/lib/types';
+import { daysOfWeek, weekOrdinals } from '@/lib/types';
+import { Settings, Edit2, Trash2, Info, Loader2, CalendarDays, Clock, MapPin, Users, Repeat, Image as ImageIcon } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { format, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface ManageMeetingSeriesDialogProps {
   series: MeetingSeries;
@@ -27,6 +29,17 @@ interface ManageMeetingSeriesDialogProps {
   ) => Promise<{ success: boolean; message: string; updatedSeries?: MeetingSeries }>;
   deleteMeetingSeriesAction: (seriesId: string) => Promise<{ success: boolean; message: string }>;
 }
+
+const getDayLabel = (dayId: DayOfWeekType): string => {
+  const day = daysOfWeek.find(d => d.id === dayId);
+  return day ? day.label : dayId;
+};
+
+const getWeekOrdinalLabel = (ordinalId?: string): string => {
+  if (!ordinalId) return '';
+  const ordinal = weekOrdinals.find(o => o.id === ordinalId);
+  return ordinal ? ordinal.label : ordinalId;
+};
 
 export default function ManageMeetingSeriesDialog({ 
   series, 
@@ -40,13 +53,12 @@ export default function ManageMeetingSeriesDialog({
   const { toast } = useToast();
 
   const handleEditSuccess = () => {
-    setIsEditing(false); // Return to view mode on successful edit
-    // Dialog remains open, revalidation will refresh data in parent
+    setIsEditing(false); 
   };
 
   const handleDeleteSuccess = () => {
     setIsDeleteAlertOpen(false);
-    setIsDialogOpen(false); // Close the main management dialog after successful deletion
+    setIsDialogOpen(false); 
   };
   
   const initialFormValues: DefineMeetingSeriesFormValues = {
@@ -55,16 +67,21 @@ export default function ManageMeetingSeriesDialog({
     defaultTime: series.defaultTime,
     defaultLocation: series.defaultLocation,
     defaultImageUrl: series.defaultImageUrl || "",
-    targetAttendeeGroups: series.targetAttendeeGroups,
+    targetAttendeeGroups: series.targetAttendeeGroups || [],
     frequency: series.frequency,
-    oneTimeDate: series.frequency === "OneTime" && series.id 
-                   ? undefined // For editing OneTime, date is not directly editable in form for now.
-                   : undefined,
+    oneTimeDate: series.oneTimeDate ? parseISO(series.oneTimeDate) : undefined, // Convert string to Date
+    weeklyDays: series.weeklyDays || [],
+    monthlyRuleType: series.monthlyRuleType,
+    monthlyDayOfMonth: series.monthlyDayOfMonth,
+    monthlyWeekOrdinal: series.monthlyWeekOrdinal,
+    monthlyDayOfWeek: series.monthlyDayOfWeek,
   };
 
   const handleSubmitUpdate = (data: DefineMeetingSeriesFormValues) => {
     startTransition(async () => {
-      const result = await updateMeetingSeriesAction(series.id, data);
+      // Format date back to string for action
+      const dataToSend = { ...data, oneTimeDate: data.oneTimeDate ? format(data.oneTimeDate, 'yyyy-MM-dd') : undefined };
+      const result = await updateMeetingSeriesAction(series.id, dataToSend as any);
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
         handleEditSuccess();
@@ -74,8 +91,27 @@ export default function ManageMeetingSeriesDialog({
     });
   };
 
+  const renderFrequencyDetails = () => {
+    if (series.frequency === 'OneTime' && series.oneTimeDate) {
+      return `Única Vez: ${format(parseISO(series.oneTimeDate), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}`;
+    }
+    if (series.frequency === 'Weekly' && series.weeklyDays && series.weeklyDays.length > 0) {
+      return `Semanal: ${series.weeklyDays.map(day => getDayLabel(day)).join(', ')}`;
+    }
+    if (series.frequency === 'Monthly') {
+      if (series.monthlyRuleType === 'DayOfMonth' && series.monthlyDayOfMonth) {
+        return `Mensual: El día ${series.monthlyDayOfMonth} de cada mes`;
+      }
+      if (series.monthlyRuleType === 'DayOfWeekOfMonth' && series.monthlyWeekOrdinal && series.monthlyDayOfWeek) {
+        return `Mensual: ${getWeekOrdinalLabel(series.monthlyWeekOrdinal)} ${getDayLabel(series.monthlyDayOfWeek)} de cada mes`;
+      }
+      return 'Mensual (Regla no especificada completamente)';
+    }
+    return series.frequency;
+  };
+
   return (
-    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+    <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setIsEditing(false); }}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <Settings className="mr-1.5 h-3.5 w-3.5" /> Gestionar Serie
@@ -96,49 +132,30 @@ export default function ManageMeetingSeriesDialog({
         <div className="flex-grow overflow-y-auto p-6">
           {isEditing ? (
             <DefineMeetingSeriesForm 
-              defineMeetingSeriesAction={handleSubmitUpdate} 
-              onSuccess={handleEditSuccess} // This might not be strictly needed if form handles success internally
+              defineMeetingSeriesAction={handleSubmitUpdate as any} 
               initialValues={initialFormValues}
               isEditing={true}
+              onCancelEdit={() => setIsEditing(false)} // Pass cancel specific for edit mode
             />
           ) : (
-            <div className="space-y-4 text-sm">
-              <div>
-                <h3 className="font-semibold text-muted-foreground">Nombre de la Serie:</h3>
-                <p>{series.name}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-muted-foreground">Descripción:</h3>
-                <p>{series.description || "N/A"}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-muted-foreground">Hora Predeterminada:</h3>
-                <p>{series.defaultTime}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-muted-foreground">Lugar Predeterminado:</h3>
-                <p>{series.defaultLocation}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-muted-foreground">Frecuencia:</h3>
-                <p>{series.frequency === "OneTime" ? "Única Vez" : "Recurrente"}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-muted-foreground">Grupos de Asistentes Objetivo:</h3>
-                <ul className="list-disc list-inside">
-                  {series.targetAttendeeGroups.map(group => {
-                    let label = group;
-                    if (group === "generalAttendees") label = "Asistentes Generales";
-                    else if (group === "workers") label = "Obreros";
-                    else if (group === "leaders") label = "Líderes";
-                    return <li key={group}>{label}</li>;
-                  })}
-                </ul>
-              </div>
+            <div className="space-y-3 text-sm">
+              <InfoItem icon={Info} label="Nombre de la Serie:" value={series.name} />
+              <InfoItem icon={Info} label="Descripción:" value={series.description || "N/A"} />
+              <InfoItem icon={Clock} label="Hora Predeterminada:" value={series.defaultTime} />
+              <InfoItem icon={MapPin} label="Lugar Predeterminado:" value={series.defaultLocation} />
+              <InfoItem icon={Repeat} label="Frecuencia:" value={renderFrequencyDetails()} />
+              <InfoItem icon={Users} label="Grupos Objetivo:" value={
+                  series.targetAttendeeGroups.map(group => {
+                    if (group === "generalAttendees") return "Asistentes Generales";
+                    if (group === "workers") return "Obreros";
+                    if (group === "leaders") return "Líderes";
+                    return group;
+                  }).join(', ') || "N/A"
+              } />
               {series.defaultImageUrl && (
                 <div>
-                    <h3 className="font-semibold text-muted-foreground">Imagen Predeterminada:</h3>
-                    <img src={series.defaultImageUrl} alt={series.name} className="mt-1 rounded-md max-h-32 object-contain" data-ai-hint="meeting event" />
+                    <h3 className="font-semibold text-muted-foreground flex items-center mb-1"><ImageIcon className="mr-2 h-4 w-4"/>Imagen Predeterminada:</h3>
+                    <img src={series.defaultImageUrl} alt={series.name} className="mt-1 rounded-md max-h-32 object-contain border" data-ai-hint="meeting event" />
                 </div>
               )}
             </div>
@@ -155,8 +172,8 @@ export default function ManageMeetingSeriesDialog({
                 seriesId={series.id}
                 seriesName={series.name}
                 deleteMeetingSeriesAction={deleteMeetingSeriesAction}
-                onOpenChange={setIsDeleteAlertOpen} // Control alert dialog state
-                onSuccess={handleDeleteSuccess} // Action to take after successful deletion
+                onOpenChange={setIsDeleteAlertOpen} 
+                onSuccess={handleDeleteSuccess} 
                 triggerButton={
                   <Button variant="destructive" disabled={isPending}>
                     <Trash2 className="mr-2 h-4 w-4" /> Eliminar Serie
@@ -166,16 +183,15 @@ export default function ManageMeetingSeriesDialog({
             </div>
           </DialogFooter>
         )}
-        {/* If editing, DefineMeetingSeriesForm provides its own Cancel/Submit buttons in its footer */}
-         {isEditing && (
-             <DialogFooter className="p-6 pt-0 border-t flex-shrink-0"> {/* Footer for Cancel button in edit mode, form has its own submit */}
-                <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isPending}>
-                    Cancelar Edición
-                </Button>
-                {/* Submit is handled by the form */}
-            </DialogFooter>
-         )}
       </DialogContent>
     </Dialog>
   );
 }
+
+const InfoItem: React.FC<{icon: React.ElementType, label: string, value: string}> = ({icon: Icon, label, value}) => (
+  <div>
+    <h3 className="font-semibold text-muted-foreground flex items-center mb-0.5"><Icon className="mr-2 h-4 w-4"/>{label}</h3>
+    <p className="ml-6">{value}</p>
+  </div>
+);
+

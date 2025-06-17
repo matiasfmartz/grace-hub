@@ -2,13 +2,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import type { DefineMeetingSeriesFormValues, MeetingTargetRoleType, MeetingFrequencyType, MeetingSeries } from "@/lib/types";
-import { DefineMeetingSeriesFormSchema, MeetingTargetRoleEnum, MeetingFrequencyEnum } from "@/lib/types";
+import { useForm, Controller } from "react-hook-form";
+import type { DefineMeetingSeriesFormValues, MeetingTargetRoleType, MeetingFrequencyType, MeetingSeries, DayOfWeekType, MonthlyRuleType, WeekOrdinalType } from "@/lib/types";
+import { DefineMeetingSeriesFormSchema, MeetingTargetRoleEnum, MeetingFrequencyEnum, DayOfWeekEnum, MonthlyRuleTypeEnum, WeekOrdinalEnum, daysOfWeek, weekOrdinals } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -27,16 +28,17 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTransition, useEffect } from "react";
-import { DialogClose } from "@/components/ui/dialog"; // Keep for potential direct use, but ManageDialog might control close
+import { DialogClose } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface DefineMeetingSeriesFormProps {
   defineMeetingSeriesAction: (data: DefineMeetingSeriesFormValues) => Promise<{ success: boolean; message: string; newSeries?: any, newInstance?: any, updatedSeries?: MeetingSeries }>;
-  onSuccess?: () => void; // Called after successful action, parent can close dialog or switch view
+  onSuccess?: () => void; 
   initialValues?: DefineMeetingSeriesFormValues; 
   isEditing?: boolean;
-  onCancelEdit?: () => void; // Specific callback for cancelling edit mode
+  onCancelEdit?: () => void; 
 }
 
 const targetAttendeeGroupOptions: { id: MeetingTargetRoleType; label: string }[] = [
@@ -46,9 +48,11 @@ const targetAttendeeGroupOptions: { id: MeetingTargetRoleType; label: string }[]
 ];
 
 const frequencyOptions: { value: MeetingFrequencyType; label: string }[] = [
-    { value: "Recurring", label: "Recurrente (Instancias manuales)"},
     { value: "OneTime", label: "Única Vez"},
+    { value: "Weekly", label: "Semanal"},
+    { value: "Monthly", label: "Mensual"},
 ];
+
 
 const defaultFormValues: DefineMeetingSeriesFormValues = {
   name: "",
@@ -57,8 +61,13 @@ const defaultFormValues: DefineMeetingSeriesFormValues = {
   defaultLocation: "Santuario Principal",
   defaultImageUrl: "",
   targetAttendeeGroups: [],
-  frequency: "Recurring",
+  frequency: "Weekly", 
   oneTimeDate: undefined,
+  weeklyDays: [],
+  monthlyRuleType: undefined,
+  monthlyDayOfMonth: undefined,
+  monthlyWeekOrdinal: undefined,
+  monthlyDayOfWeek: undefined,
 };
 
 export default function DefineMeetingSeriesForm({ 
@@ -73,27 +82,81 @@ export default function DefineMeetingSeriesForm({
 
   const form = useForm<DefineMeetingSeriesFormValues>({
     resolver: zodResolver(DefineMeetingSeriesFormSchema),
-    defaultValues: initialValues || defaultFormValues,
+    defaultValues: initialValues ? {
+      ...defaultFormValues, // Start with defaults
+      ...initialValues, // Override with initial values
+      oneTimeDate: initialValues.oneTimeDate ? new Date(initialValues.oneTimeDate + 'T00:00:00Z') : undefined, // Ensure date is Date object
+      weeklyDays: initialValues.weeklyDays || [], // Ensure arrays are initialized
+      targetAttendeeGroups: initialValues.targetAttendeeGroups || [],
+    } : defaultFormValues,
   });
+  
 
   useEffect(() => {
     if (initialValues) {
-      form.reset(initialValues);
+      form.reset({
+        ...defaultFormValues,
+        ...initialValues,
+        oneTimeDate: initialValues.oneTimeDate ? new Date(initialValues.oneTimeDate + 'T00:00:00Z') : undefined,
+        weeklyDays: initialValues.weeklyDays || [],
+        targetAttendeeGroups: initialValues.targetAttendeeGroups || [],
+      });
     } else {
-      form.reset(defaultFormValues); // Ensure reset to defaults if not editing
+      form.reset(defaultFormValues);
     }
   }, [initialValues, form]);
 
   const watchedFrequency = form.watch("frequency");
+  const watchedMonthlyRuleType = form.watch("monthlyRuleType");
+
+  useEffect(() => {
+    // Clear conditional fields when frequency changes
+    if (watchedFrequency !== 'OneTime') form.setValue('oneTimeDate', undefined);
+    if (watchedFrequency !== 'Weekly') form.setValue('weeklyDays', []);
+    if (watchedFrequency !== 'Monthly') {
+      form.setValue('monthlyRuleType', undefined);
+      form.setValue('monthlyDayOfMonth', undefined);
+      form.setValue('monthlyWeekOrdinal', undefined);
+      form.setValue('monthlyDayOfWeek', undefined);
+    }
+  }, [watchedFrequency, form]);
+
+  useEffect(() => {
+    if (watchedFrequency === 'Monthly' && watchedMonthlyRuleType === 'DayOfWeekOfMonth') {
+      form.setValue('monthlyDayOfMonth', undefined);
+    }
+    if (watchedFrequency === 'Monthly' && watchedMonthlyRuleType === 'DayOfMonth') {
+      form.setValue('monthlyWeekOrdinal', undefined);
+      form.setValue('monthlyDayOfWeek', undefined);
+    }
+  }, [watchedMonthlyRuleType, watchedFrequency, form]);
+
 
   async function onSubmit(values: DefineMeetingSeriesFormValues) {
     startTransition(async () => {
       const dataToSend = { ...values };
-      if (dataToSend.frequency !== 'OneTime') {
-        delete dataToSend.oneTimeDate; 
+      // Format date for submission if it exists
+      if (dataToSend.oneTimeDate) {
+        dataToSend.oneTimeDate = dataToSend.oneTimeDate.toISOString().split('T')[0] as any; // Type casting for submission
+      } else {
+        delete dataToSend.oneTimeDate;
+      }
+
+      if (dataToSend.frequency !== 'Weekly') delete dataToSend.weeklyDays;
+      if (dataToSend.frequency !== 'Monthly') {
+        delete dataToSend.monthlyRuleType;
+        delete dataToSend.monthlyDayOfMonth;
+        delete dataToSend.monthlyWeekOrdinal;
+        delete dataToSend.monthlyDayOfWeek;
+      } else {
+        if (dataToSend.monthlyRuleType !== 'DayOfMonth') delete dataToSend.monthlyDayOfMonth;
+        if (dataToSend.monthlyRuleType !== 'DayOfWeekOfMonth') {
+            delete dataToSend.monthlyWeekOrdinal;
+            delete dataToSend.monthlyDayOfWeek;
+        }
       }
       
-      const result = await defineMeetingSeriesAction(dataToSend);
+      const result = await defineMeetingSeriesAction(dataToSend as any); // Cast because oneTimeDate format changed
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
         if (onSuccess) {
@@ -110,13 +173,8 @@ export default function DefineMeetingSeriesForm({
   
   const handleCancel = () => {
     if (isEditing && onCancelEdit) {
-      onCancelEdit(); // Call specific cancel for edit mode (e.g., switch view in parent dialog)
-      form.reset(initialValues || defaultFormValues); // Reset to initial or default
-    } else if (!isEditing && onSuccess) {
-      // If adding and onSuccess is typically for closing dialog, let parent handle.
-      // This form's DialogClose might be for simple cases.
-      // For now, let's assume parent dialog (like ManageMeetingSeriesDialog or PageSpecificAdd...) handles its own closure.
-      form.reset(defaultFormValues);
+      onCancelEdit(); 
+      form.reset(initialValues || defaultFormValues); 
     } else {
       form.reset(defaultFormValues);
     }
@@ -248,15 +306,8 @@ export default function DefineMeetingSeriesForm({
             <FormItem>
               <FormLabel>Frecuencia</FormLabel>
               <Select 
-                onValueChange={(value: MeetingFrequencyType) => {
-                    field.onChange(value);
-                    if (value !== 'OneTime') {
-                        form.setValue('oneTimeDate', undefined); 
-                    }
-                }} 
+                onValueChange={(value: MeetingFrequencyType) => field.onChange(value)} 
                 value={field.value} 
-                // When editing a "OneTime" series, its frequency and date should not be changed via this form
-                // as it's tied to a specific instance. This needs more complex handling if such edits are desired.
                 disabled={isPending || (isEditing && initialValues?.frequency === "OneTime")} 
                >
                 <FormControl>
@@ -276,7 +327,7 @@ export default function DefineMeetingSeriesForm({
                 </SelectContent>
               </Select>
               {isEditing && initialValues?.frequency === "OneTime" && 
-                <FormMessage className="text-xs">La frecuencia y fecha de una reunión de 'Única Vez' no se pueden modificar directamente después de su creación. Para cambiarla, elimine esta serie y cree una nueva.</FormMessage>
+                <FormDescription className="text-xs">La frecuencia de una reunión 'Única Vez' no se puede cambiar después de su creación.</FormDescription>
               }
               <FormMessage />
             </FormItem>
@@ -297,29 +348,167 @@ export default function DefineMeetingSeriesForm({
                     disabled={isPending || (isEditing && initialValues?.frequency === "OneTime")} 
                 />
                  {isEditing && initialValues?.frequency === "OneTime" && 
-                    <FormMessage className="text-xs mt-1">La fecha de la instancia única no es editable aquí.</FormMessage>
+                    <FormDescription className="text-xs mt-1">La fecha de la instancia única no es editable aquí.</FormDescription>
                  }
                 <FormMessage />
                 </FormItem>
             )}
             />
         )}
+
+        {watchedFrequency === "Weekly" && (
+          <FormField
+            control={form.control}
+            name="weeklyDays"
+            render={() => (
+              <FormItem className="space-y-3">
+                <FormLabel>Días de la Semana (para Semanal)</FormLabel>
+                 <FormDescription>Seleccione los días en que se repetirá la reunión.</FormDescription>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2 border rounded-md">
+                  {daysOfWeek.map((day) => (
+                    <FormField
+                      key={day.id}
+                      control={form.control}
+                      name="weeklyDays"
+                      render={({ field }) => (
+                        <FormItem key={day.id} className="flex flex-row items-center space-x-2 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value?.includes(day.id)}
+                              onCheckedChange={(checked) => {
+                                const currentDays = field.value || [];
+                                return checked
+                                  ? field.onChange([...currentDays, day.id])
+                                  : field.onChange(currentDays.filter(value => value !== day.id));
+                              }}
+                              disabled={isPending}
+                            />
+                          </FormControl>
+                          <Label className="font-normal cursor-pointer text-sm">{day.label}</Label>
+                        </FormItem>
+                      )}
+                    />
+                  ))}
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         
-        {/* Footer buttons are now usually handled by the parent Dialog (e.g. ManageMeetingSeriesDialog or PageSpecificAddMeetingDialog) */}
-        {/* However, if this form is used standalone or for simple dialogs, these can be useful. */}
-        {/* For ManageMeetingSeriesDialog, the "Cancel Edit" button is separate, and "Save" is part of this form's submit. */}
-        {/* For PageSpecificAddMeetingDialog, DialogClose wraps the Cancel button. */}
+        {watchedFrequency === "Monthly" && (
+          <div className="space-y-4 p-4 border rounded-md">
+            <FormField
+              control={form.control}
+              name="monthlyRuleType"
+              render={({ field }) => (
+                <FormItem className="space-y-3">
+                  <FormLabel>Regla Mensual</FormLabel>
+                  <FormControl>
+                    <RadioGroup
+                      onValueChange={field.onChange as (value: string) => void}
+                      value={field.value}
+                      className="flex flex-col space-y-1"
+                      disabled={isPending}
+                    >
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="DayOfMonth" />
+                        </FormControl>
+                        <FormLabel className="font-normal">Un día específico del mes (ej: el 15)</FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="DayOfWeekOfMonth" />
+                        </FormControl>
+                        <FormLabel className="font-normal">Un día específico de la semana en el mes (ej: el tercer Martes)</FormLabel>
+                      </FormItem>
+                    </RadioGroup>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {watchedMonthlyRuleType === "DayOfMonth" && (
+              <FormField
+                control={form.control}
+                name="monthlyDayOfMonth"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Día del Mes (1-31)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        min="1" max="31" 
+                        {...field} 
+                        value={field.value || ''}
+                        onChange={e => field.onChange(parseInt(e.target.value,10))}
+                        disabled={isPending} 
+                       />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {watchedMonthlyRuleType === "DayOfWeekOfMonth" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="monthlyWeekOrdinal"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Semana Ordinal</FormLabel>
+                      <Select onValueChange={field.onChange as (value: WeekOrdinalType) => void} value={field.value} disabled={isPending}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Seleccionar semana" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {weekOrdinals.map(opt => <SelectItem key={opt.id} value={opt.id}>{opt.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="monthlyDayOfWeek"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Día de la Semana</FormLabel>
+                      <Select onValueChange={field.onChange as (value: DayOfWeekType) => void} value={field.value} disabled={isPending}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Seleccionar día" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {daysOfWeek.map(opt => <SelectItem key={opt.id} value={opt.id}>{opt.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+          </div>
+        )}
         
         <div className="flex justify-end space-x-2 pt-4 border-t">
-           {!isEditing && ( // Only show DialogClose for "Add New" scenario if not nested in a complex dialog
+           {(!isEditing || (isEditing && !onCancelEdit)) && ( 
              <DialogClose asChild> 
                 <Button type="button" variant="outline" onClick={handleCancel} disabled={isPending}>
                     Cancelar
                 </Button>
             </DialogClose>
            )}
-           {/* The "Cancel Edit" button is handled by ManageMeetingSeriesDialog externally now */}
-           {/* This submit button is for both Add and Edit scenarios */}
+           {isEditing && onCancelEdit && ( // Specific cancel for edit mode inside ManageDialog
+                <Button type="button" variant="outline" onClick={handleCancel} disabled={isPending}>
+                    Cancelar Edición
+                </Button>
+           )}
           <Button type="submit" disabled={isPending}>
              {isPending ? <Loader2 className="animate-spin mr-2" /> : (isEditing ? "Guardar Cambios" : "Definir Serie")}
           </Button>
