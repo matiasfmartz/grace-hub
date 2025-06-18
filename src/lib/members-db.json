@@ -80,12 +80,8 @@
     "attendsBibleInstitute": false,
     "fromAnotherChurch": false,
     "assignedGDIId": null,
-    "assignedAreaIds": [
-      "ma3"
-    ],
-    "roles": [
-      "Worker"
-    ]
+    "assignedAreaIds": [],
+    "roles": []
   },
   {
     "id": "5",
@@ -103,8 +99,7 @@
     "fromAnotherChurch": true,
     "assignedGDIId": "gdi1",
     "assignedAreaIds": [
-      "1749880199537-cvuyxy3",
-      "ma3"
+      "1749880199537-cvuyxy3"
     ],
     "roles": [
       "GeneralAttendee",
@@ -171,8 +166,7 @@
       "ma2"
     ],
     "roles": [
-      "Worker",
-      "Leader"
+      "Worker"
     ]
   },
   {
@@ -188,15 +182,13 @@
     "fromAnotherChurch": true,
     "status": "Active",
     "avatarUrl": "https://placehold.co/100x100",
-    "assignedGDIId": "1749913833067-9fr4d3p",
+    "assignedGDIId": null,
     "assignedAreaIds": [
-      "ma3",
       "1749880199537-cvuyxy3",
       "ma2"
     ],
     "id": "1749877175613-ls6oqv6",
     "roles": [
-      "GeneralAttendee",
       "Worker",
       "Leader"
     ]
@@ -216,8 +208,7 @@
     "avatarUrl": "https://placehold.co/100x100",
     "assignedGDIId": null,
     "assignedAreaIds": [
-      "1749880199537-cvuyxy3",
-      "ma3"
+      "1749880199537-cvuyxy3"
     ],
     "id": "1749877205345-hd6yhu7",
     "roles": [
@@ -237,7 +228,6 @@
     "avatarUrl": "https://placehold.co/100x100",
     "assignedGDIId": null,
     "assignedAreaIds": [
-      "ma3",
       "ma1"
     ],
     "id": "1749880160940-30020fm",

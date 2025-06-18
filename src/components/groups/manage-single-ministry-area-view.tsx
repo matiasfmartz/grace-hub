@@ -4,24 +4,24 @@
 import { useState, useTransition, useEffect, useMemo } from 'react';
 import type { MinistryArea, Member } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { CardContent, CardFooter } from '@/components/ui/card'; // Removed Card, CardHeader, CardTitle, CardDescription
+import { CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Users, UserCheck, UserPlus, UserMinus, Badge } from 'lucide-react'; // Removed Edit3, Search
+import { Loader2, Save, Users, UserCheck, UserPlus, UserMinus, Badge } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DialogClose } from '@/components/ui/dialog';
 
 interface ManageSingleMinistryAreaViewProps {
-  ministryArea: MinistryArea; // Can be a new template if isAdding is true
+  ministryArea: MinistryArea;
   allMembers: Member[];
   activeMembers: Member[];
-  updateMinistryAreaAction: ( // This prop will handle both create and update
-    areaIdOrNewData: string | (Partial<Omit<MinistryArea, 'id'>> & { name: string; leaderId: string }), // ID for update, data for create
-    updatedData?: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description'>> // Only for update
+  updateMinistryAreaAction: (
+    areaIdOrNewData: string | (Partial<Omit<MinistryArea, 'id'>> & { name: string; leaderId: string }),
+    updatedData?: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description'>>
   ) => Promise<{ success: boolean; message: string; updatedArea?: MinistryArea; newArea?: MinistryArea }>;
   onSuccess?: () => void;
   isAdding?: boolean;
@@ -29,8 +29,8 @@ interface ManageSingleMinistryAreaViewProps {
 
 export default function ManageSingleMinistryAreaView({
   ministryArea: initialMinistryArea,
-  allMembers,
-  activeMembers,
+  allMembers, // Keep allMembers for displaying details of existing members if needed
+  activeMembers, // Use activeMembers for selection lists
   updateMinistryAreaAction,
   onSuccess,
   isAdding = false,
@@ -80,7 +80,7 @@ export default function ManageSingleMinistryAreaView({
       memberIds: Array.from(new Set([...(prevArea.memberIds || []), ...selectedAvailableMembers]))
                        .filter(id => id !== prevArea.leaderId)
     }));
-    setSelectedAvailableMembers([]); 
+    setSelectedAvailableMembers([]);
   };
 
   const handleRemoveSelectedMembersFromArea = () => {
@@ -94,7 +94,7 @@ export default function ManageSingleMinistryAreaView({
       ...prevArea,
       memberIds: (prevArea.memberIds || []).filter(id => !selectedAssignedMembers.includes(id))
     }));
-    setSelectedAssignedMembers([]); 
+    setSelectedAssignedMembers([]);
   };
 
   const handleSubmit = () => {
@@ -109,28 +109,28 @@ export default function ManageSingleMinistryAreaView({
 
       let result;
       if (isAdding) {
-        result = await updateMinistryAreaAction(dataToSend); // updateMinistryAreaAction for add mode
+        result = await updateMinistryAreaAction(dataToSend);
       } else {
-        result = await updateMinistryAreaAction(initialMinistryArea.id, dataToSend); // for edit mode
+        result = await updateMinistryAreaAction(initialMinistryArea.id, dataToSend);
       }
 
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
         if (result.updatedArea) setEditableArea(result.updatedArea);
-        // For adding, parent dialog will receive newArea and refresh list
-        setSelectedAvailableMembers([]); 
-        setSelectedAssignedMembers([]); 
+        setSelectedAvailableMembers([]);
+        setSelectedAssignedMembers([]);
         if (onSuccess) onSuccess();
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
       }
     });
   };
-  
+
   const leaderDetails = useMemo(() => {
     return allMembers.find(m => m.id === editableArea.leaderId);
   }, [editableArea.leaderId, allMembers]);
 
+  // For Ministry Area members, only active members can be assigned.
   const availableMembersForAssignment = useMemo(() => {
     return activeMembers.filter(member =>
       member.id !== editableArea.leaderId &&
@@ -150,19 +150,22 @@ export default function ManageSingleMinistryAreaView({
           <div className="lg:col-span-2 space-y-6">
               <div className="p-4 border rounded-lg shadow-sm bg-card">
                   <h3 className="text-lg font-semibold mb-3 flex items-center"><UserCheck className="mr-2 h-5 w-5 text-muted-foreground" />Líder del Área</h3>
-                  <Label htmlFor="leaderIdSelect">Seleccionar Líder</Label>
+                  <Label htmlFor="leaderIdSelect">Seleccionar Líder (miembros activos)</Label>
                   <Select onValueChange={handleLeaderChange} value={editableArea.leaderId} disabled={isPending}>
                       <SelectTrigger className="mt-1" id="leaderIdSelect">
                           <SelectValue placeholder="Seleccionar nuevo líder" />
                       </SelectTrigger>
                       <SelectContent>
-                          {activeMembers.map((member) => (
+                          {activeMembers.map((member) => ( // Leader selection uses activeMembers
                           <SelectItem key={member.id} value={member.id}>
                               {member.firstName} {member.lastName} ({member.email})
                           </SelectItem>
                           ))}
                       </SelectContent>
                   </Select>
+                  {editableArea.leaderId && !activeMembers.find(m=>m.id === editableArea.leaderId) && (
+                      <p className="text-xs text-destructive mt-1">El líder actual no está activo o no se encuentra. Por favor, seleccione un líder activo.</p>
+                  )}
               </div>
 
               <div className="p-4 border rounded-lg shadow-sm bg-card">
@@ -201,17 +204,17 @@ export default function ManageSingleMinistryAreaView({
                               onCheckedChange={(checked) => handleAvailableMemberSelection(member.id, Boolean(checked))}
                           />
                           <Label htmlFor={`add-member-${member.id}`} className="font-normal text-sm cursor-pointer flex-grow">
-                              {member.firstName} {member.lastName}
+                              {member.firstName} {member.lastName} ({member.status})
                           </Label>
                       </div>
                       )) : (
                       <p className="text-sm text-muted-foreground text-center py-4">
-                          {addMemberSearchTerm ? "No hay miembros que coincidan." : "Todos los miembros activos disponibles ya están asignados o seleccionados como líder."}
+                          {addMemberSearchTerm ? "No hay miembros activos que coincidan." : "Todos los miembros activos disponibles ya están asignados o seleccionados como líder."}
                       </p>
                       )}
                   </ScrollArea>
-                  <Button 
-                      onClick={handleAddSelectedMembersToArea} 
+                  <Button
+                      onClick={handleAddSelectedMembersToArea}
                       disabled={isPending || selectedAvailableMembers.length === 0}
                       className="w-full mt-3"
                       variant="outline"
@@ -219,7 +222,7 @@ export default function ManageSingleMinistryAreaView({
                       <UserPlus className="mr-2 h-4 w-4" /> Agregar Seleccionados al Área ({selectedAvailableMembers.length})
                   </Button>
               </div>
-              
+
               <div className="p-4 border rounded-lg shadow-sm bg-card">
                   <h3 className="text-lg font-semibold mb-3 flex items-center"><Users className="mr-2 h-5 w-5 text-muted-foreground" />Miembros Actualmente Asignados</h3>
                    <p className="text-sm text-muted-foreground mb-3">
@@ -230,12 +233,12 @@ export default function ManageSingleMinistryAreaView({
                   <ScrollArea className="h-48 w-full rounded-md border p-2">
                       {leaderDetails && (
                            <div className="flex items-center justify-between p-2 rounded-md bg-primary/10">
-                              <span className="font-medium text-sm text-primary">{leaderDetails.firstName} {leaderDetails.lastName}</span>
+                              <span className="font-medium text-sm text-primary">{leaderDetails.firstName} {leaderDetails.lastName} ({leaderDetails.status})</span>
                               <Badge variant="default" className="text-xs">Líder</Badge>
                           </div>
                       )}
                       {currentlyAssignedDisplayMembers.map((member) => (
-                          member.id !== editableArea.leaderId && ( 
+                          member.id !== editableArea.leaderId && (
                               <div key={`assigned-${member.id}`} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-md">
                                   <Checkbox
                                       id={`remove-member-${member.id}`}
@@ -244,7 +247,7 @@ export default function ManageSingleMinistryAreaView({
                                       onCheckedChange={(checked) => handleAssignedMemberSelection(member.id, Boolean(checked))}
                                   />
                                   <Label htmlFor={`remove-member-${member.id}`} className="font-normal text-sm cursor-pointer flex-grow">
-                                      {member.firstName} {member.lastName}
+                                      {member.firstName} {member.lastName} ({member.status})
                                   </Label>
                               </div>
                           )
@@ -256,8 +259,8 @@ export default function ManageSingleMinistryAreaView({
                            <p className="text-sm text-muted-foreground text-center py-4 mt-2">No hay miembros adicionales asignados.</p>
                       )}
                   </ScrollArea>
-                  <Button 
-                      onClick={handleRemoveSelectedMembersFromArea} 
+                  <Button
+                      onClick={handleRemoveSelectedMembersFromArea}
                       disabled={isPending || selectedAssignedMembers.length === 0}
                       className="w-full mt-3"
                       variant="destructive"
@@ -274,7 +277,7 @@ export default function ManageSingleMinistryAreaView({
             </Button>
         </DialogClose>
         <Button onClick={handleSubmit} disabled={isPending || !editableArea.leaderId || !editableArea.name.trim()}>
-          {isPending ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4" />} 
+          {isPending ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4" />}
           {isPending ? (isAdding ? 'Creando...' : 'Guardando...') : (isAdding ? 'Crear Área' : 'Guardar Cambios')}
         </Button>
       </CardFooter>

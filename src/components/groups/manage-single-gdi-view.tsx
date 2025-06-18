@@ -4,24 +4,24 @@
 import { useState, useTransition, useEffect, useMemo } from 'react';
 import type { GDI, Member } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { CardContent, CardFooter } from '@/components/ui/card'; // Removed Card, CardHeader, CardTitle, CardDescription
+import { CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Users, UserCheck, UserPlus, UserMinus } from 'lucide-react'; // Removed Edit3, Search
+import { Loader2, Save, Users, UserCheck, UserPlus, UserMinus } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DialogClose } from '@/components/ui/dialog';
 
 interface ManageSingleGdiViewProps {
-  gdi: GDI; // Can be a new template if isAdding is true
-  allMembers: Member[]; 
-  activeMembers: Member[]; 
-  allGdis: GDI[]; 
-  updateGdiAction: ( // This prop will handle both create and update
-    gdiIdOrNewData: string | (Partial<Omit<GDI, 'id'>> & { name: string; guideId: string }), // ID for update, data for create
-    updatedData?: Partial<Pick<GDI, 'name' | 'guideId' | 'memberIds'>> // Only for update
+  gdi: GDI;
+  allMembers: Member[];
+  activeMembers: Member[];
+  allGdis: GDI[];
+  updateGdiAction: (
+    gdiIdOrNewData: string | (Partial<Omit<GDI, 'id'>> & { name: string; guideId: string }),
+    updatedData?: Partial<Pick<GDI, 'name' | 'guideId' | 'memberIds'>>
   ) => Promise<{ success: boolean; message: string; updatedGdi?: GDI; newGdi?: GDI }>;
   onSuccess?: () => void;
   isAdding?: boolean;
@@ -31,8 +31,8 @@ export default function ManageSingleGdiView({
   gdi: initialGdi,
   allMembers,
   activeMembers,
-  allGdis, 
-  updateGdiAction, // Renamed from onSave for clarity, handles both create/update
+  allGdis,
+  updateGdiAction,
   onSuccess,
   isAdding = false,
 }: ManageSingleGdiViewProps) {
@@ -81,7 +81,7 @@ export default function ManageSingleGdiView({
       const finalMemberIds = newFullMemberList.filter(id => id !== prevGdi.guideId);
       return { ...prevGdi, memberIds: finalMemberIds };
     });
-    setSelectedAvailableMembers([]); 
+    setSelectedAvailableMembers([]);
   };
 
   const handleRemoveSelectedMembersFromGdi = () => {
@@ -90,7 +90,7 @@ export default function ManageSingleGdiView({
       ...prevGdi,
       memberIds: (prevGdi.memberIds || []).filter(id => !selectedAssignedMembers.includes(id) && id !== prevGdi.guideId)
     }));
-    setSelectedAssignedMembers([]); 
+    setSelectedAssignedMembers([]);
   };
 
   const handleSubmit = () => {
@@ -104,38 +104,37 @@ export default function ManageSingleGdiView({
 
       let result;
       if (isAdding) {
-        result = await updateGdiAction(dataToSend); // updateGdiAction for add mode takes data directly
+        result = await updateGdiAction(dataToSend);
       } else {
-        result = await updateGdiAction(initialGdi.id, dataToSend); // for edit mode, takes ID and data
+        result = await updateGdiAction(initialGdi.id, dataToSend);
       }
-      
+
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
         if (result.updatedGdi) setEditableGdi(result.updatedGdi);
-        // For adding, parent dialog will receive newGdi and refresh list
-        setSelectedAvailableMembers([]); 
-        setSelectedAssignedMembers([]); 
+        setSelectedAvailableMembers([]);
+        setSelectedAssignedMembers([]);
         if (onSuccess) onSuccess();
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
       }
     });
   };
-  
+
   const guideDetails = useMemo(() => {
     return allMembers.find(m => m.id === editableGdi.guideId);
   }, [editableGdi.guideId, allMembers]);
 
   const availableMembersForAssignment = useMemo(() => {
-    return activeMembers.filter(member => { // Filter from activeMembers
-      if (member.id === editableGdi.guideId) return false;
-      if ((editableGdi.memberIds || []).includes(member.id)) return false;
-      
-      // A member cannot be assigned to a GDI if they are already guiding another GDI
-      // (unless it's the GDI being edited and they are the current guide).
+    // For GDI members, use allMembers as source, status doesn't matter for assignment.
+    return allMembers.filter(member => {
+      if (member.id === editableGdi.guideId) return false; // Cannot be the guide
+      if ((editableGdi.memberIds || []).includes(member.id)) return false; // Not already in this GDI
+
+      // A member cannot be assigned to a GDI if they are already guiding another GDI.
       const isGuideOfAnotherGdi = allGdis.some(g => g.guideId === member.id && g.id !== initialGdi.id);
       if (isGuideOfAnotherGdi) return false;
-      
+
       // A member cannot be assigned to a GDI if they are already a member of another GDI
       // (unless it's the GDI being edited and they are already a member of it).
       if (member.assignedGDIId && member.assignedGDIId !== "" && member.assignedGDIId !== initialGdi.id) return false;
@@ -143,11 +142,11 @@ export default function ManageSingleGdiView({
       return (`${member.firstName} ${member.lastName}`.toLowerCase().includes(addMemberSearchTerm.toLowerCase()) ||
               member.email.toLowerCase().includes(addMemberSearchTerm.toLowerCase()));
     });
-  }, [activeMembers, editableGdi.guideId, editableGdi.memberIds, addMemberSearchTerm, allGdis, initialGdi.id]);
+  }, [allMembers, editableGdi.guideId, editableGdi.memberIds, addMemberSearchTerm, allGdis, initialGdi.id]);
 
   const currentlyAssignedDisplayMembers = useMemo(() => {
     return (editableGdi.memberIds || [])
-      .filter(id => id !== editableGdi.guideId) 
+      .filter(id => id !== editableGdi.guideId)
       .map(id => allMembers.find(m => m.id === id))
       .filter(Boolean) as Member[];
   }, [editableGdi.memberIds, editableGdi.guideId, allMembers]);
@@ -164,10 +163,10 @@ export default function ManageSingleGdiView({
                           <SelectValue placeholder="Seleccionar nuevo guía" />
                       </SelectTrigger>
                       <SelectContent>
-                          {activeMembers.map((member) => (
-                          <SelectItem 
-                              key={member.id} 
-                              value={member.id} 
+                          {activeMembers.map((member) => ( // Guide selection uses activeMembers
+                          <SelectItem
+                              key={member.id}
+                              value={member.id}
                               disabled={allGdis.some(g => g.guideId === member.id && (isAdding || g.id !== initialGdi.id))}
                           >
                               {member.firstName} {member.lastName} ({member.email})
@@ -193,7 +192,7 @@ export default function ManageSingleGdiView({
                   <h3 className="text-lg font-semibold mb-3 flex items-center"><UserPlus className="mr-2 h-5 w-5 text-muted-foreground" />Agregar Miembros al GDI</h3>
                   <Input
                       type="search"
-                      placeholder="Buscar miembros activos disponibles..."
+                      placeholder="Buscar miembros (todos los estados)..."
                       value={addMemberSearchTerm}
                       onChange={(e) => setAddMemberSearchTerm(e.target.value)}
                       className="mb-3"
@@ -216,12 +215,12 @@ export default function ManageSingleGdiView({
                       </div>
                       )) : (
                       <p className="text-sm text-muted-foreground text-center py-4">
-                          {addMemberSearchTerm ? "No hay miembros que coincidan." : "No hay miembros activos disponibles (verifique que no estén ya en un GDI o sean guías de otro GDI)."}
+                          {addMemberSearchTerm ? "No hay miembros que coincidan." : "No hay miembros disponibles (verifique que no estén ya en otro GDI o sean guías de otro GDI)."}
                       </p>
                       )}
                   </ScrollArea>
-                  <Button 
-                      onClick={handleAddSelectedMembersToGdi} 
+                  <Button
+                      onClick={handleAddSelectedMembersToGdi}
                       disabled={isPending || selectedAvailableMembers.length === 0}
                       className="w-full mt-3"
                       variant="outline"
@@ -229,7 +228,7 @@ export default function ManageSingleGdiView({
                       <UserPlus className="mr-2 h-4 w-4" /> Agregar Seleccionados al GDI ({selectedAvailableMembers.length})
                   </Button>
               </div>
-              
+
               <div className="p-4 border rounded-lg shadow-sm bg-card">
                   <h3 className="text-lg font-semibold mb-3 flex items-center"><Users className="mr-2 h-5 w-5 text-muted-foreground" />Miembros Actualmente Asignados</h3>
                    <p className="text-sm text-muted-foreground mb-1">
@@ -256,8 +255,8 @@ export default function ManageSingleGdiView({
                            <p className="text-sm text-muted-foreground text-center py-4">Ningún miembro adicional asignado.</p>
                       )}
                   </ScrollArea>
-                  <Button 
-                      onClick={handleRemoveSelectedMembersFromGdi} 
+                  <Button
+                      onClick={handleRemoveSelectedMembersFromGdi}
                       disabled={isPending || selectedAssignedMembers.length === 0}
                       className="w-full mt-3"
                       variant="destructive"
@@ -274,11 +273,10 @@ export default function ManageSingleGdiView({
             </Button>
         </DialogClose>
         <Button onClick={handleSubmit} disabled={isPending || !editableGdi.guideId || !editableGdi.name.trim()}>
-          {isPending ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4" />} 
+          {isPending ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4" />}
           {isPending ? (isAdding ? 'Creando...' : 'Guardando...') : (isAdding ? 'Crear GDI' : 'Guardar Cambios')}
         </Button>
       </CardFooter>
     </>
   );
 }
-
