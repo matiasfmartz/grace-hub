@@ -40,13 +40,15 @@ interface MembersListViewProps {
 type SortKey = Exclude<keyof Member, 'email' | 'assignedGDIId' | 'assignedAreaIds' | 'avatarUrl' | 'attendsLifeSchool' | 'attendsBibleInstitute' | 'fromAnotherChurch' | 'baptismDate' | 'roles'> | 'fullName';
 type SortOrder = 'asc' | 'desc';
 
+const SELECT_ALL_VALUE = "__ALL__"; // Special value for "All" options
+
 const roleDisplayMap: Record<MemberRoleType, string> = {
   Leader: "Líder",
   Worker: "Obrero",
   GeneralAttendee: "Asistente General",
 };
-const roleFilterOptions: { value: MemberRoleType | ''; label: string }[] = [
-  { value: '', label: "Todos los Roles" },
+const roleFilterOptions: { value: MemberRoleType | typeof SELECT_ALL_VALUE; label: string }[] = [
+  { value: SELECT_ALL_VALUE, label: "Todos los Roles" },
   ...Object.entries(roleDisplayMap).map(([value, label]) => ({ value: value as MemberRoleType, label }))
 ];
 
@@ -55,8 +57,8 @@ const statusDisplayMap: Record<Member['status'], string> = {
   Inactive: "Inactivo",
   New: "Nuevo"
 };
-const statusFilterOptions: { value: Member['status'] | ''; label: string }[] = [
-  { value: '', label: "Todos los Estados" },
+const statusFilterOptions: { value: Member['status'] | typeof SELECT_ALL_VALUE; label: string }[] = [
+  { value: SELECT_ALL_VALUE, label: "Todos los Estados" },
   ...Object.entries(statusDisplayMap).map(([value, label]) => ({ value: value as Member['status'], label }))
 ];
 
@@ -253,7 +255,10 @@ export default function MembersListView({
           
           <div>
             <Label htmlFor="statusFilter" className="text-sm font-medium">Filtrar por Estado</Label>
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <Select 
+              value={selectedStatus === "" ? SELECT_ALL_VALUE : selectedStatus} 
+              onValueChange={(value) => setSelectedStatus(value === SELECT_ALL_VALUE ? "" : value)}
+            >
               <SelectTrigger id="statusFilter" className="w-full mt-1">
                 <SelectValue placeholder="Todos los Estados" />
               </SelectTrigger>
@@ -267,7 +272,10 @@ export default function MembersListView({
 
           <div>
             <Label htmlFor="roleFilter" className="text-sm font-medium">Filtrar por Rol</Label>
-            <Select value={selectedRole} onValueChange={setSelectedRole}>
+            <Select 
+              value={selectedRole === "" ? SELECT_ALL_VALUE : selectedRole}
+              onValueChange={(value) => setSelectedRole(value === SELECT_ALL_VALUE ? "" : value)}
+            >
               <SelectTrigger id="roleFilter" className="w-full mt-1">
                 <SelectValue placeholder="Todos los Roles" />
               </SelectTrigger>
@@ -281,12 +289,15 @@ export default function MembersListView({
 
           <div>
             <Label htmlFor="guideFilter" className="text-sm font-medium">Filtrar por Guía de GDI</Label>
-            <Select value={selectedGuideId} onValueChange={setSelectedGuideId}>
+            <Select 
+              value={selectedGuideId === "" ? SELECT_ALL_VALUE : selectedGuideId}
+              onValueChange={(value) => setSelectedGuideId(value === SELECT_ALL_VALUE ? "" : value)}
+            >
               <SelectTrigger id="guideFilter" className="w-full mt-1">
                 <SelectValue placeholder="Todos los Guías" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos los Guías</SelectItem>
+                <SelectItem value={SELECT_ALL_VALUE}>Todos los Guías</SelectItem>
                 {gdiGuides.map(guide => (
                   <SelectItem key={guide.id} value={guide.id}>
                     {guide.firstName} {guide.lastName}
