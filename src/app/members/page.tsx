@@ -1,6 +1,6 @@
 
 'use server';
-import type { Member, GDI, MinistryArea, MemberWriteData, Meeting, MeetingSeries, AttendanceRecord, MemberRoleType } from '@/lib/types';
+import type { Member, GDI, MinistryArea, Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
 import MembersListView from '@/components/members/members-list-view';
 import { revalidatePath } from 'next/cache';
 import {
@@ -17,7 +17,9 @@ import { getAllMinistryAreas } from '@/services/ministryAreaService';
 import { getAllMeetings, getAllMeetingSeries } from '@/services/meetingService';
 import { getAllAttendanceRecords } from '@/services/attendanceService';
 
-export async function addSingleMemberAction(newMemberData: MemberWriteData): Promise<{ success: boolean; message: string; newMember?: Member }> {
+export const dynamic = 'force-dynamic';
+
+export async function addSingleMemberAction(newMemberData: Omit<Member, 'id' | 'roles'>): Promise<{ success: boolean; message: string; newMember?: Member }> {
   try {
     const newMember = await addMember(newMemberData);
 
@@ -122,7 +124,7 @@ async function getMembersPageData(
   const statusFilters = statusFilterString ? statusFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
   const roleFilters = roleFilterString ? roleFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
   const guideIdFilters = guideIdFilterString ? guideIdFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
-
+  
   const { members, totalMembers, totalPages } = await getAllMembers(page, pageSize, searchTerm, statusFilters, roleFilters, guideIdFilters);
   
   const [

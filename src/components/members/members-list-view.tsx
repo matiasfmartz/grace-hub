@@ -125,13 +125,20 @@ export default function MembersListView({
  const handleFilterOrSearch = () => {
     const params = new URLSearchParams();
     params.set('page', '1');
-    params.set('pageSize', pageSize.toString());
+    
+    const currentPSElement = document.getElementById('memberPageSizeSelect') as HTMLSelectElement | null;
+    const currentPSValue = currentPSElement ? currentPSElement.value : pageSize.toString();
+    params.set('pageSize', currentPSValue);
+
 
     if (searchInput.trim()) params.set('search', searchInput.trim());
+
     if (selectedStatuses.length > 0) params.set('status', selectedStatuses.join(','));
     else params.delete('status');
+
     if (selectedRoles.length > 0) params.set('role', selectedRoles.join(','));
     else params.delete('role');
+    
     if (selectedGuideIds.length > 0) params.set('guide', selectedGuideIds.join(','));
     else params.delete('guide');
     
@@ -458,7 +465,7 @@ export default function MembersListView({
                     value={pageSize.toString()}
                     onValueChange={handlePageSizeChange}
                 >
-                    <SelectTrigger className="w-[70px] h-8 text-xs">
+                    <SelectTrigger id="memberPageSizeSelect" className="w-[70px] h-8 text-xs">
                         <SelectValue placeholder={pageSize.toString()} />
                     </SelectTrigger>
                     <SelectContent>
