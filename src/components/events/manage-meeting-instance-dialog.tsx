@@ -15,7 +15,7 @@ import {
 import MeetingInstanceForm from '@/components/events/add-occasional-meeting-form';
 import DeleteMeetingInstanceAlert from '@/components/events/delete-meeting-instance-alert';
 import type { Meeting, MeetingInstanceFormValues, MeetingSeries } from '@/lib/types';
-import { Settings, Edit2, Trash2, Info, CalendarDays, Clock, MapPin, FileText, Users, Image as ImageIcon } from 'lucide-react';
+import { Settings, Edit2, Trash2, Info, CalendarDays, Clock, MapPin, FileText, Users } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO, isValid as isValidDateFn } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -58,7 +58,7 @@ export default function ManageMeetingInstanceDialog({
         title: "Instancia Eliminada",
         description: result.message,
       });
-      router.push(redirectOnDeletePath || '/events'); // Use dynamic path or fallback
+      router.push(redirectOnDeletePath || '/events'); 
     }
     return result; 
   };
@@ -77,7 +77,6 @@ export default function ManageMeetingInstanceDialog({
     time: instance.time,
     location: instance.location,
     description: instance.description || "",
-    // imageUrl: instance.imageUrl || "", // Removed
   }), [instance, parsedDate]);
 
   const handleSubmitUpdate = async (formData: MeetingInstanceFormValues) => {
@@ -135,7 +134,6 @@ export default function ManageMeetingInstanceDialog({
                 <InfoItem icon={MapPin} label="Lugar:" value={instance.location} />
                 <InfoItem icon={FileText} label="Descripción:" value={instance.description || "N/A"} />
                 {instance.attendeeUids && <InfoItem icon={Users} label="Asistentes Esperados (UIDs):" value={instance.attendeeUids.length > 0 ? instance.attendeeUids.join(', ') : "Ninguno especificado"} />}
-                {/* Image display removed */}
               </div>
             )}
           </div>

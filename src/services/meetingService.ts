@@ -147,7 +147,7 @@ export async function getMeetingSeriesById(id: string): Promise<MeetingSeries | 
   return seriesList.find(series => series.id === id);
 }
 
-async function resolveAttendeeUids(
+async function resolveAttendeeUidsForGeneralSeries(
   targetGroups: MeetingTargetRoleType[],
   allMembers: Member[],
   allGdis: GDI[],
@@ -156,7 +156,7 @@ async function resolveAttendeeUids(
     const attendeeSet = new Set<string>();
 
     if (targetGroups.includes("allMembers")) {
-        return []; // For "allMembers", UIDs are resolved dynamically at display time
+        return []; // For "allMembers", UIDs are resolved dynamically at display/attendance time
     }
 
     for (const role of targetGroups) {
@@ -187,6 +187,30 @@ async function resolveAttendeeUids(
     return Array.from(attendeeSet);
 }
 
+async function resolveAttendeeUidsForGroupSeries(
+    groupType: 'gdi' | 'ministryArea',
+    groupId: string,
+    allMembers: Member[],
+    allGdis: GDI[],
+    allMinistryAreas: MinistryArea[]
+): Promise<string[]> {
+    if (groupType === 'gdi') {
+        const gdi = allGdis.find(g => g.id === groupId);
+        if (!gdi) return [];
+        return allMembers
+            .filter(m => m.id === gdi.guideId || (gdi.memberIds && gdi.memberIds.includes(m.id)))
+            .map(m => m.id);
+    } else if (groupType === 'ministryArea') {
+        const area = allMinistryAreas.find(a => a.id === groupId);
+        if (!area) return [];
+        return allMembers
+            .filter(m => m.id === area.leaderId || (area.memberIds && area.memberIds.includes(m.id)))
+            .map(m => m.id);
+    }
+    return [];
+}
+
+
 export async function addMeetingSeries(
   seriesData: MeetingSeriesWriteData,
 ): Promise<{series: MeetingSeries, newInstances?: Meeting[]}> {
@@ -199,7 +223,6 @@ export async function addMeetingSeries(
     description: seriesData.description,
     defaultTime: seriesData.defaultTime,
     defaultLocation: seriesData.defaultLocation,
-    // defaultImageUrl: seriesData.defaultImageUrl || 'https://placehold.co/600x400', // Removed
     seriesType: seriesData.seriesType,
     ownerGroupId: seriesData.ownerGroupId,
     targetAttendeeGroups: seriesData.targetAttendeeGroups,
@@ -220,12 +243,22 @@ export async function addMeetingSeries(
   const allGdisForResolve = await readDbFile<GDI>(GDIS_DB_FILE, []);
   const allMinistryAreasForResolve = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
   
-  const resolvedUids = await resolveAttendeeUids(
-    newSeries.targetAttendeeGroups,
-    allMembersForResolve,
-    allGdisForResolve,
-    allMinistryAreasForResolve
-  );
+  let resolvedUids: string[];
+  if (newSeries.seriesType === 'general') {
+    resolvedUids = await resolveAttendeeUidsForGeneralSeries(
+        newSeries.targetAttendeeGroups,
+        allMembersForResolve,
+        allGdisForResolve,
+        allMinistryAreasForResolve
+    );
+  } else if (newSeries.seriesType === 'gdi' && newSeries.ownerGroupId) {
+      resolvedUids = await resolveAttendeeUidsForGroupSeries('gdi', newSeries.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
+  } else if (newSeries.seriesType === 'ministryArea' && newSeries.ownerGroupId) {
+      resolvedUids = await resolveAttendeeUidsForGroupSeries('ministryArea', newSeries.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
+  } else {
+      resolvedUids = []; // Should not happen if types are correct
+  }
+
 
   const today = startOfDay(new Date());
   const allExistingMeetingsForSeries = await getMeetingsBySeriesId(newSeries.id); 
@@ -242,7 +275,6 @@ export async function addMeetingSeries(
                 time: newSeries.defaultTime,
                 location: newSeries.defaultLocation,
                 description: newSeries.description,
-                // imageUrl: newSeries.defaultImageUrl, // Removed
                 attendeeUids: resolvedUids, 
                 minute: null,
             });
@@ -261,7 +293,6 @@ export async function addMeetingSeries(
                 time: newSeries.defaultTime,
                 location: newSeries.defaultLocation,
                 description: newSeries.description,
-                // imageUrl: newSeries.defaultImageUrl, // Removed
                 attendeeUids: resolvedUids,
                 minute: null,
             });
@@ -280,7 +311,6 @@ export async function addMeetingSeries(
                 time: newSeries.defaultTime,
                 location: newSeries.defaultLocation,
                 description: newSeries.description,
-                // imageUrl: newSeries.defaultImageUrl, // Removed
                 attendeeUids: resolvedUids,
                 minute: null,
             });
@@ -305,7 +335,6 @@ export async function updateMeetingSeries(
   const updatedSeries: MeetingSeries = {
     ...existingSeries,
     ...updates,
-    // defaultImageUrl: updates.defaultImageUrl || existingSeries.defaultImageUrl || 'https://placehold.co/600x400', // Removed
     oneTimeDate: updates.frequency === "OneTime" ? (updates.oneTimeDate ?? existingSeries.oneTimeDate) : undefined,
     weeklyDays: updates.frequency === "Weekly" ? (updates.weeklyDays ?? existingSeries.weeklyDays) : undefined,
     monthlyRuleType: updates.frequency === "Monthly" ? (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) : undefined,
@@ -323,12 +352,21 @@ export async function updateMeetingSeries(
   const allGdisForResolve = await readDbFile<GDI>(GDIS_DB_FILE, []);
   const allMinistryAreasForResolve = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
 
-  const resolvedUids = await resolveAttendeeUids(
-    updatedSeries.targetAttendeeGroups,
-    allMembersForResolve,
-    allGdisForResolve,
-    allMinistryAreasForResolve
-  );
+  let resolvedUids: string[];
+  if (updatedSeries.seriesType === 'general') {
+    resolvedUids = await resolveAttendeeUidsForGeneralSeries(
+        updatedSeries.targetAttendeeGroups,
+        allMembersForResolve,
+        allGdisForResolve,
+        allMinistryAreasForResolve
+    );
+  } else if (updatedSeries.seriesType === 'gdi' && updatedSeries.ownerGroupId) {
+      resolvedUids = await resolveAttendeeUidsForGroupSeries('gdi', updatedSeries.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
+  } else if (updatedSeries.seriesType === 'ministryArea' && updatedSeries.ownerGroupId) {
+      resolvedUids = await resolveAttendeeUidsForGroupSeries('ministryArea', updatedSeries.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
+  } else {
+      resolvedUids = [];
+  }
 
   const today = startOfDay(new Date());
   const allExistingMeetingsForSeries = await getMeetingsBySeriesId(updatedSeries.id);
@@ -345,7 +383,6 @@ export async function updateMeetingSeries(
                 time: updatedSeries.defaultTime,
                 location: updatedSeries.defaultLocation,
                 description: updatedSeries.description,
-                // imageUrl: updatedSeries.defaultImageUrl, // Removed
                 attendeeUids: resolvedUids,
                 minute: null,
             });
@@ -364,7 +401,6 @@ export async function updateMeetingSeries(
                 time: updatedSeries.defaultTime,
                 location: updatedSeries.defaultLocation,
                 description: updatedSeries.description,
-                // imageUrl: updatedSeries.defaultImageUrl, // Removed
                 attendeeUids: resolvedUids,
                 minute: null,
             });
@@ -383,7 +419,6 @@ export async function updateMeetingSeries(
                 time: updatedSeries.defaultTime,
                 location: updatedSeries.defaultLocation,
                 description: updatedSeries.description,
-                // imageUrl: updatedSeries.defaultImageUrl, // Removed
                 attendeeUids: resolvedUids,
                 minute: null,
             });
@@ -440,14 +475,13 @@ export async function getFilteredMeetingInstances(
   }
 
   if (endDate) {
-    const end = startOfDay(parseISO(endDate)); // Use startOfDay to include the whole end date
+    const end = startOfDay(parseISO(endDate)); 
     filtered = filtered.filter(meeting => {
       const meetingDate = parseISO(meeting.date);
       return isValidDateFn(meetingDate) && meetingDate <= end;
     });
   }
   
-  // Sort by date descending (most recent first)
   filtered.sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
 
   const totalCount = filtered.length;
@@ -483,7 +517,7 @@ async function addMeetingInstanceInternal(meetingInstanceData: Omit<Meeting, 'id
 
 export async function addMeetingInstance(
   seriesId: string,
-  instanceDetails: Pick<Meeting, 'name' | 'date' | 'time' | 'location' | 'description' /* removed imageUrl */>
+  instanceDetails: Pick<Meeting, 'name' | 'date' | 'time' | 'location' | 'description'>
 ): Promise<Meeting> {
   const series = await getMeetingSeriesById(seriesId);
   if (!series) {
@@ -494,12 +528,21 @@ export async function addMeetingInstance(
   const allGdisForResolve = await readDbFile<GDI>(GDIS_DB_FILE, []);
   const allMinistryAreasForResolve = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
 
-  const resolvedUids = await resolveAttendeeUids(
-    series.targetAttendeeGroups,
-    allMembersForResolve,
-    allGdisForResolve,
-    allMinistryAreasForResolve
-  );
+  let resolvedUids: string[];
+  if (series.seriesType === 'general') {
+    resolvedUids = await resolveAttendeeUidsForGeneralSeries(
+        series.targetAttendeeGroups,
+        allMembersForResolve,
+        allGdisForResolve,
+        allMinistryAreasForResolve
+    );
+  } else if (series.seriesType === 'gdi' && series.ownerGroupId) {
+      resolvedUids = await resolveAttendeeUidsForGroupSeries('gdi', series.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
+  } else if (series.seriesType === 'ministryArea' && series.ownerGroupId) {
+      resolvedUids = await resolveAttendeeUidsForGroupSeries('ministryArea', series.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
+  } else {
+      resolvedUids = [];
+  }
 
   return addMeetingInstanceInternal({
     seriesId: series.id,
@@ -508,7 +551,6 @@ export async function addMeetingInstance(
     time: instanceDetails.time,
     location: instanceDetails.location,
     description: instanceDetails.description,
-    // imageUrl: instanceDetails.imageUrl || series.defaultImageUrl, // Removed
     attendeeUids: resolvedUids,
     minute: null,
   });
@@ -531,7 +573,6 @@ export async function updateMeeting(meetingId: string, updates: Partial<MeetingW
   } else if (updates.date && updates.date instanceof Date) {
      formattedUpdates.date = format(updates.date, 'yyyy-MM-dd');
   }
-  // imageUrl removed from updates processing
 
   const updatedMeeting: Meeting = {
     ...originalMeeting,

@@ -40,8 +40,8 @@ interface DefineMeetingSeriesFormProps {
   initialValues?: DefineMeetingSeriesFormValues;
   isEditing?: boolean;
   onCancelEdit?: () => void;
-  seriesTypeContext?: MeetingSeriesType; // To know if we are creating for 'general', 'gdi', or 'ministryArea'
-  ownerGroupIdContext?: string | null; // GDI or MinistryArea ID
+  seriesTypeContext?: MeetingSeriesType; 
+  ownerGroupIdContext?: string | null; 
 }
 
 const baseDefaultFormValues: DefineMeetingSeriesFormValues = {
@@ -49,7 +49,6 @@ const baseDefaultFormValues: DefineMeetingSeriesFormValues = {
   description: "",
   defaultTime: "10:00",
   defaultLocation: "Santuario Principal",
-  // defaultImageUrl: "", // Removed
   seriesType: 'general',
   ownerGroupId: null,
   targetAttendeeGroups: [],
@@ -87,10 +86,11 @@ const getResolvedDefaultValues = (
     description: currentInitialValues?.description ?? baseDefaultFormValues.description,
     defaultTime: currentInitialValues?.defaultTime ?? baseDefaultFormValues.defaultTime,
     defaultLocation: currentInitialValues?.defaultLocation ?? baseDefaultFormValues.defaultLocation,
-    // defaultImageUrl: currentInitialValues?.defaultImageUrl ?? baseDefaultFormValues.defaultImageUrl, // Removed
     seriesType: currentInitialValues?.seriesType ?? seriesTypeContext ?? baseDefaultFormValues.seriesType,
     ownerGroupId: currentInitialValues?.ownerGroupId ?? ownerGroupIdContext ?? baseDefaultFormValues.ownerGroupId,
-    targetAttendeeGroups: currentInitialValues?.targetAttendeeGroups ?? baseDefaultFormValues.targetAttendeeGroups,
+    targetAttendeeGroups: seriesTypeContext && seriesTypeContext !== 'general' 
+                          ? ['allMembers'] // Default for group context
+                          : (currentInitialValues?.targetAttendeeGroups ?? baseDefaultFormValues.targetAttendeeGroups),
     frequency: currentInitialValues?.frequency ?? baseDefaultFormValues.frequency,
     oneTimeDate: oneTimeDateToSet,
     weeklyDays: currentInitialValues?.weeklyDays ?? baseDefaultFormValues.weeklyDays,
@@ -104,7 +104,6 @@ const getResolvedDefaultValues = (
   resolved.description = resolved.description || "";
   resolved.defaultTime = resolved.defaultTime || "00:00";
   resolved.defaultLocation = resolved.defaultLocation || "";
-  // resolved.defaultImageUrl = resolved.defaultImageUrl || ""; // Removed
   
   return resolved;
 };
@@ -165,21 +164,20 @@ export default function DefineMeetingSeriesForm({
 
   const getValidatedData = () => {
         let values = form.getValues();
-         // Ensure date is formatted correctly if present
         if (values.oneTimeDate && values.oneTimeDate instanceof Date && isValid(values.oneTimeDate)) {
-          values.oneTimeDate = format(values.oneTimeDate, 'yyyy-MM-dd') as any; // Cast to any to satisfy type
+          values.oneTimeDate = format(values.oneTimeDate, 'yyyy-MM-dd') as any; 
         } else if (values.oneTimeDate && typeof values.oneTimeDate === 'string') {
-          // If it's already a string, assume it's formatted or let Zod handle it
+          // Assume formatted or let Zod handle
         } else {
-          values.oneTimeDate = undefined; // Ensure it's undefined if not valid
+          values.oneTimeDate = undefined; 
         }
         
-        // Ensure seriesType and ownerGroupId are correctly set from context if not editing.
-        // If editing, these values come from initialValues.
-        if (!isEditing) {
-            values.seriesType = seriesTypeContext;
-            values.ownerGroupId = ownerGroupIdContext;
+        values.seriesType = seriesTypeContext;
+        values.ownerGroupId = ownerGroupIdContext;
+        if (seriesTypeContext !== 'general') {
+            values.targetAttendeeGroups = ['allMembers'];
         }
+
 
         const dataToSend = { ...values };
       
@@ -197,7 +195,6 @@ export default function DefineMeetingSeriesForm({
                 delete dataToSend.monthlyDayOfWeek;
             }
         }
-        // delete dataToSend.defaultImageUrl; // Ensure it's not sent // Not needed, field removed
         return dataToSend;
   }
 
@@ -293,55 +290,56 @@ export default function DefineMeetingSeriesForm({
             />
         </div>
         
-        {/* Removed defaultImageUrl field */}
+        {seriesTypeContext === 'general' && (
+          <FormField
+              control={form.control}
+              name="targetAttendeeGroups"
+              render={() => (
+                <FormItem className="space-y-3">
+                  <FormLabel>Grupos de Asistentes Objetivo (Solo para Series Generales)</FormLabel>
+                  <div className="space-y-2 p-2 border rounded-md">
+                    {targetGroupOptions.map((group) => (
+                      <FormField
+                        key={group.id}
+                        control={form.control}
+                        name="targetAttendeeGroups"
+                        render={({ field }) => {
+                          return (
+                            <FormItem
+                              key={group.id}
+                              className="flex flex-row items-start space-x-3 space-y-0"
+                            >
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(group.id as MeetingTargetRoleType)}
+                                  onCheckedChange={(checked) => {
+                                    const currentGroups = field.value || [];
+                                    return checked
+                                      ? field.onChange([...currentGroups, group.id as MeetingTargetRoleType])
+                                      : field.onChange(
+                                          currentGroups.filter(
+                                            (value) => value !== group.id
+                                          )
+                                        );
+                                  }}
+                                  disabled={isPending || seriesTypeContext !== 'general'}
+                                />
+                              </FormControl>
+                              <Label className="font-normal cursor-pointer">
+                                {group.label}
+                              </Label>
+                            </FormItem>
+                          );
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+        )}
 
-        <FormField
-            control={form.control}
-            name="targetAttendeeGroups"
-            render={() => (
-              <FormItem className="space-y-3">
-                <FormLabel>Grupos de Asistentes Objetivo</FormLabel>
-                <div className="space-y-2 p-2 border rounded-md">
-                  {targetGroupOptions.map((group) => (
-                    <FormField
-                      key={group.id}
-                      control={form.control}
-                      name="targetAttendeeGroups"
-                      render={({ field }) => {
-                        return (
-                          <FormItem
-                            key={group.id}
-                            className="flex flex-row items-start space-x-3 space-y-0"
-                          >
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(group.id as MeetingTargetRoleType)}
-                                onCheckedChange={(checked) => {
-                                  const currentGroups = field.value || [];
-                                  return checked
-                                    ? field.onChange([...currentGroups, group.id as MeetingTargetRoleType])
-                                    : field.onChange(
-                                        currentGroups.filter(
-                                          (value) => value !== group.id
-                                        )
-                                      );
-                                }}
-                                disabled={isPending}
-                              />
-                            </FormControl>
-                            <Label className="font-normal cursor-pointer">
-                              {group.label}
-                            </Label>
-                          </FormItem>
-                        );
-                      }}
-                    />
-                  ))}
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
 
         <FormField
           control={form.control}

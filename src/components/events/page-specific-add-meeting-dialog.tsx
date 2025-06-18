@@ -13,13 +13,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import DefineMeetingSeriesForm from '@/components/events/add-meeting-form';
-import type { DefineMeetingSeriesFormValues, MeetingSeries, Meeting } from '@/lib/types';
+import type { DefineMeetingSeriesFormValues, MeetingSeries, Meeting, MeetingSeriesType } from '@/lib/types';
 
 interface PageSpecificAddMeetingDialogProps {
   defineMeetingSeriesAction: (data: DefineMeetingSeriesFormValues) => Promise<{ success: boolean; message: string; newSeries?: MeetingSeries, newInstances?: Meeting[] }>;
+  seriesTypeContext: MeetingSeriesType; // To specify if it's 'general', 'gdi', or 'ministryArea'
+  ownerGroupIdContext?: string | null; // Only if seriesType is 'gdi' or 'ministryArea'
 }
 
-export default function PageSpecificAddMeetingDialog({ defineMeetingSeriesAction }: PageSpecificAddMeetingDialogProps) {
+export default function PageSpecificAddMeetingDialog({ defineMeetingSeriesAction, seriesTypeContext, ownerGroupIdContext }: PageSpecificAddMeetingDialogProps) {
   const [open, setOpen] = useState(false);
 
   const handleSuccess = () => {
@@ -29,7 +31,7 @@ export default function PageSpecificAddMeetingDialog({ defineMeetingSeriesAction
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="w-full"> {/* Added w-full for better display in sidebar */}
+        <Button className="w-full"> 
           <PlusCircle className="mr-2 h-4 w-4" /> Definir Nueva Serie de Reunión
         </Button>
       </DialogTrigger>
@@ -45,6 +47,8 @@ export default function PageSpecificAddMeetingDialog({ defineMeetingSeriesAction
             <DefineMeetingSeriesForm 
               defineMeetingSeriesAction={defineMeetingSeriesAction} 
               onSuccess={handleSuccess}
+              seriesTypeContext={seriesTypeContext}
+              ownerGroupIdContext={ownerGroupIdContext}
             />
         </div>
       </DialogContent>

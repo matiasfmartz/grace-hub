@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import DefineMeetingSeriesForm from '@/components/events/add-meeting-form';
 import DeleteMeetingSeriesAlert from '@/components/events/delete-meeting-series-alert';
-import type { DefineMeetingSeriesFormValues, MeetingSeries, DayOfWeekType, WeekOrdinalType, MeetingTargetRoleType } from '@/lib/types'; // Added MeetingTargetRoleType
+import type { DefineMeetingSeriesFormValues, MeetingSeries, DayOfWeekType, WeekOrdinalType, MeetingTargetRoleType, MeetingSeriesType } from '@/lib/types'; 
 import { daysOfWeek, weekOrdinals } from '@/lib/types';
 import { Settings, Edit2, Trash2, Info, Loader2, CalendarDays, Clock, MapPin, Users, Repeat } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +28,8 @@ interface ManageMeetingSeriesDialogProps {
     data: DefineMeetingSeriesFormValues
   ) => Promise<{ success: boolean; message: string; updatedSeries?: MeetingSeries }>;
   deleteMeetingSeriesAction: (seriesId: string) => Promise<{ success: boolean; message: string }>;
+  seriesTypeContext: MeetingSeriesType; // Added context
+  ownerGroupIdContext?: string | null; // Added context
 }
 
 const getDayLabel = (dayId: DayOfWeekType): string => {
@@ -53,7 +55,9 @@ const getTargetGroupLabel = (groupKey: MeetingTargetRoleType): string => {
 export default function ManageMeetingSeriesDialog({ 
   series, 
   updateMeetingSeriesAction,
-  deleteMeetingSeriesAction
+  deleteMeetingSeriesAction,
+  seriesTypeContext,
+  ownerGroupIdContext
 }: ManageMeetingSeriesDialogProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -81,7 +85,7 @@ export default function ManageMeetingSeriesDialog({
     defaultLocation: series.defaultLocation,
     seriesType: series.seriesType,
     ownerGroupId: series.ownerGroupId,
-    targetAttendeeGroups: series.targetAttendeeGroups || [],
+    targetAttendeeGroups: seriesTypeContext !== 'general' ? ['allMembers'] : (series.targetAttendeeGroups || []),
     frequency: series.frequency,
     oneTimeDate: (parsedOneTimeDate && isValidDate(parsedOneTimeDate)) ? parsedOneTimeDate : undefined,
     weeklyDays: series.weeklyDays || [],
@@ -95,7 +99,10 @@ export default function ManageMeetingSeriesDialog({
     startTransition(async () => {
       const dataToSend = { 
         ...data, 
-        oneTimeDate: data.oneTimeDate && isValidDate(data.oneTimeDate) ? format(data.oneTimeDate, 'yyyy-MM-dd') : undefined 
+        oneTimeDate: data.oneTimeDate && isValidDate(data.oneTimeDate) ? format(data.oneTimeDate, 'yyyy-MM-dd') : undefined,
+        seriesType: seriesTypeContext, // Ensure context is passed
+        ownerGroupId: ownerGroupIdContext, // Ensure context is passed
+        targetAttendeeGroups: seriesTypeContext !== 'general' ? ['allMembers'] : data.targetAttendeeGroups, // Override for group series
       };
       const result = await updateMeetingSeriesAction(series.id, dataToSend as any);
       if (result.success) {
@@ -156,8 +163,8 @@ export default function ManageMeetingSeriesDialog({
               initialValues={initialFormValues}
               isEditing={true}
               onCancelEdit={() => setIsEditing(false)}
-              seriesTypeContext={series.seriesType}
-              ownerGroupIdContext={series.ownerGroupId}
+              seriesTypeContext={seriesTypeContext} // Pass context
+              ownerGroupIdContext={ownerGroupIdContext} // Pass context
             />
           ) : (
             <div className="space-y-3 text-sm">
@@ -166,9 +173,11 @@ export default function ManageMeetingSeriesDialog({
               <InfoItem icon={Clock} label="Hora Predeterminada:" value={series.defaultTime} />
               <InfoItem icon={MapPin} label="Lugar Predeterminado:" value={series.defaultLocation} />
               <InfoItem icon={Repeat} label="Frecuencia:" value={renderFrequencyDetails()} />
-              <InfoItem icon={Users} label="Grupos Objetivo:" value={
-                  series.targetAttendeeGroups.map(group => getTargetGroupLabel(group)).join(', ') || "N/A"
-              } />
+              {series.seriesType === 'general' && (
+                <InfoItem icon={Users} label="Grupos Objetivo:" value={
+                    series.targetAttendeeGroups.map(group => getTargetGroupLabel(group)).join(', ') || "N/A"
+                } />
+              )}
             </div>
           )}
         </div>

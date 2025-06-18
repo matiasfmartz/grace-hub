@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { notFound } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Settings } from 'lucide-react'; // Added Settings
 import { getMinistryAreaById, updateMinistryAreaAndSyncMembers } from '@/services/ministryAreaService';
 import { getAllMembersNonPaginated, bulkRecalculateAndUpdateRoles } from '@/services/memberService';
 
@@ -23,9 +23,9 @@ export async function updateMinistryAreaDetailsAction(
     }
     
     revalidatePath(`/groups/ministry-areas/${areaId}/manage`);
+    revalidatePath(`/groups/ministry-areas/${areaId}/admin`);
     revalidatePath('/groups');
     revalidatePath('/members'); 
-    revalidatePath(`/groups/ministry-areas/${areaId}/admin`);
 
 
     return { success: true, message: `Ministry Area "${updatedArea.name}" updated successfully. Member assignments and roles synchronized.`, updatedArea };
@@ -65,7 +65,7 @@ export default async function ManageMinistryAreaPage({ params }: ManageMinistryA
         </Button>
         <Button asChild variant="outline">
             <Link href={`/groups/ministry-areas/${ministryArea.id}/admin`}>
-                Admin Meetings
+                <Settings className="mr-2 h-4 w-4" /> Administrar Reuniones
             </Link>
         </Button>
       </div>

@@ -12,7 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { MeetingSeries, AddOccasionalMeetingFormValues, Meeting } from "@/lib/types";
-import MeetingInstanceForm from './add-occasional-meeting-form'; // Re-using the adapted form
+import MeetingInstanceForm from './add-occasional-meeting-form'; 
 import { PlusSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
@@ -31,7 +31,7 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
   const { toast } = useToast();
 
   const initialFormValues = useMemo(() => {
-    let time = "00:00"; // Fallback default
+    let time = "00:00"; 
     if (series.defaultTime && /^[0-2][0-9]:[0-5][0-9]$/.test(series.defaultTime)) {
       time = series.defaultTime;
     }
@@ -42,7 +42,6 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
       time: time,
       location: series.defaultLocation,
       description: series.description || "",
-      // imageUrl: series.defaultImageUrl || "", // Removed
     };
   }, [series]);
 

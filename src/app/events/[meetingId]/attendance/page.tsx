@@ -16,7 +16,7 @@ import { ArrowLeft, FileText, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { getAllMeetingSeries } from '@/services/meetingService'; // For passing allMeetingSeries
+import { getAllMeetingSeries } from '@/services/meetingService'; 
 
 interface MeetingAttendancePageProps {
   params: { meetingId: string };
@@ -77,7 +77,6 @@ async function handleUpdateMeetingInstanceAction(
       time: data.time,
       location: data.location,
       description: data.description,
-      // imageUrl: data.imageUrl, // Removed
     };
     const updatedInstance = await updateMeeting(instanceId, instanceDataToUpdate);
     revalidatePath(`/events/${instanceId}/attendance`);
@@ -103,9 +102,6 @@ async function handleDeleteMeetingInstanceAction(
 ): Promise<{ success: boolean; message: string }> {
   'use server';
   try {
-    // Revalidation path will be handled by the dialog via redirectOnDeletePath or fallback
-    // No specific revalidation here as the parent component (dialog) or service might handle it
-    // or the redirect itself makes it unnecessary for this specific action.
     await deleteMeetingInstance(instanceId); 
     return { success: true, message: "Instancia de reunión eliminada exitosamente." };
   } catch (error: any) {

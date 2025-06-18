@@ -4,8 +4,8 @@
 import React, { useEffect, useMemo } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { MeetingInstanceFormValues } from "@/lib/types"; // Updated type
-import { MeetingInstanceFormSchema } from "@/lib/types"; // Updated schema
+import type { MeetingInstanceFormValues } from "@/lib/types"; 
+import { MeetingInstanceFormSchema } from "@/lib/types"; 
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -50,7 +50,6 @@ export default function MeetingInstanceForm({
     time: initialValues?.time || "00:00",
     location: initialValues?.location || "",
     description: initialValues?.description || "",
-    // imageUrl: initialValues?.imageUrl || "", // Removed
   }), [initialValues]);
 
   const form = useForm<MeetingInstanceFormValues>({
@@ -58,10 +57,6 @@ export default function MeetingInstanceForm({
     defaultValues: computedDefaultValues,
   });
 
-  // Remove useEffect that calls form.reset as it might cause issues
-  // useEffect(() => {
-  //   form.reset(computedDefaultValues);
-  // }, [computedDefaultValues, form]);
 
   const handleSubmit = async (values: MeetingInstanceFormValues) => {
     const result = await onSubmitAction(values);
@@ -145,7 +140,6 @@ export default function MeetingInstanceForm({
             </FormItem>
           )}
         />
-        {/* Removed imageUrl field */}
         <div className="flex justify-end space-x-2 pt-4 border-t">
            {onCancel ? (
              <Button type="button" variant="outline" onClick={handleCancelClick} disabled={isPending}>

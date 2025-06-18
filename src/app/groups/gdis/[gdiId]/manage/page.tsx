@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { notFound } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Settings } from 'lucide-react'; // Added Settings
 import { getGdiById, getAllGdis, updateGdiAndSyncMembers } from '@/services/gdiService';
 import { getAllMembersNonPaginated, bulkRecalculateAndUpdateRoles } from '@/services/memberService';
 
@@ -32,6 +32,7 @@ export async function updateGdiDetailsAction(
     }
 
     revalidatePath(`/groups/gdis/${gdiIdToUpdate}/manage`);
+    revalidatePath(`/groups/gdis/${gdiIdToUpdate}/admin`);
     revalidatePath('/groups');
     revalidatePath('/members');
 
@@ -63,12 +64,17 @@ export default async function ManageGdiPage({ params }: ManageGdiPageProps) {
   
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="mb-6">
+      <div className="mb-6 flex justify-between items-center">
         <Button asChild variant="outline">
           <Link href="/groups">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver a Grupos
           </Link>
+        </Button>
+        <Button asChild variant="outline">
+            <Link href={`/groups/gdis/${gdi.id}/admin`}>
+                <Settings className="mr-2 h-4 w-4" /> Administrar Reuniones
+            </Link>
         </Button>
       </div>
       <div className="mb-8 text-center">

@@ -47,7 +47,7 @@ export interface GDI { // Grupo de Integración
 export type GDIWriteData = Omit<GDI, 'id'>;
 
 // For Meeting Series target roles
-export const MeetingTargetRoleEnum = z.enum(["allMembers", "workers", "leaders"]); // Changed "generalAttendees" to "allMembers"
+export const MeetingTargetRoleEnum = z.enum(["allMembers", "workers", "leaders"]);
 export type MeetingTargetRoleType = z.infer<typeof MeetingTargetRoleEnum>;
 
 export const DayOfWeekEnum = z.enum(['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']);
@@ -72,10 +72,9 @@ export interface MeetingSeries {
   description?: string;
   defaultTime: string; // HH:MM
   defaultLocation: string;
-  // defaultImageUrl?: string; // Removed
-  seriesType: MeetingSeriesType; // To distinguish general events from group-specific ones
+  seriesType: MeetingSeriesType;
   ownerGroupId?: string | null; // ID of GDI or MinistryArea if seriesType is 'gdi' or 'ministryArea'
-  targetAttendeeGroups: MeetingTargetRoleType[];
+  targetAttendeeGroups: MeetingTargetRoleType[]; // For 'general' series. For group series, it's implicitly members of ownerGroupId.
   frequency: MeetingFrequencyType;
   oneTimeDate?: string; // YYYY-MM-DD, only if frequency is "OneTime"
 
@@ -98,7 +97,6 @@ export interface Meeting {
   time: string; // HH:MM
   location: string;
   description?: string;
-  // imageUrl?: string; // Removed
   attendeeUids: string[];
   minute?: string | null;
 }
@@ -168,9 +166,8 @@ export const DefineMeetingSeriesFormSchema = z.object({
   description: z.string().optional(),
   defaultTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Formato de hora inválido (HH:MM)." }),
   defaultLocation: z.string().min(3, { message: "La ubicación por defecto es requerida." }),
-  // defaultImageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')), // Removed
-  seriesType: MeetingSeriesTypeEnum.default('general'),
-  ownerGroupId: z.string().nullable().optional(),
+  seriesType: MeetingSeriesTypeEnum.default('general'), // Contextually set
+  ownerGroupId: z.string().nullable().optional(), // Contextually set
   targetAttendeeGroups: z.array(MeetingTargetRoleEnum).min(1,{message: "Debe seleccionar al menos un grupo de asistentes."}),
   frequency: MeetingFrequencyEnum,
   oneTimeDate: z.date().optional(),
@@ -214,6 +211,15 @@ export const DefineMeetingSeriesFormSchema = z.object({
       }
     }
   }
+  // For GDI/MinistryArea series, targetAttendeeGroups will be set programmatically to allMembers (of that group)
+  // For general series, it's user-selectable. This validation might need context or be handled at action level.
+  if (data.seriesType === 'general' && (!data.targetAttendeeGroups || data.targetAttendeeGroups.length === 0)) {
+     ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Debe seleccionar al menos un grupo de asistentes para series generales.",
+        path: ['targetAttendeeGroups'],
+      });
+  }
 });
 export type DefineMeetingSeriesFormValues = z.infer<typeof DefineMeetingSeriesFormSchema>;
 
@@ -223,7 +229,6 @@ export const MeetingInstanceFormSchema = z.object({
   time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Formato de hora inválido (HH:MM)." }),
   location: z.string().min(3, { message: "La ubicación es requerida." }),
   description: z.string().optional(),
-  // imageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')), // Removed
 });
 export type MeetingInstanceFormValues = z.infer<typeof MeetingInstanceFormSchema>;
 
@@ -246,7 +251,6 @@ export const weekOrdinals: { id: WeekOrdinalType; label: string }[] = [
     { id: "Last", label: "Última" },
 ];
 
-// Ensure AddOccasionalMeetingFormValues is still exported if used elsewhere for specifically adding occasional meetings
 export type AddOccasionalMeetingFormValues = MeetingInstanceFormValues;
 export const AddOccasionalMeetingFormSchema = MeetingInstanceFormSchema;
 
@@ -258,7 +262,7 @@ interface MeetingBase {
   time: string; // HH:MM
   location: string;
   description?: string;
-  attendeeUids: string[]; // Specific UIDs for this instance, especially if not 'allMembers' type
+  attendeeUids: string[];
   minute?: string | null;
 }
 

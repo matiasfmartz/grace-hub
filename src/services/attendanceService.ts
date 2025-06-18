@@ -1,11 +1,13 @@
 
 'use server';
-import type { AttendanceRecord, Meeting, Member, MeetingSeries } from '@/lib/types';
+import type { AttendanceRecord, Meeting, Member, MeetingSeries, GDI, MinistryArea } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
 
 const ATTENDANCE_DB_FILE = 'attendance-db.json';
 const MEMBERS_DB_FILE = 'members-db.json'; 
-const MEETING_SERIES_DB_FILE = 'meeting-series-db.json'; // Added for dynamic resolution
+const MEETING_SERIES_DB_FILE = 'meeting-series-db.json';
+const GDIS_DB_FILE = 'gdis-db.json';
+const MINISTRY_AREAS_DB_FILE = 'ministry-areas-db.json';
 
 export async function getAllAttendanceRecords(): Promise<AttendanceRecord[]> {
   return readDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, []);
@@ -55,19 +57,60 @@ export async function getResolvedAttendees(
 
     const parentSeries = allMeetingSeries.find(s => s.id === meeting.seriesId);
 
-    if (parentSeries && parentSeries.targetAttendeeGroups.includes("allMembers")) {
-        // "allMembers" (Todos) means everyone, no status filtering.
-        return [...allMembers].sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+    if (!parentSeries) {
+        // If series not found, fall back to UIDs stored in meeting if any
+        if (!meeting.attendeeUids || meeting.attendeeUids.length === 0) return [];
+        return allMembers.filter(member => meeting.attendeeUids.includes(member.id))
+            .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
     }
 
-    // Original logic for other target groups (workers, leaders) or specific UIDs stored in meeting.attendeeUids
-    // If meeting.attendeeUids is empty (because it was an "allMembers" series), this will correctly return []
-    // unless other logic (like workers/leaders) specifically populated it for some reason.
-    if (!meeting.attendeeUids || meeting.attendeeUids.length === 0) {
-        return [];
+    if (parentSeries.seriesType === 'general') {
+        if (parentSeries.targetAttendeeGroups.includes("allMembers")) {
+            // For 'general' series with 'allMembers' target, all members are expected.
+            return [...allMembers].sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+        } else {
+            // For 'general' series with specific roles (workers, leaders), use UIDs from meeting.attendeeUids (resolved at series creation)
+            if (!meeting.attendeeUids || meeting.attendeeUids.length === 0) return [];
+            return allMembers.filter(member => meeting.attendeeUids.includes(member.id))
+                .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+        }
+    } else if ((parentSeries.seriesType === 'gdi' || parentSeries.seriesType === 'ministryArea') && parentSeries.ownerGroupId) {
+        // For group-specific meetings, attendees are members of that group.
+        let groupMemberIds: string[] = [];
+        if (parentSeries.seriesType === 'gdi') {
+            const gdis = await readDbFile<GDI>(GDIS_DB_FILE, []);
+            const gdi = gdis.find(g => g.id === parentSeries.ownerGroupId);
+            if (gdi) {
+                groupMemberIds = [gdi.guideId, ...gdi.memberIds];
+            }
+        } else if (parentSeries.seriesType === 'ministryArea') {
+            const areas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
+            const area = areas.find(a => a.id === parentSeries.ownerGroupId);
+            if (area) {
+                groupMemberIds = [area.leaderId, ...area.memberIds];
+            }
+        }
+        
+        // The `meeting.attendeeUids` for group meetings should already be resolved to these group members
+        // at instance creation time. So, we can primarily rely on `meeting.attendeeUids`.
+        if (!meeting.attendeeUids || meeting.attendeeUids.length === 0) {
+             // Fallback if attendeeUids wasn't populated, try to resolve group members dynamically
+             if (groupMemberIds.length > 0) {
+                 return allMembers.filter(member => groupMemberIds.includes(member.id))
+                    .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+             }
+             return [];
+        }
+
+        return allMembers.filter(member => meeting.attendeeUids.includes(member.id))
+            .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
     }
     
-    return allMembers
-        .filter(member => meeting.attendeeUids.includes(member.id)) 
-        .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+    // Default fallback: if UIDs are directly stored in meeting (e.g. occasional meeting with custom list)
+    if (meeting.attendeeUids && meeting.attendeeUids.length > 0) {
+        return allMembers.filter(member => meeting.attendeeUids.includes(member.id))
+            .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+    }
+    
+    return [];
 }

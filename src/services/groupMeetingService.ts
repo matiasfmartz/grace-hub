@@ -28,21 +28,21 @@ import {
   deleteMeetingInstance as deleteCoreMeetingInstance,
   updateMeetingMinute as updateCoreMeetingMinute,
   getMeetingsBySeriesId as getCoreMeetingsBySeriesId,
-} from './meetingService'; // Using core meeting service functions
+} from './meetingService'; 
 import { getAllMembersNonPaginated } from './memberService';
 import { getAllGdis } from './gdiService';
 import { getAllMinistryAreas } from './ministryAreaService';
 
 const ATTENDANCE_DB_FILE = 'attendance-db.json';
-const MEETINGS_DB_FILE = 'meetings-db.json'; // Direct access might be needed for targeted deletion or updates
+const MEETINGS_DB_FILE = 'meetings-db.json'; 
 
 // --- Group Meeting Series Actions ---
 
 export async function getSeriesByIdForGroup(
   groupType: 'gdi' | 'ministryArea',
   groupId: string,
-  seriesId?: string
-): Promise<MeetingSeries[]> {
+  seriesId?: string // If provided, fetches a specific series for the group
+): Promise<MeetingSeries[]> { // Returns an array, even if fetching a single series
   const allSeries = await getAllCoreMeetingSeries();
   const groupSeries = allSeries.filter(
     s => s.seriesType === groupType && s.ownerGroupId === groupId
@@ -67,7 +67,6 @@ export async function addMeetingSeriesForGroup(
     description: seriesData.description,
     defaultTime: seriesData.defaultTime,
     defaultLocation: seriesData.defaultLocation,
-    // defaultImageUrl: seriesData.defaultImageUrl, // Removed
     seriesType: groupType,
     ownerGroupId: groupId,
     targetAttendeeGroups: ['allMembers'], // For group meetings, attendees are implicitly group members
@@ -117,7 +116,6 @@ export async function updateMeetingSeriesForGroup(
         description: updatedData.description,
         defaultTime: updatedData.defaultTime,
         defaultLocation: updatedData.defaultLocation,
-        // defaultImageUrl: updatedData.defaultImageUrl, // Removed
         targetAttendeeGroups: ['allMembers'], 
         frequency: updatedData.frequency,
         oneTimeDate: updatedData.frequency === "OneTime" ? (updatedData.oneTimeDate instanceof Date ? format(updatedData.oneTimeDate, 'yyyy-MM-dd') : updatedData.oneTimeDate) : undefined,
@@ -145,7 +143,7 @@ export async function deleteMeetingSeriesForGroup(
   if (!seriesToDelete || seriesToDelete.ownerGroupId !== groupId || seriesToDelete.seriesType !== groupType) {
     throw new Error('Serie no encontrada o no pertenece a este grupo.');
   }
-  await deleteCoreMeetingSeries(seriesId); // This also handles deleting instances and attendance
+  await deleteCoreMeetingSeries(seriesId); 
 }
 
 
@@ -162,7 +160,7 @@ export async function getGroupMeetingInstances(
 ): Promise<{ instances: Meeting[]; totalCount: number; totalPages: number }> {
     const allMeetings = await getAllCoreMeetings();
     
-    let relevantMeetings = allMeetings.filter(meeting => {
+    let relevantMeetings = allMeetings.filter(async meeting => {
         const parentSeries = meeting.seriesId ? (await getCoreMeetingSeriesById(meeting.seriesId)) : null;
         if (!parentSeries) return false;
         return parentSeries.seriesType === groupType && parentSeries.ownerGroupId === groupId &&
@@ -205,7 +203,6 @@ async function resolveGroupAttendeeUids(
   if (groupType === 'gdi') {
     const gdi = allGdis.find(g => g.id === groupId);
     if (!gdi) return [];
-    // For GDI, attendees are the guide and all members of that GDI
     return allMembers
         .filter(m => m.id === gdi.guideId || (gdi.memberIds && gdi.memberIds.includes(m.id)))
         .map(m => m.id);
@@ -213,7 +210,6 @@ async function resolveGroupAttendeeUids(
   } else if (groupType === 'ministryArea') {
     const area = allMinistryAreas.find(a => a.id === groupId);
     if (!area) return [];
-    // For Ministry Area, attendees are the leader and all members of that Area
      return allMembers
         .filter(m => m.id === area.leaderId || (area.memberIds && area.memberIds.includes(m.id)))
         .map(m => m.id);
@@ -233,28 +229,23 @@ export async function addMeetingInstanceForGroup(
     throw new Error(`Serie no encontrada o no pertenece a este grupo (${groupType} ID: ${groupId}).`);
   }
 
-  const allMembers = await getAllMembersNonPaginated();
-  const allGdis = groupType === 'gdi' ? await getAllGdis() : [];
-  const allMinistryAreas = groupType === 'ministryArea' ? await getAllMinistryAreas() : [];
-
-  const resolvedUids = await resolveGroupAttendeeUids(groupType, groupId, allMembers, allGdis, allMinistryAreas);
-
+  // UIDs for group meetings are resolved by coreMeetingService using its updated resolveAttendeeUids
+  // which now considers seriesType and ownerGroupId.
   const meetingData: Pick<Meeting, 'name' | 'date' | 'time' | 'location' | 'description'> = {
     name: instanceDetails.name,
     date: format(instanceDetails.date, 'yyyy-MM-dd'),
     time: instanceDetails.time,
     location: instanceDetails.location,
     description: instanceDetails.description,
-    // imageUrl is not part of MeetingInstanceFormValues anymore
   };
 
-  return addCoreMeetingInstance(seriesId, meetingData);
+  return addCoreMeetingInstance(seriesId, meetingData); // addCoreMeetingInstance will resolve UIDs
 }
 
 export async function updateMeetingInstanceForGroup(
   groupType: 'gdi' | 'ministryArea',
   groupId: string,
-  seriesId: string, // Series ID remains constant for an instance
+  seriesId: string, 
   instanceId: string,
   updates: AnyMeetingInstanceUpdateData
 ): Promise<Meeting> {
@@ -266,7 +257,6 @@ export async function updateMeetingInstanceForGroup(
   if (!series || series.seriesType !== groupType || series.ownerGroupId !== groupId || series.id !== seriesId) {
     throw new Error('Instancia no pertenece a la serie o grupo especificado.');
   }
-  // imageUrl not handled here as it's removed from MeetingInstanceUpdateData via types
   return updateCoreMeeting(instanceId, updates);
 }
 
@@ -274,7 +264,7 @@ export async function updateMeetingInstanceForGroup(
 export async function deleteMeetingInstanceForGroup(
   groupType: 'gdi' | 'ministryArea',
   groupId: string,
-  seriesId: string, // For validation
+  seriesId: string, 
   instanceId: string
 ): Promise<void> {
   const instance = await getCoreMeetingById(instanceId);
