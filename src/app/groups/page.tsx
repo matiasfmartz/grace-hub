@@ -5,22 +5,22 @@ import ManageGroupsTabs from '@/components/groups/manage-groups-tabs';
 import { revalidatePath } from 'next/cache';
 import { 
     getAllMinistryAreas, 
-    addMinistryArea as addMinistryAreaService, // Renamed to avoid conflict
-    updateMinistryAreaAndSyncMembers // For updating member assignments
+    addMinistryArea as addMinistryAreaService, 
+    deleteMinistryArea as deleteMinistryAreaService, // Added delete service
 } from '@/services/ministryAreaService';
 import { 
     getAllGdis, 
-    addGdi as addGdiService, // Renamed to avoid conflict
-    updateGdiAndSyncMembers // For updating member assignments
+    addGdi as addGdiService, 
+    deleteGdi as deleteGdiService, // Added delete service
 } from '@/services/gdiService';
-import { getAllMembersNonPaginated, bulkRecalculateAndUpdateRoles, updateMemberAssignments } from '@/services/memberService'; 
-import { writeDbFile, readDbFile } from '@/lib/db-utils'; // For direct member updates if needed
+import { getAllMembersNonPaginated, bulkRecalculateAndUpdateRoles } from '@/services/memberService'; 
+import { writeDbFile, readDbFile } from '@/lib/db-utils'; 
 
 const MEMBERS_DB_FILE = 'members-db.json';
 
 
 export async function addMinistryAreaActionSvc(
-  newAreaData: Partial<Omit<MinistryArea, 'id'>> & { name: string; leaderId: string } // Ensure name and leaderId are present
+  newAreaData: Partial<Omit<MinistryArea, 'id'>> & { name: string; leaderId: string; memberIds?: string[] } 
 ): Promise<{ success: boolean; message: string; newArea?: MinistryArea }> {
   try {
     const areaToWrite: MinistryAreaWriteData = {
@@ -29,35 +29,11 @@ export async function addMinistryAreaActionSvc(
         leaderId: newAreaData.leaderId,
         memberIds: newAreaData.memberIds || [] 
     };
-    const newArea = await addMinistryAreaService(areaToWrite); // Calls the renamed service function
+    const newArea = await addMinistryAreaService(areaToWrite); 
     
     const affectedMemberIds = new Set<string>();
     affectedMemberIds.add(newArea.leaderId);
     (newAreaData.memberIds || []).forEach(id => affectedMemberIds.add(id));
-
-    // Update member assignments for leader and new members
-    let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, []);
-    
-    // Update Leader
-    const leaderIdx = allMembers.findIndex(m => m.id === newArea.leaderId);
-    if (leaderIdx !== -1) {
-        if (!allMembers[leaderIdx].assignedAreaIds) allMembers[leaderIdx].assignedAreaIds = [];
-        if (!allMembers[leaderIdx].assignedAreaIds!.includes(newArea.id)) {
-            allMembers[leaderIdx].assignedAreaIds!.push(newArea.id);
-        }
-    }
-
-    // Update Members
-    (newAreaData.memberIds || []).forEach(memberId => {
-        const memberIdx = allMembers.findIndex(m => m.id === memberId);
-        if (memberIdx !== -1) {
-            if (!allMembers[memberIdx].assignedAreaIds) allMembers[memberIdx].assignedAreaIds = [];
-            if (!allMembers[memberIdx].assignedAreaIds!.includes(newArea.id)) {
-                allMembers[memberIdx].assignedAreaIds!.push(newArea.id);
-            }
-        }
-    });
-    await writeDbFile<Member>(MEMBERS_DB_FILE, allMembers);
     
     if (affectedMemberIds.size > 0) {
       await bulkRecalculateAndUpdateRoles(Array.from(affectedMemberIds));
@@ -65,15 +41,15 @@ export async function addMinistryAreaActionSvc(
 
     revalidatePath('/groups');
     revalidatePath(`/members`); 
-    return { success: true, message: `Ministry Area "${newArea.name}" added successfully. Roles updated.`, newArea };
+    return { success: true, message: `Área Ministerial "${newArea.name}" agregada exitosamente. Roles actualizados.`, newArea };
   } catch (error: any) {
-    console.error("Error adding ministry area:", error);
-    return { success: false, message: `Error adding ministry area: ${error.message}` };
+    console.error("Error agregando área ministerial:", error);
+    return { success: false, message: `Error agregando área ministerial: ${error.message}` };
   }
 }
 
 export async function addGdiActionSvc(
-  newGdiData: Partial<Omit<GDI, 'id'>> & { name: string; guideId: string } // Ensure name and guideId are present
+  newGdiData: Partial<Omit<GDI, 'id'>> & { name: string; guideId: string; memberIds?: string[] } 
 ): Promise<{ success: boolean; message: string; newGdi?: GDI }> {
   try {
     const gdiToWrite: GdiWriteData = {
@@ -81,53 +57,11 @@ export async function addGdiActionSvc(
         guideId: newGdiData.guideId,
         memberIds: newGdiData.memberIds || [] 
     };
-    const newGdi = await addGdiService(gdiToWrite); // Calls the renamed service function
+    const newGdi = await addGdiService(gdiToWrite); 
 
     const affectedMemberIds = new Set<string>();
     affectedMemberIds.add(newGdi.guideId);
     (newGdiData.memberIds || []).forEach(id => affectedMemberIds.add(id));
-
-    // Update member assignments for guide and new members
-    let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, []);
-
-    // Update Guide
-    const guideIdx = allMembers.findIndex(m => m.id === newGdi.guideId);
-    if (guideIdx !== -1) {
-        // If guide was in another GDI as member, remove them
-        if (allMembers[guideIdx].assignedGDIId && allMembers[guideIdx].assignedGDIId !== newGdi.id) {
-            const oldGdi = await readDbFile<GDI>('gdis-db.json', []).then(gdis => gdis.find(g => g.id === allMembers[guideIdx].assignedGDIId));
-            if (oldGdi && oldGdi.guideId !== newGdi.guideId) { // Don't remove if they were guide of that old GDI
-                const allGdis = await readDbFile<GDI>('gdis-db.json', []);
-                const oldGdiIdx = allGdis.findIndex(g => g.id === oldGdi.id);
-                if (oldGdiIdx !== -1) {
-                    allGdis[oldGdiIdx].memberIds = allGdis[oldGdiIdx].memberIds.filter(id => id !== newGdi.guideId);
-                    await writeDbFile<GDI>('gdis-db.json', allGdis);
-                }
-            }
-        }
-        allMembers[guideIdx].assignedGDIId = newGdi.id;
-    }
-    
-    // Update Members
-    (newGdiData.memberIds || []).forEach(async (memberId) => {
-        const memberIdx = allMembers.findIndex(m => m.id === memberId);
-        if (memberIdx !== -1) {
-            // If member was in another GDI, remove them
-            if (allMembers[memberIdx].assignedGDIId && allMembers[memberIdx].assignedGDIId !== newGdi.id) {
-                 const oldGdi = await readDbFile<GDI>('gdis-db.json', []).then(gdis => gdis.find(g => g.id === allMembers[memberIdx].assignedGDIId));
-                 if (oldGdi && oldGdi.guideId !== memberId) { // Don't remove if they were guide of that old GDI
-                    const allGdis = await readDbFile<GDI>('gdis-db.json', []);
-                    const oldGdiIdx = allGdis.findIndex(g => g.id === oldGdi.id);
-                    if (oldGdiIdx !== -1) {
-                        allGdis[oldGdiIdx].memberIds = allGdis[oldGdiIdx].memberIds.filter(id => id !== memberId);
-                        await writeDbFile<GDI>('gdis-db.json', allGdis);
-                    }
-                }
-            }
-            allMembers[memberIdx].assignedGDIId = newGdi.id;
-        }
-    });
-    await writeDbFile<Member>(MEMBERS_DB_FILE, allMembers);
     
     if (affectedMemberIds.size > 0) {
       await bulkRecalculateAndUpdateRoles(Array.from(affectedMemberIds));
@@ -135,12 +69,52 @@ export async function addGdiActionSvc(
 
     revalidatePath('/groups');
     revalidatePath(`/members`);
-    return { success: true, message: `GDI "${newGdi.name}" added successfully. Roles updated.`, newGdi };
+    return { success: true, message: `GDI "${newGdi.name}" agregado exitosamente. Roles actualizados.`, newGdi };
   } catch (error: any) {
-    console.error("Error adding GDI:", error);
-    return { success: false, message: `Error adding GDI: ${error.message}` };
+    console.error("Error agregando GDI:", error);
+    return { success: false, message: `Error agregando GDI: ${error.message}` };
   }
 }
+
+export async function deleteGdiActionSvc(gdiId: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const affectedMemberIds = await deleteGdiService(gdiId);
+    if (affectedMemberIds.length > 0) {
+      await bulkRecalculateAndUpdateRoles(affectedMemberIds);
+    }
+    revalidatePath('/groups');
+    revalidatePath('/members');
+    // Revalidate paths for individual GDI admin pages if they exist and are relevant
+    // This might be overly broad but ensures consistency if a GDI admin page was cached.
+    const allGdis = await getAllGdis();
+    allGdis.forEach(gdi => revalidatePath(`/groups/gdis/${gdi.id}/admin`));
+
+    return { success: true, message: "GDI eliminado exitosamente. Roles y asignaciones actualizados." };
+  } catch (error: any) {
+    console.error("Error eliminando GDI:", error);
+    return { success: false, message: `Error al eliminar GDI: ${error.message}` };
+  }
+}
+
+export async function deleteMinistryAreaActionSvc(areaId: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const affectedMemberIds = await deleteMinistryAreaService(areaId);
+    if (affectedMemberIds.length > 0) {
+      await bulkRecalculateAndUpdateRoles(affectedMemberIds);
+    }
+    revalidatePath('/groups');
+    revalidatePath('/members');
+    // Revalidate paths for individual area admin pages
+    const allAreas = await getAllMinistryAreas();
+    allAreas.forEach(area => revalidatePath(`/groups/ministry-areas/${area.id}/admin`));
+    
+    return { success: true, message: "Área Ministerial eliminada exitosamente. Roles y asignaciones actualizados." };
+  } catch (error: any) {
+    console.error("Error eliminando Área Ministerial:", error);
+    return { success: false, message: `Error al eliminar Área Ministerial: ${error.message}` };
+  }
+}
+
 
 async function getGroupsData(): Promise<{ ministryAreas: MinistryArea[], gdis: GDI[], members: Member[] }> {
   const ministryAreas = await getAllMinistryAreas();
@@ -155,8 +129,8 @@ export default async function GroupsPage() {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-10 text-center">
-        <h1 className="font-headline text-4xl font-bold text-primary">Manage Groups</h1>
-        <p className="text-muted-foreground mt-2">Oversee Ministry Areas and GDIs within the church community.</p>
+        <h1 className="font-headline text-4xl font-bold text-primary">Gestionar Grupos</h1>
+        <p className="text-muted-foreground mt-2">Supervise las Áreas Ministeriales y GDIs dentro de la comunidad eclesial.</p>
       </div>
       <ManageGroupsTabs
         initialMinistryAreas={ministryAreas}
@@ -164,8 +138,9 @@ export default async function GroupsPage() {
         allMembers={members} 
         addMinistryAreaAction={addMinistryAreaActionSvc} 
         addGdiAction={addGdiActionSvc} 
+        deleteGdiAction={deleteGdiActionSvc}
+        deleteMinistryAreaAction={deleteMinistryAreaActionSvc}
       />
     </div>
   );
 }
-

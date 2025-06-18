@@ -17,8 +17,10 @@ interface ManageGroupsTabsProps {
   initialMinistryAreas: MinistryArea[];
   initialGdis: GDI[];
   allMembers: Member[];
-  addMinistryAreaAction: (data: Partial<Omit<MinistryArea, 'id'>> & { name: string; leaderId: string }) => Promise<{ success: boolean; message: string; newArea?: MinistryArea }>;
-  addGdiAction: (data: Partial<Omit<GDI, 'id'>> & { name: string; guideId: string }) => Promise<{ success: boolean; message: string; newGdi?: GDI }>;
+  addMinistryAreaAction: (data: Partial<Omit<MinistryArea, 'id'>> & { name: string; leaderId: string; memberIds?: string[] }) => Promise<{ success: boolean; message: string; newArea?: MinistryArea }>;
+  addGdiAction: (data: Partial<Omit<GDI, 'id'>> & { name: string; guideId: string; memberIds?: string[] }) => Promise<{ success: boolean; message: string; newGdi?: GDI }>;
+  deleteGdiAction: (gdiId: string) => Promise<{ success: boolean; message: string }>;
+  deleteMinistryAreaAction: (areaId: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const newGdiTemplate: GDI = { id: 'new', name: '', guideId: '', memberIds: [] };
@@ -29,10 +31,13 @@ export default function ManageGroupsTabs({
   initialGdis, 
   allMembers,
   addMinistryAreaAction,
-  addGdiAction
+  addGdiAction,
+  deleteGdiAction,
+  deleteMinistryAreaAction
 }: ManageGroupsTabsProps) {
-  const [ministryAreas, setMinistryAreas] = useState<MinistryArea[]>(initialMinistryAreas);
-  const [gdis, setGdis] = useState<GDI[]>(initialGdis);
+  // Local state might not be strictly necessary if revalidatePath works reliably for updates.
+  // However, for delete, immediate UI feedback by filtering local state can be good.
+  // For now, we'll rely on revalidatePath to refresh the `initial*` props from the server.
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
@@ -41,26 +46,26 @@ export default function ManageGroupsTabs({
 
   const activeMembers = useMemo(() => allMembers.filter(m => m.status === 'Active'), [allMembers]);
 
-  const handleAddMinistryAreaSubmit = useCallback(async (areaData: Partial<Omit<MinistryArea, 'id'>> & { name: string; leaderId: string }) => {
+  const handleAddMinistryAreaSubmit = useCallback(async (areaData: Partial<Omit<MinistryArea, 'id'>> & { name: string; leaderId: string; memberIds?: string[] }) => {
     startTransition(async () => {
       const result = await addMinistryAreaAction(areaData);
       if (result.success && result.newArea) {
-        setMinistryAreas(prev => [result.newArea!, ...prev]);
-        toast({ title: "Success", description: result.message });
+        toast({ title: "Éxito", description: result.message });
         setIsAddAreaDialogOpen(false);
+        // Revalidation should handle list update from server
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
       }
     });
   }, [addMinistryAreaAction, toast]);
 
-  const handleAddGdiSubmit = useCallback(async (gdiData: Partial<Omit<GDI, 'id'>> & { name: string; guideId: string }) => {
+  const handleAddGdiSubmit = useCallback(async (gdiData: Partial<Omit<GDI, 'id'>> & { name: string; guideId: string; memberIds?: string[] }) => {
     startTransition(async () => {
       const result = await addGdiAction(gdiData);
       if (result.success && result.newGdi) {
-        setGdis(prev => [result.newGdi!, ...prev]);
-        toast({ title: "Success", description: result.message });
+        toast({ title: "Éxito", description: result.message });
         setIsAddGdiDialogOpen(false);
+         // Revalidation should handle list update from server
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
       }
@@ -71,33 +76,35 @@ export default function ManageGroupsTabs({
     <>
       <Tabs defaultValue="ministry-areas" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-6">
-          <TabsTrigger value="ministry-areas">Ministry Areas</TabsTrigger>
-          <TabsTrigger value="gdis">GDIs (Integration Groups)</TabsTrigger>
+          <TabsTrigger value="ministry-areas">Áreas Ministeriales</TabsTrigger>
+          <TabsTrigger value="gdis">GDIs (Grupos de Integración)</TabsTrigger>
         </TabsList>
         <TabsContent value="ministry-areas">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold">Áreas Ministeriales</h2>
             <Button onClick={() => setIsAddAreaDialogOpen(true)} disabled={isPending}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add New Area
+              <PlusCircle className="mr-2 h-4 w-4" /> Agregar Nueva Área
             </Button>
           </div>
           <MinistryAreasManager
-            ministryAreas={ministryAreas}
+            ministryAreas={initialMinistryAreas}
             allMembers={allMembers}
             activeMembers={activeMembers}
+            deleteMinistryAreaAction={deleteMinistryAreaAction}
           />
         </TabsContent>
         <TabsContent value="gdis">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold">GDIs (Grupos de Integración)</h2>
             <Button onClick={() => setIsAddGdiDialogOpen(true)} disabled={isPending}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add New GDI
+              <PlusCircle className="mr-2 h-4 w-4" /> Agregar Nuevo GDI
             </Button>
           </div>
           <GdisManager
-            gdis={gdis}
+            gdis={initialGdis}
             allMembers={allMembers}
             activeMembers={activeMembers}
+            deleteGdiAction={deleteGdiAction}
           />
         </TabsContent>
       </Tabs>
@@ -105,9 +112,9 @@ export default function ManageGroupsTabs({
       <Dialog open={isAddAreaDialogOpen} onOpenChange={setIsAddAreaDialogOpen}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
           <DialogHeader className="p-6 pb-4 border-b">
-            <DialogTitle>Add New Ministry Area</DialogTitle>
+            <DialogTitle>Agregar Nueva Área Ministerial</DialogTitle>
             <DialogDescription>
-              Define the details for the new ministry area, assign a leader, and add members.
+              Defina los detalles para la nueva área, asigne un líder y agregue miembros.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto p-1 sm:p-6">
@@ -115,7 +122,7 @@ export default function ManageGroupsTabs({
               ministryArea={newAreaTemplate}
               allMembers={allMembers}
               activeMembers={activeMembers}
-              updateMinistryAreaAction={handleAddMinistryAreaSubmit as any} // Cast as it expects update action type
+              updateMinistryAreaAction={handleAddMinistryAreaSubmit as any} 
               isAdding={true}
               onSuccess={() => setIsAddAreaDialogOpen(false)}
             />
@@ -126,9 +133,9 @@ export default function ManageGroupsTabs({
       <Dialog open={isAddGdiDialogOpen} onOpenChange={setIsAddGdiDialogOpen}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
           <DialogHeader className="p-6 pb-4 border-b">
-            <DialogTitle>Add New GDI</DialogTitle>
+            <DialogTitle>Agregar Nuevo GDI</DialogTitle>
             <DialogDescription>
-              Define the name for the new GDI, assign a guide, and add members.
+              Defina el nombre para el nuevo GDI, asigne un guía y agregue miembros.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto p-1 sm:p-6">
@@ -136,8 +143,8 @@ export default function ManageGroupsTabs({
               gdi={newGdiTemplate}
               allMembers={allMembers}
               activeMembers={activeMembers}
-              allGdis={gdis} // Pass current GDIs for validation if needed
-              updateGdiAction={handleAddGdiSubmit as any} // Cast as it expects update action type
+              allGdis={initialGdis} 
+              updateGdiAction={handleAddGdiSubmit as any} 
               isAdding={true}
               onSuccess={() => setIsAddGdiDialogOpen(false)}
             />

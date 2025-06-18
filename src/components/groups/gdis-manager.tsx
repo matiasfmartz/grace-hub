@@ -4,24 +4,38 @@
 import type { GDI, Member } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, UserCheck, Mail, Phone, Settings } from 'lucide-react';
+import { Users, UserCheck, Mail, Phone, Settings, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import DeleteGroupAlert from './delete-group-alert';
+import React, { useState } from 'react';
 
 interface GdisManagerProps {
   gdis: GDI[];
   allMembers: Member[]; 
   activeMembers: Member[]; 
+  deleteGdiAction: (gdiId: string) => Promise<{ success: boolean; message: string }>;
 }
 
-export default function GdisManager({ gdis, allMembers, activeMembers }: GdisManagerProps) {
+export default function GdisManager({ gdis, allMembers, activeMembers, deleteGdiAction }: GdisManagerProps) {
+  const [gdiToDelete, setGdiToDelete] = useState<GDI | null>(null);
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
 
   const getGuideDetails = (guideId: string) => {
     return allMembers.find(member => member.id === guideId);
   };
 
+  const handleDeleteClick = (gdi: GDI) => {
+    setGdiToDelete(gdi);
+    setIsDeleteAlertOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!gdiToDelete) return { success: false, message: "No GDI selected for deletion." };
+    return deleteGdiAction(gdiToDelete.id);
+  };
+
   return (
     <div>
-      {/* Button to add new GDI is now in ManageGroupsTabs.tsx */}
       {gdis.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {gdis.map((gdi) => {
@@ -54,7 +68,7 @@ export default function GdisManager({ gdis, allMembers, activeMembers }: GdisMan
                     Miembros: {gdi.memberIds.length}
                   </CardDescription>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="flex flex-col sm:flex-row gap-2">
                    <Button 
                     asChild
                     variant="outline" 
@@ -64,6 +78,14 @@ export default function GdisManager({ gdis, allMembers, activeMembers }: GdisMan
                       <Settings className="mr-2 h-4 w-4" /> Admin. Reuniones 
                     </Link>
                   </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => handleDeleteClick(gdi)}
+                    className="w-full"
+                    size="sm"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                  </Button>
                 </CardFooter>
               </Card>
             );
@@ -72,11 +94,19 @@ export default function GdisManager({ gdis, allMembers, activeMembers }: GdisMan
       ) : (
         <div className="text-center py-10">
           <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold text-muted-foreground">No GDIs Available</h2>
-          <p className="text-muted-foreground mt-2">Add a new GDI to get started.</p>
+          <h2 className="text-xl font-semibold text-muted-foreground">No hay GDIs disponibles</h2>
+          <p className="text-muted-foreground mt-2">Agregue un nuevo GDI para comenzar.</p>
         </div>
       )}
-      {/* Dialog for adding GDI is now in ManageGroupsTabs.tsx */}
+      {gdiToDelete && (
+        <DeleteGroupAlert
+          isOpen={isDeleteAlertOpen}
+          onOpenChange={setIsDeleteAlertOpen}
+          groupName={gdiToDelete.name}
+          groupTypeLabel="GDI"
+          onConfirmDelete={confirmDelete}
+        />
+      )}
     </div>
   );
 }

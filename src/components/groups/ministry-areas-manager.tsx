@@ -5,23 +5,37 @@ import type { MinistryArea, Member } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
-import { Mail, Phone, UserCircle, UsersRound, Settings } from 'lucide-react';
+import { Mail, Phone, UserCircle, UsersRound, Settings, Trash2 } from 'lucide-react';
+import DeleteGroupAlert from './delete-group-alert';
+import React, { useState } from 'react';
 
 interface MinistryAreasManagerProps {
   ministryAreas: MinistryArea[];
   allMembers: Member[];
   activeMembers: Member[]; 
+  deleteMinistryAreaAction: (areaId: string) => Promise<{ success: boolean; message: string }>;
 }
 
-export default function MinistryAreasManager({ ministryAreas, allMembers, activeMembers }: MinistryAreasManagerProps) {
+export default function MinistryAreasManager({ ministryAreas, allMembers, activeMembers, deleteMinistryAreaAction }: MinistryAreasManagerProps) {
+  const [areaToDelete, setAreaToDelete] = useState<MinistryArea | null>(null);
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
 
   const getLeaderDetails = (leaderId: string) => {
     return allMembers.find(member => member.id === leaderId);
   };
 
+  const handleDeleteClick = (area: MinistryArea) => {
+    setAreaToDelete(area);
+    setIsDeleteAlertOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!areaToDelete) return { success: false, message: "No Area selected for deletion." };
+    return deleteMinistryAreaAction(areaToDelete.id);
+  };
+
   return (
     <div>
-      {/* Button to add new area is now in ManageGroupsTabs.tsx */}
       {ministryAreas.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {ministryAreas.map((area) => {
@@ -55,11 +69,19 @@ export default function MinistryAreasManager({ ministryAreas, allMembers, active
                     Miembros: {area.memberIds.length}
                   </CardDescription>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="flex flex-col sm:flex-row gap-2">
                   <Button asChild variant="outline" className="w-full border-primary text-primary hover:bg-primary/10">
                     <Link href={`/groups/ministry-areas/${area.id}/admin`}>
                       <Settings className="mr-2 h-4 w-4" /> Admin. Reuniones
                     </Link>
+                  </Button>
+                   <Button
+                    variant="destructive"
+                    onClick={() => handleDeleteClick(area)}
+                    className="w-full"
+                    size="sm"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Eliminar
                   </Button>
                 </CardFooter>
               </Card>
@@ -69,11 +91,19 @@ export default function MinistryAreasManager({ ministryAreas, allMembers, active
       ) : (
         <div className="text-center py-10">
           <UsersRound className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold text-muted-foreground">No Ministry Areas Available</h2>
-          <p className="text-muted-foreground mt-2">Add a new ministry area to get started.</p>
+          <h2 className="text-xl font-semibold text-muted-foreground">No hay Áreas Ministeriales disponibles</h2>
+          <p className="text-muted-foreground mt-2">Agregue una nueva área ministerial para comenzar.</p>
         </div>
       )}
-      {/* Dialog for adding area is now in ManageGroupsTabs.tsx */}
+      {areaToDelete && (
+        <DeleteGroupAlert
+          isOpen={isDeleteAlertOpen}
+          onOpenChange={setIsDeleteAlertOpen}
+          groupName={areaToDelete.name}
+          groupTypeLabel="Área Ministerial"
+          onConfirmDelete={confirmDelete}
+        />
+      )}
     </div>
   );
 }
