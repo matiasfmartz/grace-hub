@@ -24,28 +24,28 @@ export async function getAllMembers(
   page: number = 1,
   pageSize: number = 10,
   searchTerm?: string,
-  statusFilterParams?: string[],
-  roleFilterParams?: string[],
-  guideIdFilterParams?: string[]
+  statusFilterParams?: string[], // Expecting an array of statuses
+  roleFilterParams?: string[],   // Expecting an array of roles
+  guideIdFilterParams?: string[] // Expecting an array of guide IDs
 ): Promise<{ members: Member[], totalMembers: number, totalPages: number }> {
   const allMembersFromFile = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  let filteredMembers = [...allMembersFromFile];
+  let workingFilteredMembers = [...allMembersFromFile];
 
-  // Apply Status Filter
+  // Apply Status Filter (Multi-select)
   if (statusFilterParams && statusFilterParams.length > 0) {
-    filteredMembers = filteredMembers.filter(member =>
-      member.status && statusFilterParams.includes(member.status) // Ensure member.status exists
+    workingFilteredMembers = workingFilteredMembers.filter(member =>
+      member.status && statusFilterParams.includes(member.status)
     );
   }
 
-  // Apply Role Filter
+  // Apply Role Filter (Multi-select)
   if (roleFilterParams && roleFilterParams.length > 0) {
-    filteredMembers = filteredMembers.filter(member =>
+    workingFilteredMembers = workingFilteredMembers.filter(member =>
       member.roles && member.roles.some(role => roleFilterParams.includes(role))
     );
   }
 
-  // Apply GDI Guide Filter
+  // Apply GDI Guide Filter (Multi-select)
   if (guideIdFilterParams && guideIdFilterParams.length > 0) {
     const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
     const membersToInclude = new Set<string>();
@@ -58,10 +58,10 @@ export async function getAllMembers(
       });
     });
     
-    if (membersToInclude.size > 0) {
-      filteredMembers = filteredMembers.filter(member => membersToInclude.has(member.id));
-    } else {
-      filteredMembers = []; 
+    if (membersToInclude.size > 0) { // Only filter if there are guides to filter by
+      workingFilteredMembers = workingFilteredMembers.filter(member => membersToInclude.has(member.id));
+    } else if (guideIdFilterParams.length > 0) { // If guide IDs were specified but none matched, result is empty
+        workingFilteredMembers = [];
     }
   }
 
@@ -69,7 +69,7 @@ export async function getAllMembers(
   if (searchTerm) {
     const lowercasedSearchTerm = searchTerm.toLowerCase().trim();
     if (lowercasedSearchTerm) {
-      filteredMembers = filteredMembers.filter(member =>
+      workingFilteredMembers = workingFilteredMembers.filter(member =>
         `${member.firstName} ${member.lastName}`.toLowerCase().includes(lowercasedSearchTerm) ||
         member.email.toLowerCase().includes(lowercasedSearchTerm) ||
         (member.phone && member.phone.toLowerCase().includes(lowercasedSearchTerm)) ||
@@ -81,11 +81,11 @@ export async function getAllMembers(
     }
   }
 
-  const totalMembers = filteredMembers.length;
+  const totalMembers = workingFilteredMembers.length;
   const totalPages = Math.ceil(totalMembers / pageSize);
   const startIndex = (page - 1) * pageSize;
   const endIndex = startIndex + pageSize;
-  const membersForPage = filteredMembers.slice(startIndex, endIndex);
+  const membersForPage = workingFilteredMembers.slice(startIndex, endIndex);
   
   return { members: membersForPage, totalMembers, totalPages };
 }

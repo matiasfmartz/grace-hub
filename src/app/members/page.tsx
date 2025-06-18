@@ -105,7 +105,10 @@ async function getMembersPageData(
   allMeetingSeries: MeetingSeries[],
   allAttendanceRecords: AttendanceRecord[],
   currentPage: number,
-  totalPages: number
+  totalPages: number,
+  currentStatusFiltersArray: string[],
+  currentRoleFiltersArray: string[],
+  currentGuideIdFiltersArray: string[]
 }> {
   const statusFilters = statusFilterString ? statusFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
   const roleFilters = roleFilterString ? roleFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -136,7 +139,10 @@ async function getMembersPageData(
     allMeetingSeries,
     allAttendanceRecords,
     currentPage: page,
-    totalPages
+    totalPages,
+    currentStatusFiltersArray: statusFilters,
+    currentRoleFiltersArray: roleFilters,
+    currentGuideIdFiltersArray: guideIdFilters,
   };
 }
 
@@ -156,12 +162,12 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
     allMeetings,
     allMeetingSeries,
     allAttendanceRecords,
-    totalPages
+    totalPages,
+    currentStatusFiltersArray,
+    currentRoleFiltersArray,
+    currentGuideIdFiltersArray,
   } = await getMembersPageData(currentPage, pageSize, searchTerm, statusFilterString, roleFilterString, guideIdFilterString);
 
-  const currentStatusFiltersArray = statusFilterString ? statusFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
-  const currentRoleFiltersArray = roleFilterString ? roleFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
-  const currentGuideIdFiltersArray = guideIdFilterString ? guideIdFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
 
   return (
     <div className="container mx-auto py-8 px-4">

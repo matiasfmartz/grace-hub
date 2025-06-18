@@ -18,6 +18,8 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
+import { SELECT_ALL_VALUE } from '@/lib/types';
+
 
 interface MembersListViewProps {
   initialMembers: Member[];
@@ -81,6 +83,7 @@ export default function MembersListView({
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(currentStatusFilters || []);
   const [selectedRoles, setSelectedRoles] = useState<string[]>(currentRoleFilters || []);
   const [selectedGuideIds, setSelectedGuideIds] = useState<string[]>(currentGuideIdFilters || []);
+
   const [sortKey, setSortKey] = useState<SortKey>('fullName');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -121,16 +124,16 @@ export default function MembersListView({
     setter(newArray);
   };
 
-  const handleFilterOrSearch = () => {
-    const params = new URLSearchParams(); // Start with empty params
-    params.set('page', '1');
+ const handleFilterOrSearch = () => {
+    const params = new URLSearchParams(); // Start fresh
+    params.set('page', '1'); // Reset to first page on new filter/search
 
-    // Preserve existing pageSize if it's in the URL
+    // Preserve existing pageSize if it's in the URL, otherwise use the prop
     const currentHookParams = new URLSearchParams(searchParamsHook.toString());
     if (currentHookParams.has('pageSize')) {
         params.set('pageSize', currentHookParams.get('pageSize')!);
     } else {
-        params.set('pageSize', pageSize.toString()); // Fallback to current pageSize prop
+        params.set('pageSize', pageSize.toString());
     }
 
     if (searchInput.trim()) params.set('search', searchInput.trim());
@@ -139,6 +142,7 @@ export default function MembersListView({
     if (selectedGuideIds.length > 0) params.set('guide', selectedGuideIds.join(','));
 
     router.push(`${pathname}?${params.toString()}`);
+    router.refresh(); // Force re-fetch of server data
   };
   
   const handleClearAllFilters = () => {
@@ -147,15 +151,16 @@ export default function MembersListView({
     setSelectedRoles([]);
     setSelectedGuideIds([]);
     
-    const params = new URLSearchParams(); // Start fresh
+    const params = new URLSearchParams();
     params.set('page', '1');
     const currentHookParams = new URLSearchParams(searchParamsHook.toString());
-     if (currentHookParams.has('pageSize')) {
+    if (currentHookParams.has('pageSize')) {
         params.set('pageSize', currentHookParams.get('pageSize')!);
     } else {
         params.set('pageSize', pageSize.toString());
     }
     router.push(`${pathname}?${params.toString()}`);
+    router.refresh(); // Force re-fetch of server data
   };
 
 
@@ -169,7 +174,7 @@ export default function MembersListView({
   };
 
   const processedMembers = useMemo(() => {
-    let membersToProcess = [...members];
+    let membersToProcess = [...members]; // Use the members state which is initialized from initialMembers
     membersToProcess.sort((a, b) => {
       let valA, valB;
       if (sortKey === 'fullName') {
@@ -254,6 +259,7 @@ export default function MembersListView({
     params.set('pageSize', newSize);
     params.set('page', '1');
     router.push(`${pathname}?${params.toString()}`);
+    router.refresh(); // Ensure data re-fetch on page size change
   };
   
   const hasActiveFilters = searchInput.trim() !== '' || selectedStatuses.length > 0 || selectedRoles.length > 0 || selectedGuideIds.length > 0;
@@ -536,4 +542,3 @@ export default function MembersListView({
     </>
   );
 }
-
