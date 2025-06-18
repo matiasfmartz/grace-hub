@@ -126,23 +126,25 @@ export default function ManageSingleGdiView({
   }, [editableGdi.guideId, allMembers]);
 
   const availableMembersForAssignment = useMemo(() => {
-    // For GDI members, use allMembers as source, status doesn't matter for assignment.
     return allMembers.filter(member => {
-      if (member.id === editableGdi.guideId) return false; // Cannot be the guide
-      if ((editableGdi.memberIds || []).includes(member.id)) return false; // Not already in this GDI
+      // Rule: Cannot be the guide of the current GDI
+      if (member.id === editableGdi.guideId) return false;
 
-      // A member cannot be assigned to a GDI if they are already guiding another GDI.
-      const isGuideOfAnotherGdi = allGdis.some(g => g.guideId === member.id && g.id !== initialGdi.id);
-      if (isGuideOfAnotherGdi) return false;
+      // Rule: Not already a member of the current GDI being edited/added
+      if ((editableGdi.memberIds || []).includes(member.id)) return false;
 
-      // A member cannot be assigned to a GDI if they are already a member of another GDI
-      // (unless it's the GDI being edited and they are already a member of it).
-      if (member.assignedGDIId && member.assignedGDIId !== "" && member.assignedGDIId !== initialGdi.id) return false;
+      // Rule: Cannot be a guide of ANY GDI (guides are not listed as assignable members)
+      // This handles the case where a member is a guide of another GDI.
+      const isGuideOfAnyGdi = allGdis.some(g => g.guideId === member.id);
+      if (isGuideOfAnyGdi) return false;
 
-      return (`${member.firstName} ${member.lastName}`.toLowerCase().includes(addMemberSearchTerm.toLowerCase()) ||
-              member.email.toLowerCase().includes(addMemberSearchTerm.toLowerCase()));
+      // Apply search term
+      return (
+        `${member.firstName} ${member.lastName}`.toLowerCase().includes(addMemberSearchTerm.toLowerCase()) ||
+        member.email.toLowerCase().includes(addMemberSearchTerm.toLowerCase())
+      );
     });
-  }, [allMembers, editableGdi.guideId, editableGdi.memberIds, addMemberSearchTerm, allGdis, initialGdi.id]);
+  }, [allMembers, editableGdi.guideId, editableGdi.memberIds, addMemberSearchTerm, allGdis]);
 
   const currentlyAssignedDisplayMembers = useMemo(() => {
     return (editableGdi.memberIds || [])
@@ -163,7 +165,7 @@ export default function ManageSingleGdiView({
                           <SelectValue placeholder="Seleccionar nuevo guía" />
                       </SelectTrigger>
                       <SelectContent>
-                          {activeMembers.map((member) => ( // Guide selection uses activeMembers
+                          {activeMembers.map((member) => ( 
                           <SelectItem
                               key={member.id}
                               value={member.id}
@@ -199,23 +201,29 @@ export default function ManageSingleGdiView({
                       disabled={isPending}
                   />
                   <ScrollArea className="h-48 w-full rounded-md border p-2">
-                      {availableMembersForAssignment.length > 0 ? availableMembersForAssignment.map((member) => (
-                      <div key={`available-${member.id}`} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-md">
-                          <Checkbox
-                              id={`add-member-${member.id}`}
-                              checked={selectedAvailableMembers.includes(member.id)}
-                              disabled={isPending}
-                              onCheckedChange={(checked) => handleAvailableMemberSelection(member.id, Boolean(checked))}
-                          />
-                          <Label htmlFor={`add-member-${member.id}`} className="font-normal text-sm cursor-pointer flex-grow">
-                              {member.firstName} {member.lastName} ({member.status})
-                               {member.assignedGDIId && member.assignedGDIId !== initialGdi.id ? " (En otro GDI)" : ""}
-                               {allGdis.some(g => g.guideId === member.id && g.id !== initialGdi.id) ? " (Guía de otro GDI)" : ""}
-                          </Label>
-                      </div>
-                      )) : (
+                      {availableMembersForAssignment.length > 0 ? availableMembersForAssignment.map((member) => {
+                        const otherGdi = member.assignedGDIId && member.assignedGDIId !== initialGdi.id 
+                                        ? allGdis.find(g => g.id === member.assignedGDIId) 
+                                        : null;
+                        return (
+                          <div key={`available-${member.id}`} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-md">
+                              <Checkbox
+                                  id={`add-member-${member.id}`}
+                                  checked={selectedAvailableMembers.includes(member.id)}
+                                  disabled={isPending}
+                                  onCheckedChange={(checked) => handleAvailableMemberSelection(member.id, Boolean(checked))}
+                              />
+                              <Label htmlFor={`add-member-${member.id}`} className="font-normal text-sm cursor-pointer flex-grow">
+                                  {member.firstName} {member.lastName} ({member.status})
+                                  {otherGdi && 
+                                    <span className="text-muted-foreground text-xs"> (En GDI: {otherGdi.name})</span>
+                                  }
+                              </Label>
+                          </div>
+                        );
+                      }) : (
                       <p className="text-sm text-muted-foreground text-center py-4">
-                          {addMemberSearchTerm ? "No hay miembros que coincidan." : "No hay miembros disponibles (verifique que no estén ya en otro GDI o sean guías de otro GDI)."}
+                          {addMemberSearchTerm ? "No hay miembros que coincidan." : "No hay miembros disponibles (verifique que no sean guías de GDI o ya estén en este GDI)."}
                       </p>
                       )}
                   </ScrollArea>
@@ -280,3 +288,5 @@ export default function ManageSingleGdiView({
     </>
   );
 }
+
+    
