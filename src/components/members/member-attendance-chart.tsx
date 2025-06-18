@@ -1,16 +1,13 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react'; // Removed useState
 import type { Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from '@/components/ui/label';
-import { DatePicker } from '@/components/ui/date-picker';
-import { Button } from '@/components/ui/button';
+// Removed Select, Label, DatePicker, Button, FilterIcon imports
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Filter, CalendarRange, Users, CheckCircle2, XCircle, ListChecks, UserX, HelpCircle, Clock, PieChart } from 'lucide-react';
+import { CalendarRange, Users, CheckCircle2, XCircle, ListChecks, UserX, HelpCircle, Clock, PieChart } from 'lucide-react';
 import { format, parseISO, isValid, isWithinInterval, startOfDay, endOfDay, isPast, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -22,6 +19,9 @@ interface MemberAttendanceSummaryProps {
   allMeetings: Meeting[];
   allMeetingSeries: MeetingSeries[];
   allAttendanceRecords: AttendanceRecord[];
+  selectedSeriesId: string; // Prop from parent
+  startDate?: Date;        // Prop from parent
+  endDate?: Date;          // Prop from parent
 }
 
 type AttendanceStatus = 'attended' | 'absent' | 'pending_past' | 'pending_future';
@@ -34,30 +34,38 @@ interface FilteredMeetingInfo {
   status: AttendanceStatus;
 }
 
+const formatDateRangeTextForSummary = (seriesName?: string, startDate?: Date, endDate?: Date): string => {
+  let dateText = "";
+  if (startDate && endDate && startDate <= endDate) {
+    dateText = `entre ${format(startDate, "dd/MM/yy", { locale: es })} y ${format(endDate, "dd/MM/yy", { locale: es })}`;
+  } else if (startDate) {
+    dateText = `desde ${format(startDate, "dd/MM/yy", { locale: es })}`;
+  } else if (endDate) {
+    dateText = `hasta ${format(endDate, "dd/MM/yy", { locale: es })}`;
+  }
+
+  let seriesText = seriesName ? `para la serie "${seriesName}"` : "para todas las series relevantes";
+  if (seriesName === "Todas las Series Relevantes") seriesText = "para todas las series relevantes";
+
+
+  if (dateText) {
+    return `Detalle de asistencia ${seriesText}, ${dateText}.`;
+  }
+  return `Detalle de asistencia ${seriesText}.`;
+};
+
 export default function MemberAttendanceSummary({
   memberId,
   memberName,
   allMeetings,
   allMeetingSeries,
   allAttendanceRecords,
+  selectedSeriesId, // Use prop
+  startDate,         // Use prop
+  endDate,           // Use prop
 }: MemberAttendanceSummaryProps) {
-  const [selectedSeriesId, setSelectedSeriesId] = useState<string>('all');
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
-  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
-
-  const relevantSeriesForDropdown = useMemo(() => {
-    const memberMeetings = allMeetings.filter(meeting => {
-      const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
-      if (!series) return false;
-      if (series.targetAttendeeGroups.includes('allMembers')) return true;
-      return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
-    });
-    const uniqueSeriesIds = Array.from(new Set(memberMeetings.map(m => m.seriesId)));
-    return allMeetingSeries.filter(series => uniqueSeriesIds.includes(series.id));
-  }, [allMeetings, allMeetingSeries, memberId]);
 
   const processedMeetingData = useMemo(() => {
-    // Start with meetings the member was expected to attend
     const memberExpectedMeetings = allMeetings.filter(meeting => {
       const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
       if (!series) return false;
@@ -68,6 +76,13 @@ export default function MemberAttendanceSummary({
     let meetingsFilteredBySeries = selectedSeriesId === 'all'
       ? memberExpectedMeetings
       : memberExpectedMeetings.filter(meeting => meeting.seriesId === selectedSeriesId);
+
+    let currentSeriesName = "Todas las Series Relevantes";
+    if (selectedSeriesId !== 'all') {
+        const foundSeries = allMeetingSeries.find(s => s.id === selectedSeriesId);
+        if (foundSeries) currentSeriesName = foundSeries.name;
+    }
+
 
     let meetingsFilteredByDate = meetingsFilteredBySeries;
     if (startDate && endDate && startDate <= endDate) {
@@ -89,7 +104,7 @@ export default function MemberAttendanceSummary({
     }
 
     const sortedMeetings = meetingsFilteredByDate.sort((a, b) =>
-      parseISO(b.date).getTime() - parseISO(a.date).getTime()
+      parseISO(b.date).getTime() - parseISO(a.date).getTime() // Most recent first
     );
 
     const detailedInfo: FilteredMeetingInfo[] = sortedMeetings.map(meeting => {
@@ -106,7 +121,7 @@ export default function MemberAttendanceSummary({
         } else {
           currentStatus = 'pending_past';
         }
-      } else { 
+      } else {
         if (attendanceRecord) {
             currentStatus = attendanceRecord.attended ? 'attended' : 'absent';
         } else {
@@ -137,15 +152,12 @@ export default function MemberAttendanceSummary({
       totalAttendances,
       totalReportedAbsences,
       reportedAbsenceRate,
+      relevantSeriesName: currentSeriesName,
     };
 
   }, [memberId, allMeetings, allMeetingSeries, allAttendanceRecords, selectedSeriesId, startDate, endDate]);
 
-
-  const clearDateFilters = () => {
-    setStartDate(undefined);
-    setEndDate(undefined);
-  };
+  const summaryDescriptionText = formatDateRangeTextForSummary(processedMeetingData.relevantSeriesName, startDate, endDate);
 
   const formatDateDisplay = (dateString: string) => {
     try {
@@ -195,41 +207,10 @@ export default function MemberAttendanceSummary({
           <ListChecks className="mr-2 h-5 w-5" />
           Resumen de Asistencia: {memberName}
         </CardTitle>
-        <CardDescription className="text-xs text-muted-foreground pt-1">
-          Filtre y vea el historial de participación del miembro.
+        <CardDescription className="text-xs text-muted-foreground pt-1 flex items-center">
+            <CalendarRange className="mr-1.5 h-3.5 w-3.5 text-primary/80" /> {summaryDescriptionText}
         </CardDescription>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
-          <div>
-            <Label htmlFor="seriesFilterSummaryChart" className="text-xs font-medium">Filtrar por Serie:</Label>
-            <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId}>
-              <SelectTrigger id="seriesFilterSummaryChart" className="mt-1">
-                <SelectValue placeholder="Seleccionar serie..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las Series Relevantes</SelectItem>
-                {relevantSeriesForDropdown.map(series => (
-                  <SelectItem key={series.id} value={series.id}>
-                    {series.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="startDateFilterSummaryChart" className="text-xs font-medium">Fecha de Inicio:</Label>
-            <DatePicker date={startDate} setDate={setStartDate} placeholder="Desde" />
-          </div>
-          <div>
-            <Label htmlFor="endDateFilterSummaryChart" className="text-xs font-medium">Fecha de Fin:</Label>
-            <DatePicker date={endDate} setDate={setEndDate} placeholder="Hasta" />
-          </div>
-        </div>
-        {(startDate || endDate) && (
-            <Button onClick={clearDateFilters} variant="link" size="sm" className="px-0 text-xs h-auto mt-1">
-                <Filter className="mr-1 h-3 w-3"/> Limpiar filtro de fechas
-            </Button>
-        )}
+        {/* Removed Filter UI elements */}
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

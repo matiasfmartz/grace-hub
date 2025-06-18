@@ -1,14 +1,11 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react'; // Removed useState
 import type { Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from '@/components/ui/label';
-import { DatePicker } from '@/components/ui/date-picker';
-import { Button } from '@/components/ui/button';
-import { Filter, CalendarRange, LineChart as LineChartIcon } from 'lucide-react';
+// Removed Select, Label, DatePicker, Button, FilterIcon imports
+import { LineChart as LineChartIcon, CalendarRange } from 'lucide-react'; // Added CalendarRange
 import { format, parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -33,13 +30,16 @@ interface MemberAttendanceLineChartProps {
   allMeetings: Meeting[];
   allMeetingSeries: MeetingSeries[];
   allAttendanceRecords: AttendanceRecord[];
+  selectedSeriesId: string; // Prop from parent
+  startDate?: Date;        // Prop from parent
+  endDate?: Date;          // Prop from parent
 }
 
 interface MonthlyChartDataPoint {
-  monthValue: string; 
-  monthDisplay: string; 
+  monthValue: string;
+  monthDisplay: string;
   attendedCount: number;
-  convocatedCount: number; 
+  convocatedCount: number;
 }
 
 const chartConfig = {
@@ -49,30 +49,39 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+const formatDateRangeTextForChart = (seriesName?: string, startDate?: Date, endDate?: Date): string => {
+  let dateText = "";
+  if (startDate && endDate && startDate <= endDate) {
+    dateText = `entre ${format(startDate, "dd/MM/yy", { locale: es })} y ${format(endDate, "dd/MM/yy", { locale: es })}`;
+  } else if (startDate) {
+    dateText = `desde ${format(startDate, "dd/MM/yy", { locale: es })}`;
+  } else if (endDate) {
+    dateText = `hasta ${format(endDate, "dd/MM/yy", { locale: es })}`;
+  }
+
+  let seriesText = seriesName ? `para la serie "${seriesName}"` : "para todas las series relevantes";
+  if (seriesName === "Todas las Series Relevantes") seriesText = "para todas las series relevantes";
+
+
+  if (dateText) {
+    return `Asistencias por mes ${seriesText}, ${dateText}.`;
+  }
+  return `Asistencias por mes ${seriesText}. La escala Y representa convocatorias.`;
+};
+
+
 export default function MemberAttendanceLineChart({
   memberId,
   memberName,
   allMeetings,
   allMeetingSeries,
   allAttendanceRecords,
+  selectedSeriesId, // Use prop
+  startDate,         // Use prop
+  endDate,           // Use prop
 }: MemberAttendanceLineChartProps) {
-  const [selectedSeriesId, setSelectedSeriesId] = useState<string>('all');
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
-  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
-  const relevantSeriesForDropdown = useMemo(() => {
-    const memberMeetings = allMeetings.filter(meeting => {
-      const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
-      if (!series) return false;
-      if (series.targetAttendeeGroups.includes('allMembers')) return true;
-      return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
-    });
-    const uniqueSeriesIds = Array.from(new Set(memberMeetings.map(m => m.seriesId)));
-    return allMeetingSeries.filter(series => uniqueSeriesIds.includes(series.id));
-  }, [allMeetings, allMeetingSeries, memberId]);
-
-
-  const { chartData, yAxisDomainMax } = useMemo(() => {
+  const { chartData, yAxisDomainMax, relevantSeriesName } = useMemo(() => {
     let memberExpectedMeetings = allMeetings.filter(meeting => {
       const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
       if (!series) return false;
@@ -81,10 +90,14 @@ export default function MemberAttendanceLineChart({
     });
 
     let meetingsToProcess = memberExpectedMeetings;
+    let currentSeriesName = "Todas las Series Relevantes";
 
     if (selectedSeriesId !== 'all') {
       meetingsToProcess = meetingsToProcess.filter(meeting => meeting.seriesId === selectedSeriesId);
+      const foundSeries = allMeetingSeries.find(s => s.id === selectedSeriesId);
+      if (foundSeries) currentSeriesName = foundSeries.name;
     }
+
 
     if (startDate || endDate) {
         meetingsToProcess = meetingsToProcess.filter(meeting => {
@@ -95,7 +108,7 @@ export default function MemberAttendanceLineChart({
             return isAfterStart && isBeforeEnd;
         });
     }
-    
+
     interface MonthlyAggregation {
       attended: number;
       convocated: number;
@@ -106,7 +119,7 @@ export default function MemberAttendanceLineChart({
       const meetingDateObj = parseISO(meeting.date);
       if (!isValid(meetingDateObj)) return;
       const yearMonth = format(meetingDateObj, 'yyyy-MM');
-      
+
       if (!monthlyAggregationMap[yearMonth]) {
         monthlyAggregationMap[yearMonth] = { attended: 0, convocated: 0 };
       }
@@ -127,19 +140,17 @@ export default function MemberAttendanceLineChart({
         attendedCount: counts.attended,
         convocatedCount: counts.convocated,
       }))
-      .sort((a, b) => a.monthValue.localeCompare(b.monthValue)); 
+      .sort((a, b) => a.monthValue.localeCompare(b.monthValue));
 
     const maxMonthlyConvocations = dataPoints.length > 0 ? Math.max(0, ...dataPoints.map(p => p.convocatedCount)) : 0;
-    const calculatedYAxisDomainMax = maxMonthlyConvocations > 0 ? maxMonthlyConvocations : 5; 
+    const calculatedYAxisDomainMax = maxMonthlyConvocations > 0 ? maxMonthlyConvocations : 5;
 
-    return { chartData: dataPoints, yAxisDomainMax: calculatedYAxisDomainMax };
+    return { chartData: dataPoints, yAxisDomainMax: calculatedYAxisDomainMax, relevantSeriesName: currentSeriesName };
 
   }, [memberId, allMeetings, allMeetingSeries, allAttendanceRecords, selectedSeriesId, startDate, endDate]);
 
-  const clearDateFilters = () => {
-    setStartDate(undefined);
-    setEndDate(undefined);
-  };
+  const chartDescriptionText = formatDateRangeTextForChart(relevantSeriesName, startDate, endDate);
+
 
   return (
     <Card className="shadow-sm">
@@ -148,41 +159,10 @@ export default function MemberAttendanceLineChart({
           <LineChartIcon className="mr-2 h-5 w-5" />
           Tendencia Mensual de Asistencia
         </CardTitle>
-        <CardDescription className="text-xs text-muted-foreground pt-1">
-          Asistencias por mes para {memberName}. La línea muestra asistencias efectivas; la escala del eje Y representa el número total de instancias de reunión a las que fue convocado/a ese mes.
+        <CardDescription className="text-xs text-muted-foreground pt-1 flex items-center">
+           <CalendarRange className="mr-1.5 h-3.5 w-3.5 text-primary/80" /> {chartDescriptionText}
         </CardDescription>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3">
-          <div>
-            <Label htmlFor="seriesFilterMonthlyChart" className="text-xs font-medium">Filtrar Serie:</Label>
-            <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId}>
-              <SelectTrigger id="seriesFilterMonthlyChart" className="mt-1 h-9 text-xs">
-                <SelectValue placeholder="Seleccionar serie..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las Series Relevantes</SelectItem>
-                {relevantSeriesForDropdown.map(series => (
-                  <SelectItem key={series.id} value={series.id}>
-                    {series.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="startDateFilterMonthlyChart" className="text-xs font-medium">Desde:</Label>
-            <DatePicker date={startDate} setDate={setStartDate} placeholder="Fecha Inicio" />
-          </div>
-          <div>
-            <Label htmlFor="endDateFilterMonthlyChart" className="text-xs font-medium">Hasta:</Label>
-            <DatePicker date={endDate} setDate={setEndDate} placeholder="Fecha Fin" />
-          </div>
-        </div>
-        {(startDate || endDate) && (
-            <Button onClick={clearDateFilters} variant="link" size="sm" className="px-0 text-xs h-auto mt-1 text-primary hover:text-primary/80">
-                <Filter className="mr-1 h-3 w-3"/> Limpiar filtro de fechas
-            </Button>
-        )}
+        {/* Removed Filter UI elements */}
       </CardHeader>
       <CardContent>
         {chartData.length > 0 ? (
@@ -196,8 +176,8 @@ export default function MemberAttendanceLineChart({
                 tickMargin={10}
                 angle={-40}
                 textAnchor="end"
-                height={70} 
-                interval={0} 
+                height={70}
+                interval={0}
                 tick={{ fontSize: 9 }}
               />
               <YAxis
@@ -217,12 +197,12 @@ export default function MemberAttendanceLineChart({
                     const data = payload[0].payload as MonthlyChartDataPoint;
                     return (
                       <ChartTooltipContent
-                        className="w-[200px]" 
+                        className="w-[200px]"
                         label={data.monthDisplay}
-                        payload={[{ 
-                            name: "Asistencias / Convocatorias", 
-                            value: `${data.attendedCount} de ${data.convocatedCount} inst.`, 
-                            color: "hsl(var(--primary))" 
+                        payload={[{
+                            name: "Asistencias / Convocatorias",
+                            value: `${data.attendedCount} de ${data.convocatedCount} inst.`,
+                            color: "hsl(var(--primary))"
                         }]}
                         indicator="line"
                       />
@@ -233,7 +213,7 @@ export default function MemberAttendanceLineChart({
               />
               <Line
                 dataKey="attendedCount"
-                type="linear" 
+                type="linear"
                 stroke="var(--color-attendedCount)"
                 strokeWidth={2}
                 dot={{
@@ -244,7 +224,7 @@ export default function MemberAttendanceLineChart({
                   r: 5,
                 }}
                 name="Asistencias por Mes"
-                connectNulls={true} 
+                connectNulls={true}
               />
             </RechartsLineChart>
           </ChartContainer>
