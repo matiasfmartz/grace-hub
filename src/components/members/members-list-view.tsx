@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useCallback, useTransition, useEffect } from 'react';
+import { useState, useMemo, useCallback, useTransition } from 'react';
 import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberWriteData, MemberRoleType, Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -78,9 +78,9 @@ export default function MembersListView({
 }: MembersListViewProps) {
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [searchInput, setSearchInput] = useState(currentSearchTerm);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(currentStatusFilters);
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(currentRoleFilters);
-  const [selectedGuideIds, setSelectedGuideIds] = useState<string[]>(currentGuideIdFilters);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(currentStatusFilters || []);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>(currentRoleFilters || []);
+  const [selectedGuideIds, setSelectedGuideIds] = useState<string[]>(currentGuideIdFilters || []);
   const [sortKey, setSortKey] = useState<SortKey>('fullName');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -92,17 +92,6 @@ export default function MembersListView({
   const router = useRouter();
   const pathname = usePathname();
   const searchParamsHook = useSearchParams();
-
-  useEffect(() => {
-    setMembers(initialMembers);
-  }, [initialMembers]);
-  
-  useEffect(() => {
-    setSearchInput(currentSearchTerm);
-    setSelectedStatuses(currentStatusFilters);
-    setSelectedRoles(currentRoleFilters);
-    setSelectedGuideIds(currentGuideIdFilters);
-  }, [currentSearchTerm, currentStatusFilters, currentRoleFilters, currentGuideIdFilters]);
 
 
   const gdiGuides = useMemo(() => {
@@ -123,28 +112,31 @@ export default function MembersListView({
 
   const toggleFilterItem = (
     itemValue: string,
-    filterType: 'status' | 'role' | 'guide'
+    currentSelectedArray: string[],
+    setter: React.Dispatch<React.SetStateAction<string[]>>
   ) => {
-    const setter =
-      filterType === 'status' ? setSelectedStatuses :
-      filterType === 'role' ? setSelectedRoles :
-      setSelectedGuideIds;
-
-    setter(prev =>
-      prev.includes(itemValue)
-        ? prev.filter(i => i !== itemValue)
-        : [...prev, itemValue]
-    );
+    const newArray = currentSelectedArray.includes(itemValue)
+      ? currentSelectedArray.filter(i => i !== itemValue)
+      : [...currentSelectedArray, itemValue];
+    setter(newArray);
   };
 
   const handleFilterOrSearch = () => {
-    const params = new URLSearchParams(searchParamsHook.toString());
+    const params = new URLSearchParams(); // Start with empty params
     params.set('page', '1');
 
-    if (searchInput.trim()) params.set('search', searchInput.trim()); else params.delete('search');
-    if (selectedStatuses.length > 0) params.set('status', selectedStatuses.join(',')); else params.delete('status');
-    if (selectedRoles.length > 0) params.set('role', selectedRoles.join(',')); else params.delete('role');
-    if (selectedGuideIds.length > 0) params.set('guide', selectedGuideIds.join(',')); else params.delete('guide');
+    // Preserve existing pageSize if it's in the URL
+    const currentHookParams = new URLSearchParams(searchParamsHook.toString());
+    if (currentHookParams.has('pageSize')) {
+        params.set('pageSize', currentHookParams.get('pageSize')!);
+    } else {
+        params.set('pageSize', pageSize.toString()); // Fallback to current pageSize prop
+    }
+
+    if (searchInput.trim()) params.set('search', searchInput.trim());
+    if (selectedStatuses.length > 0) params.set('status', selectedStatuses.join(','));
+    if (selectedRoles.length > 0) params.set('role', selectedRoles.join(','));
+    if (selectedGuideIds.length > 0) params.set('guide', selectedGuideIds.join(','));
 
     router.push(`${pathname}?${params.toString()}`);
   };
@@ -155,12 +147,14 @@ export default function MembersListView({
     setSelectedRoles([]);
     setSelectedGuideIds([]);
     
-    const params = new URLSearchParams(searchParamsHook.toString());
-    params.delete('search');
-    params.delete('status');
-    params.delete('role');
-    params.delete('guide');
+    const params = new URLSearchParams(); // Start fresh
     params.set('page', '1');
+    const currentHookParams = new URLSearchParams(searchParamsHook.toString());
+     if (currentHookParams.has('pageSize')) {
+        params.set('pageSize', currentHookParams.get('pageSize')!);
+    } else {
+        params.set('pageSize', pageSize.toString());
+    }
     router.push(`${pathname}?${params.toString()}`);
   };
 
@@ -299,7 +293,7 @@ export default function MembersListView({
                   <DropdownMenuCheckboxItem
                     key={opt.value}
                     checked={selectedStatuses.includes(opt.value)}
-                    onCheckedChange={() => toggleFilterItem(opt.value, 'status')}
+                    onCheckedChange={() => toggleFilterItem(opt.value, selectedStatuses, setSelectedStatuses)}
                   >
                     {opt.label}
                   </DropdownMenuCheckboxItem>
@@ -324,7 +318,7 @@ export default function MembersListView({
                   <DropdownMenuCheckboxItem
                     key={opt.value}
                     checked={selectedRoles.includes(opt.value)}
-                    onCheckedChange={() => toggleFilterItem(opt.value, 'role')}
+                    onCheckedChange={() => toggleFilterItem(opt.value, selectedRoles, setSelectedRoles)}
                   >
                     {opt.label}
                   </DropdownMenuCheckboxItem>
@@ -349,7 +343,7 @@ export default function MembersListView({
                   <DropdownMenuCheckboxItem
                     key={guide.id}
                     checked={selectedGuideIds.includes(guide.id)}
-                    onCheckedChange={() => toggleFilterItem(guide.id, 'guide')}
+                    onCheckedChange={() => toggleFilterItem(guide.id, selectedGuideIds, setSelectedGuideIds)}
                   >
                     {guide.firstName} {guide.lastName}
                   </DropdownMenuCheckboxItem>
