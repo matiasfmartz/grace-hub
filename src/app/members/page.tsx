@@ -1,6 +1,6 @@
 
 'use server';
-import type { Member, GDI, MinistryArea, Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
+import type { Member, GDI, MinistryArea, Meeting, MeetingSeries, AttendanceRecord, MemberWriteData } from '@/lib/types';
 import MembersListView from '@/components/members/members-list-view';
 import { revalidatePath } from 'next/cache';
 import {
@@ -17,7 +17,6 @@ import { getAllMinistryAreas } from '@/services/ministryAreaService';
 import { getAllMeetings, getAllMeetingSeries } from '@/services/meetingService';
 import { getAllAttendanceRecords } from '@/services/attendanceService';
 
-export const dynamic = 'force-dynamic';
 
 export async function addSingleMemberAction(newMemberData: Omit<Member, 'id' | 'roles'>): Promise<{ success: boolean; message: string; newMember?: Member }> {
   try {
@@ -36,7 +35,7 @@ export async function addSingleMemberAction(newMemberData: Omit<Member, 'id' | '
 
     return { success: true, message: `Miembro ${newMember.firstName} ${newMember.lastName} agregado exitosamente. Roles calculados.`, newMember };
   } catch (error: any) {
-    console.error("Error saving single member:", error);
+    
     return { success: false, message: `Error al guardar miembro: ${error.message}` };
   }
 }
@@ -75,9 +74,45 @@ export async function updateMemberAction(updatedMemberData: Member): Promise<{ s
 
     return { success: true, message: `Miembro ${memberToUpdate.firstName} ${memberToUpdate.lastName} actualizado exitosamente. Roles actualizados.`, updatedMember: finalUpdatedMember };
   } catch (error: any) {
-    console.error("Error updating member:", error);
+    console.error("Error actualizando miembro:", error);
     return { success: false, message: `Error al actualizar miembro: ${error.message}` };
   }
+}
+
+async function getMembersPageData(
+  currentPageParam: number,
+  pageSizeParam: number,
+  searchTermParam?: string,
+  statusFiltersParam?: string[],
+  roleFiltersParam?: string[],
+  guideFiltersParam?: string[]
+) {
+  const { members, totalMembers, totalPages } = await getAllMembers(
+    currentPageParam,
+    pageSizeParam,
+    searchTermParam,
+    statusFiltersParam,
+    roleFiltersParam,
+    guideFiltersParam
+  );
+  const allMembersForDropdowns = await getAllMembersNonPaginated();
+  const allGDIsData = await getAllGdis();
+  const allMinistryAreasData = await getAllMinistryAreas();
+  const allMeetingsData = await getAllMeetings();
+  const allMeetingSeriesData = await getAllMeetingSeries();
+  const allAttendanceRecordsData = await getAllAttendanceRecords();
+
+  return {
+    members,
+    totalMembers,
+    totalPages,
+    allMembersForDropdowns,
+    allGDIs: allGDIsData,
+    allMinistryAreas: allMinistryAreasData,
+    allMeetings: allMeetingsData,
+    allMeetingSeries: allMeetingSeriesData,
+    allAttendanceRecords: allAttendanceRecordsData,
+  };
 }
 
 interface MembersPageProps {
@@ -91,122 +126,54 @@ interface MembersPageProps {
   };
 }
 
-async function getMembersPageData(
-  pageParam?: string,
-  pageSizeParam?: string,
-  searchTermParam?: string,
-  statusFilterStringParam?: string,
-  roleFilterStringParam?: string,
-  guideIdFilterStringParam?: string
-): Promise<{
-  membersForPage: Member[],
-  allMembersForDropdowns: Member[],
-  gdis: GDI[],
-  ministryAreas: MinistryArea[],
-  allMeetings: Meeting[],
-  allMeetingSeries: MeetingSeries[],
-  allAttendanceRecords: AttendanceRecord[],
-  currentPage: number,
-  totalPages: number,
-  pageSize: number,
-  currentSearchTerm: string,
-  currentStatusFiltersArray: string[],
-  currentRoleFiltersArray: string[],
-  currentGuideIdFiltersArray: string[]
-}> {
-  const page = Number(pageParam) || 1;
-  const pageSize = Number(pageSizeParam) || 10;
-  const searchTerm = (searchTermParam || '').trim();
-  const statusFilterString = (statusFilterStringParam || '').trim();
-  const roleFilterString = (roleFilterStringParam || '').trim();
-  const guideIdFilterString = (guideIdFilterStringParam || '').trim();
+export default async function MembersPage({ searchParams }: MembersPageProps) {
+  const currentPage = Number(searchParams.page) || 1;
+  const pageSize = Number(searchParams.pageSize) || 10;
+  const searchTerm = searchParams.search || '';
+  const statusFilterString = searchParams.status || '';
+  const roleFilterString = searchParams.role || '';
+  const guideFilterString = searchParams.guide || '';
+  
+  const currentStatusFiltersArray = statusFilterString ? statusFilterString.split(',') : [];
+  const currentRoleFiltersArray = roleFilterString ? roleFilterString.split(',') : [];
+  const currentGuideFiltersArray = guideFilterString ? guideFilterString.split(',') : [];
 
-  const statusFilters = statusFilterString ? statusFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
-  const roleFilters = roleFilterString ? roleFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
-  const guideIdFilters = guideIdFilterString ? guideIdFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
-  
-  const { members, totalMembers, totalPages } = await getAllMembers(page, pageSize, searchTerm, statusFilters, roleFilters, guideIdFilters);
-  
-  const [
+  const {
+    members,
+    totalMembers,
+    totalPages,
     allMembersForDropdowns,
-    gdis,
-    ministryAreas,
+    allGDIs,
+    allMinistryAreas,
     allMeetings,
     allMeetingSeries,
     allAttendanceRecords
-  ] = await Promise.all([
-    getAllMembersNonPaginated(),
-    getAllGdis(),
-    getAllMinistryAreas(),
-    getAllMeetings(),
-    getAllMeetingSeries(),
-    getAllAttendanceRecords()
-  ]);
-  
-  return {
-    membersForPage: members,
-    allMembersForDropdowns,
-    gdis,
-    ministryAreas,
-    allMeetings,
-    allMeetingSeries,
-    allAttendanceRecords,
-    currentPage: page,
-    totalPages,
-    pageSize,
-    currentSearchTerm: searchTerm,
-    currentStatusFiltersArray: statusFilters,
-    currentRoleFiltersArray: roleFilters,
-    currentGuideIdFiltersArray: guideIdFilters,
-  };
-}
-
-export default async function MembersPage({ searchParams }: MembersPageProps) {
-  const page = searchParams?.page;
-  const pageSizeParam = searchParams?.pageSize;
-  const search = searchParams?.search;
-  const status = searchParams?.status;
-  const role = searchParams?.role;
-  const guide = searchParams?.guide;
-
-  const {
-    membersForPage,
-    allMembersForDropdowns,
-    gdis,
-    ministryAreas,
-    allMeetings,
-    allMeetingSeries,
-    allAttendanceRecords,
+  } = await getMembersPageData(
     currentPage,
-    totalPages,
     pageSize,
-    currentSearchTerm,
+    searchTerm,
     currentStatusFiltersArray,
     currentRoleFiltersArray,
-    currentGuideIdFiltersArray,
-  } = await getMembersPageData(
-    page,
-    pageSizeParam,
-    search,
-    status,
-    role,
-    guide
+    currentGuideFiltersArray
   );
 
-  const key = `${currentPage}-${pageSize}-${currentSearchTerm}-${currentStatusFiltersArray.join(',')}-${currentRoleFiltersArray.join(',')}-${currentGuideIdFiltersArray.join(',')}`;
+  // The key prop forces a re-render when searchParams change
+  const viewKey = `${currentPage}-${pageSize}-${searchTerm}-${statusFilterString}-${roleFilterString}-${guideFilterString}`;
 
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-8 text-center">
-        <h1 className="font-headline text-4xl font-bold text-primary">Member Directory</h1>
-        <p className="text-muted-foreground mt-2">Manage and connect with members of our church community.</p>
+        <h1 className="font-headline text-4xl font-bold text-primary">Directorio de Miembros</h1>
+        <p className="text-muted-foreground mt-2">
+          Visualice, busque, filtre y administre la información de los miembros.
+        </p>
       </div>
       <MembersListView
-        key={key}
-        initialMembers={membersForPage}
+        key={viewKey}
+        initialMembers={members}
         allMembersForDropdowns={allMembersForDropdowns}
-        allGDIs={gdis}
-        allMinistryAreas={ministryAreas}
+        allGDIs={allGDIs}
+        allMinistryAreas={allMinistryAreas}
         allMeetings={allMeetings}
         allMeetingSeries={allMeetingSeries}
         allAttendanceRecords={allAttendanceRecords}
@@ -215,10 +182,10 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
         currentPage={currentPage}
         totalPages={totalPages}
         pageSize={pageSize}
-        currentSearchTerm={currentSearchTerm}
+        currentSearchTerm={searchTerm}
         currentStatusFilters={currentStatusFiltersArray}
         currentRoleFilters={currentRoleFiltersArray}
-        currentGuideIdFilters={currentGuideIdFiltersArray}
+        currentGuideIdFilters={currentGuideFiltersArray}
       />
     </div>
   );
