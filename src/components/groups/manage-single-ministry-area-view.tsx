@@ -4,29 +4,27 @@
 import { useState, useTransition, useEffect, useMemo } from 'react';
 import type { MinistryArea, Member } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardContent, CardFooter } from '@/components/ui/card'; // Removed Card, CardHeader, CardTitle, CardDescription
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-// useRouter is not needed if navigation is handled by parent/dialog
-import { Loader2, Save, Users, UserCheck, Edit3, Search, UserPlus, UserMinus, Badge } from 'lucide-react';
+import { Loader2, Save, Users, UserCheck, UserPlus, UserMinus, Badge } from 'lucide-react'; // Removed Edit3, Search
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DialogClose } from '@/components/ui/dialog';
 
-
 interface ManageSingleMinistryAreaViewProps {
-  ministryArea: MinistryArea;
+  ministryArea: MinistryArea; // Can be a new template if isAdding is true
   allMembers: Member[];
   activeMembers: Member[];
-  updateMinistryAreaAction: (
-    areaId: string,
-    updatedData: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description'>>
-  ) => Promise<{ success: boolean; message: string; updatedArea?: MinistryArea }>;
-  onSuccess?: () => void; // To close dialog
-  // onCancel?: () => void;
+  updateMinistryAreaAction: ( // This prop will handle both create and update
+    areaIdOrNewData: string | (Partial<Omit<MinistryArea, 'id'>> & { name: string; leaderId: string }), // ID for update, data for create
+    updatedData?: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description'>> // Only for update
+  ) => Promise<{ success: boolean; message: string; updatedArea?: MinistryArea; newArea?: MinistryArea }>;
+  onSuccess?: () => void;
+  isAdding?: boolean;
 }
 
 export default function ManageSingleMinistryAreaView({
@@ -35,7 +33,7 @@ export default function ManageSingleMinistryAreaView({
   activeMembers,
   updateMinistryAreaAction,
   onSuccess,
-  // onCancel
+  isAdding = false,
 }: ManageSingleMinistryAreaViewProps) {
   const [editableArea, setEditableArea] = useState<MinistryArea>(initialMinistryArea);
   const [addMemberSearchTerm, setAddMemberSearchTerm] = useState('');
@@ -48,6 +46,7 @@ export default function ManageSingleMinistryAreaView({
     setEditableArea(initialMinistryArea);
     setSelectedAvailableMembers([]);
     setSelectedAssignedMembers([]);
+    setAddMemberSearchTerm('');
   }, [initialMinistryArea]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -98,25 +97,30 @@ export default function ManageSingleMinistryAreaView({
     setSelectedAssignedMembers([]); 
   };
 
-
   const handleSubmit = () => {
     startTransition(async () => {
-      const { id, ...dataToUpdate } = editableArea;
-
-      const finalDataToUpdate = {
-        name: dataToUpdate.name,
-        description: dataToUpdate.description,
-        leaderId: dataToUpdate.leaderId,
-        memberIds: (dataToUpdate.memberIds || []).filter(mId => mId !== dataToUpdate.leaderId),
+      const finalMemberIds = (editableArea.memberIds || []).filter(id => id !== editableArea.leaderId);
+      const dataToSend = {
+        name: editableArea.name,
+        description: editableArea.description,
+        leaderId: editableArea.leaderId,
+        memberIds: finalMemberIds,
       };
 
-      const result = await updateMinistryAreaAction(initialMinistryArea.id, finalDataToUpdate);
-      if (result.success && result.updatedArea) {
-        toast({ title: "Éxito", description: "Área Ministerial actualizada correctamente." });
-        setEditableArea(result.updatedArea);
+      let result;
+      if (isAdding) {
+        result = await updateMinistryAreaAction(dataToSend); // updateMinistryAreaAction for add mode
+      } else {
+        result = await updateMinistryAreaAction(initialMinistryArea.id, dataToSend); // for edit mode
+      }
+
+      if (result.success) {
+        toast({ title: "Éxito", description: result.message });
+        if (result.updatedArea) setEditableArea(result.updatedArea);
+        // For adding, parent dialog will receive newArea and refresh list
         setSelectedAvailableMembers([]); 
         setSelectedAssignedMembers([]); 
-        if (onSuccess) onSuccess(); // Close dialog on success
+        if (onSuccess) onSuccess();
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
       }
@@ -139,7 +143,6 @@ export default function ManageSingleMinistryAreaView({
   const currentlyAssignedDisplayMembers = useMemo(() => {
     return (editableArea.memberIds || []).map(id => allMembers.find(m => m.id === id)).filter(Boolean) as Member[];
   }, [editableArea.memberIds, allMembers]);
-
 
   return (
     <>
@@ -270,9 +273,9 @@ export default function ManageSingleMinistryAreaView({
                 Cancelar
             </Button>
         </DialogClose>
-        <Button onClick={handleSubmit} disabled={isPending || !editableArea.leaderId}>
+        <Button onClick={handleSubmit} disabled={isPending || !editableArea.leaderId || !editableArea.name.trim()}>
           {isPending ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4" />} 
-          {isPending ? 'Guardando...' : 'Guardar Cambios'}
+          {isPending ? (isAdding ? 'Creando...' : 'Guardando...') : (isAdding ? 'Crear Área' : 'Guardar Cambios')}
         </Button>
       </CardFooter>
     </>

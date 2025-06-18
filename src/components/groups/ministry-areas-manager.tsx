@@ -1,25 +1,19 @@
 
 "use client";
 
-import { useState } from 'react';
-import type { MinistryArea, Member, AddMinistryAreaFormValues } from '@/lib/types';
+import type { MinistryArea, Member } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
-import { Mail, Phone, UserCircle, UsersRound, PlusCircle, Settings } from 'lucide-react'; // Changed Edit to Settings
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import AddMinistryAreaForm from './add-ministry-area-form';
+import { Mail, Phone, UserCircle, UsersRound, Settings } from 'lucide-react';
 
 interface MinistryAreasManagerProps {
   ministryAreas: MinistryArea[];
   allMembers: Member[];
   activeMembers: Member[]; 
-  onAddArea: (newArea: AddMinistryAreaFormValues) => void;
-  isSubmitting?: boolean;
 }
 
-export default function MinistryAreasManager({ ministryAreas, allMembers, activeMembers, onAddArea, isSubmitting = false }: MinistryAreasManagerProps) {
-  const [isAddAreaDialogOpen, setIsAddAreaDialogOpen] = useState(false);
+export default function MinistryAreasManager({ ministryAreas, allMembers, activeMembers }: MinistryAreasManagerProps) {
 
   const getLeaderDetails = (leaderId: string) => {
     return allMembers.find(member => member.id === leaderId);
@@ -27,13 +21,7 @@ export default function MinistryAreasManager({ ministryAreas, allMembers, active
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">Áreas Ministeriales</h2>
-        <Button onClick={() => setIsAddAreaDialogOpen(true)} disabled={isSubmitting}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add New Area
-        </Button>
-      </div>
-
+      {/* Button to add new area is now in ManageGroupsTabs.tsx */}
       {ministryAreas.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {ministryAreas.map((area) => {
@@ -69,8 +57,8 @@ export default function MinistryAreasManager({ ministryAreas, allMembers, active
                 </CardContent>
                 <CardFooter>
                   <Button asChild variant="outline" className="w-full border-primary text-primary hover:bg-primary/10">
-                    <Link href={`/groups/ministry-areas/${area.id}/admin`}> {/* Changed link to /admin */}
-                      <Settings className="mr-2 h-4 w-4" /> Admin. Reuniones {/* Changed text and icon */}
+                    <Link href={`/groups/ministry-areas/${area.id}/admin`}>
+                      <Settings className="mr-2 h-4 w-4" /> Admin. Reuniones
                     </Link>
                   </Button>
                 </CardFooter>
@@ -85,23 +73,7 @@ export default function MinistryAreasManager({ ministryAreas, allMembers, active
           <p className="text-muted-foreground mt-2">Add a new ministry area to get started.</p>
         </div>
       )}
-
-      <Dialog open={isAddAreaDialogOpen} onOpenChange={setIsAddAreaDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Add New Ministry Area</DialogTitle>
-            <DialogDescription>
-              Define the details for the new ministry area and assign a leader.
-            </DialogDescription>
-          </DialogHeader>
-          <AddMinistryAreaForm
-            onOpenChange={setIsAddAreaDialogOpen}
-            onAddArea={onAddArea}
-            activeMembers={activeMembers}
-            isSubmitting={isSubmitting}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Dialog for adding area is now in ManageGroupsTabs.tsx */}
     </div>
   );
 }

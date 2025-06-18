@@ -1,25 +1,19 @@
 
 "use client";
 
-import { useState } from 'react';
-import type { GDI, Member, AddGdiFormValues } from '@/lib/types';
+import type { GDI, Member } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, UserCheck, PlusCircle, Mail, Phone, Settings } from 'lucide-react'; // Changed Edit to Settings
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import AddGdiForm from './add-gdi-form';
+import { Users, UserCheck, Mail, Phone, Settings } from 'lucide-react';
 import Link from 'next/link';
 
 interface GdisManagerProps {
   gdis: GDI[];
   allMembers: Member[]; 
   activeMembers: Member[]; 
-  onAddGDI: (newGdi: AddGdiFormValues) => void;
-  isSubmitting?: boolean;
 }
 
-export default function GdisManager({ gdis, allMembers, activeMembers, onAddGDI, isSubmitting = false }: GdisManagerProps) {
-  const [isAddGdiDialogOpen, setIsAddGdiDialogOpen] = useState(false);
+export default function GdisManager({ gdis, allMembers, activeMembers }: GdisManagerProps) {
 
   const getGuideDetails = (guideId: string) => {
     return allMembers.find(member => member.id === guideId);
@@ -27,13 +21,7 @@ export default function GdisManager({ gdis, allMembers, activeMembers, onAddGDI,
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">GDIs (Grupos de Integración)</h2>
-        <Button onClick={() => setIsAddGdiDialogOpen(true)} disabled={isSubmitting}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add New GDI
-        </Button>
-      </div>
-
+      {/* Button to add new GDI is now in ManageGroupsTabs.tsx */}
       {gdis.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {gdis.map((gdi) => {
@@ -72,8 +60,8 @@ export default function GdisManager({ gdis, allMembers, activeMembers, onAddGDI,
                     variant="outline" 
                     className="w-full border-primary text-primary hover:bg-primary/10"
                   >
-                    <Link href={`/groups/gdis/${gdi.id}/admin`}> {/* Changed link to /admin */}
-                      <Settings className="mr-2 h-4 w-4" /> Admin. Reuniones {/* Changed text and icon */}
+                    <Link href={`/groups/gdis/${gdi.id}/admin`}> 
+                      <Settings className="mr-2 h-4 w-4" /> Admin. Reuniones 
                     </Link>
                   </Button>
                 </CardFooter>
@@ -88,23 +76,7 @@ export default function GdisManager({ gdis, allMembers, activeMembers, onAddGDI,
           <p className="text-muted-foreground mt-2">Add a new GDI to get started.</p>
         </div>
       )}
-
-      <Dialog open={isAddGdiDialogOpen} onOpenChange={setIsAddGdiDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add New GDI</DialogTitle>
-            <DialogDescription>
-              Define the name for the new GDI and assign a guide.
-            </DialogDescription>
-          </DialogHeader>
-          <AddGdiForm
-            onOpenChange={setIsAddGdiDialogOpen}
-            onAddGDI={onAddGDI}
-            activeMembers={activeMembers}
-            isSubmitting={isSubmitting}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Dialog for adding GDI is now in ManageGroupsTabs.tsx */}
     </div>
   );
 }
