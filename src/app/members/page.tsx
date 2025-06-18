@@ -79,23 +79,18 @@ export async function updateMemberAction(updatedMemberData: Member): Promise<{ s
 }
 
 interface MembersPageProps {
-  searchParams?: {
+  searchParams: {
     page?: string;
     pageSize?: string;
     search?: string;
-    status?: string; 
-    role?: string;   
-    guide?: string;  
+    status?: string;
+    role?: string;
+    guide?: string;
   };
 }
 
 async function getMembersPageData(
-    page: number,
-    pageSize: number,
-    searchTerm?: string,
-    statusFilterString?: string,
-    roleFilterString?: string,
-    guideIdFilterString?: string
+  searchParams: MembersPageProps['searchParams']
 ): Promise<{
   membersForPage: Member[],
   allMembersForDropdowns: Member[],
@@ -106,13 +101,22 @@ async function getMembersPageData(
   allAttendanceRecords: AttendanceRecord[],
   currentPage: number,
   totalPages: number,
+  pageSize: number,
+  currentSearchTerm: string,
   currentStatusFiltersArray: string[],
   currentRoleFiltersArray: string[],
   currentGuideIdFiltersArray: string[]
 }> {
-  console.log("[MembersPage] getMembersPageData - statusFilterString from URL:", statusFilterString); // DEBUG LOG
+  const page = Number(searchParams?.page) || 1;
+  const pageSize = Number(searchParams?.pageSize) || 10;
+  const searchTerm = (searchParams?.search || '').trim();
+  const statusFilterString = (searchParams?.status || '').trim();
+  const roleFilterString = (searchParams?.role || '').trim();
+  const guideIdFilterString = (searchParams?.guide || '').trim();
+
+  console.log("[MembersPage] getMembersPageData - statusFilterString from URL:", statusFilterString);
   const statusFilters = statusFilterString ? statusFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
-  console.log("[MembersPage] getMembersPageData - parsed statusFilters array:", statusFilters); // DEBUG LOG
+  console.log("[MembersPage] getMembersPageData - parsed statusFilters array:", statusFilters);
   const roleFilters = roleFilterString ? roleFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
   const guideIdFilters = guideIdFilterString ? guideIdFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
 
@@ -142,6 +146,8 @@ async function getMembersPageData(
     allAttendanceRecords,
     currentPage: page,
     totalPages,
+    pageSize,
+    currentSearchTerm: searchTerm,
     currentStatusFiltersArray: statusFilters,
     currentRoleFiltersArray: roleFilters,
     currentGuideIdFiltersArray: guideIdFilters,
@@ -149,13 +155,6 @@ async function getMembersPageData(
 }
 
 export default async function MembersPage({ searchParams }: MembersPageProps) {
-  const currentPage = Number(searchParams?.page) || 1;
-  const pageSize = Number(searchParams?.pageSize) || 10;
-  const searchTerm = (searchParams?.search || '').trim();
-  const statusFilterString = (searchParams?.status || '').trim();
-  const roleFilterString = (searchParams?.role || '').trim();
-  const guideIdFilterString = (searchParams?.guide || '').trim();
-
   const {
     membersForPage,
     allMembersForDropdowns,
@@ -164,12 +163,16 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
     allMeetings,
     allMeetingSeries,
     allAttendanceRecords,
+    currentPage,
     totalPages,
+    pageSize,
+    currentSearchTerm,
     currentStatusFiltersArray,
     currentRoleFiltersArray,
     currentGuideIdFiltersArray,
-  } = await getMembersPageData(currentPage, pageSize, searchTerm, statusFilterString, roleFilterString, guideIdFilterString);
+  } = await getMembersPageData(searchParams);
 
+  const key = `${currentPage}-${pageSize}-${currentSearchTerm}-${currentStatusFiltersArray.join(',')}-${currentRoleFiltersArray.join(',')}-${currentGuideIdFiltersArray.join(',')}`;
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -178,7 +181,7 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
         <p className="text-muted-foreground mt-2">Manage and connect with members of our church community.</p>
       </div>
       <MembersListView
-        key={`${currentPage}-${pageSize}-${searchTerm}-${statusFilterString}-${roleFilterString}-${guideIdFilterString}`}
+        key={key}
         initialMembers={membersForPage}
         allMembersForDropdowns={allMembersForDropdowns}
         allGDIs={gdis}
@@ -191,7 +194,7 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
         currentPage={currentPage}
         totalPages={totalPages}
         pageSize={pageSize}
-        currentSearchTerm={searchTerm}
+        currentSearchTerm={currentSearchTerm}
         currentStatusFilters={currentStatusFiltersArray}
         currentRoleFilters={currentRoleFiltersArray}
         currentGuideIdFilters={currentGuideIdFiltersArray}
@@ -199,4 +202,3 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
     </div>
   );
 }
-

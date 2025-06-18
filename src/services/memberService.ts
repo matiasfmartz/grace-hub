@@ -28,20 +28,15 @@ export async function getAllMembers(
   roleFilterParams?: string[],
   guideIdFilterParams?: string[]
 ): Promise<{ members: Member[], totalMembers: number, totalPages: number }> {
-  console.log("[memberService] getAllMembers - Received statusFilterParams:", statusFilterParams); // DEBUG LOG
   const allMembersFromFile = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
   let workingFilteredMembers = [...allMembersFromFile];
 
   // Apply Status Filter (Multi-select)
   if (statusFilterParams && statusFilterParams.length > 0) {
     workingFilteredMembers = workingFilteredMembers.filter(member => {
-      const isMatch = member.status && statusFilterParams.includes(member.status);
-      // console.log(`[memberService] Member ID: ${member.id}, Status: ${member.status}, Filters: ${statusFilterParams}, Match: ${isMatch}`); // DEBUG LOG (can be too verbose)
-      return isMatch;
+      return member.status && statusFilterParams.includes(member.status);
     });
   }
-  console.log(`[memberService] Members after status filter (${statusFilterParams}): ${workingFilteredMembers.length}`);
-
 
   // Apply Role Filter (Multi-select)
   if (roleFilterParams && roleFilterParams.length > 0) {
@@ -49,8 +44,6 @@ export async function getAllMembers(
       member.roles && member.roles.some(role => roleFilterParams.includes(role))
     );
   }
-  console.log(`[memberService] Members after role filter (${roleFilterParams}): ${workingFilteredMembers.length}`);
-
 
   // Apply GDI Guide Filter (Multi-select)
   if (guideIdFilterParams && guideIdFilterParams.length > 0) {
@@ -70,10 +63,12 @@ export async function getAllMembers(
     if (membersToInclude.size > 0) {
         workingFilteredMembers = workingFilteredMembers.filter(member => membersToInclude.has(member.id));
     } else {
-        workingFilteredMembers = [];
+        // If no guides are selected or no members match the guide selection, this effectively filters to an empty list
+        // This behavior might need review if the expectation is different (e.g. show all if no members under selected guides)
+        // For now, it means "show members related to these specific guides". If none, then none.
+        workingFilteredMembers = []; 
     }
   }
-  console.log(`[memberService] Members after guide filter (${guideIdFilterParams}): ${workingFilteredMembers.length}`);
 
   // Apply Search Term Filter
   if (searchTerm) {
@@ -90,7 +85,6 @@ export async function getAllMembers(
       );
     }
   }
-  console.log(`[memberService] Members after search filter ('${searchTerm}'): ${workingFilteredMembers.length}`);
 
   const totalMembers = workingFilteredMembers.length;
   const totalPages = Math.ceil(totalMembers / pageSize);
@@ -346,5 +340,3 @@ export async function bulkRecalculateAndUpdateRoles(memberIdsToUpdate: string[])
     await writeDbFile<Member>(MEMBERS_DB_FILE, allMembers);
   }
 }
-
-    

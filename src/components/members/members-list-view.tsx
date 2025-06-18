@@ -123,24 +123,20 @@ export default function MembersListView({
   };
 
  const handleFilterOrSearch = () => {
-    console.log("[MembersListView] handleFilterOrSearch - selectedStatuses:", selectedStatuses); // DEBUG LOG
-    const params = new URLSearchParams(); 
-    params.set('page', '1'); 
-
-    const currentHookParams = new URLSearchParams(searchParamsHook.toString());
-    if (currentHookParams.has('pageSize')) {
-        params.set('pageSize', currentHookParams.get('pageSize')!);
-    } else {
-        params.set('pageSize', pageSize.toString());
-    }
+    const params = new URLSearchParams();
+    params.set('page', '1');
+    params.set('pageSize', pageSize.toString());
 
     if (searchInput.trim()) params.set('search', searchInput.trim());
     if (selectedStatuses.length > 0) params.set('status', selectedStatuses.join(','));
+    else params.delete('status');
     if (selectedRoles.length > 0) params.set('role', selectedRoles.join(','));
+    else params.delete('role');
     if (selectedGuideIds.length > 0) params.set('guide', selectedGuideIds.join(','));
-
+    else params.delete('guide');
+    
     router.push(`${pathname}?${params.toString()}`);
-    router.refresh(); 
+    router.refresh();
   };
   
   const handleClearAllFilters = () => {
@@ -151,12 +147,7 @@ export default function MembersListView({
     
     const params = new URLSearchParams();
     params.set('page', '1');
-    const currentHookParams = new URLSearchParams(searchParamsHook.toString());
-    if (currentHookParams.has('pageSize')) {
-        params.set('pageSize', currentHookParams.get('pageSize')!);
-    } else {
-        params.set('pageSize', pageSize.toString());
-    }
+    params.set('pageSize', pageSize.toString());
     router.push(`${pathname}?${params.toString()}`);
     router.refresh(); 
   };
@@ -540,4 +531,3 @@ export default function MembersListView({
     </>
   );
 }
-
