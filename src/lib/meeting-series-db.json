@@ -1,3 +1,4 @@
+
 [
   {
     "id": "series-1750198570439-y83k8",
@@ -5,7 +6,8 @@
     "description": "",
     "defaultTime": "20:00",
     "defaultLocation": "Auditorio",
-    "defaultImageUrl": "https://placehold.co/600x400",
+    "seriesType": "general",
+    "ownerGroupId": null,
     "targetAttendeeGroups": [
       "allMembers"
     ],
@@ -20,7 +22,8 @@
     "description": "",
     "defaultTime": "20:00",
     "defaultLocation": "Auditorio",
-    "defaultImageUrl": "https://placehold.co/600x400",
+    "seriesType": "general",
+    "ownerGroupId": null,
     "targetAttendeeGroups": [
       "leaders"
     ],

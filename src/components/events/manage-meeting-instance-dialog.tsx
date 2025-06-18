@@ -15,11 +15,11 @@ import {
 import MeetingInstanceForm from '@/components/events/add-occasional-meeting-form';
 import DeleteMeetingInstanceAlert from '@/components/events/delete-meeting-instance-alert';
 import type { Meeting, MeetingInstanceFormValues, MeetingSeries } from '@/lib/types';
-import { Settings, Edit2, Trash2, Info, CalendarDays, Clock, MapPin, FileText, Image as ImageIcon, Users } from 'lucide-react';
+import { Settings, Edit2, Trash2, Info, CalendarDays, Clock, MapPin, FileText, Users, Image as ImageIcon } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO, isValid as isValidDateFn } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { useRouter } from 'next/navigation'; // Added useRouter
+import { useRouter } from 'next/navigation'; 
 
 interface ManageMeetingInstanceDialogProps {
   instance: Meeting;
@@ -27,6 +27,7 @@ interface ManageMeetingInstanceDialogProps {
   updateInstanceAction: (instanceId: string, data: MeetingInstanceFormValues) => Promise<{ success: boolean; message: string; updatedInstance?: Meeting }>;
   deleteInstanceAction: (instanceId: string) => Promise<{ success: boolean; message: string }>;
   triggerButton?: React.ReactNode;
+  redirectOnDeletePath?: string;
 }
 
 export default function ManageMeetingInstanceDialog({
@@ -35,17 +36,17 @@ export default function ManageMeetingInstanceDialog({
   updateInstanceAction,
   deleteInstanceAction,
   triggerButton,
+  redirectOnDeletePath,
 }: ManageMeetingInstanceDialogProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
-  const router = useRouter(); // Initialized useRouter
+  const router = useRouter(); 
 
   const handleEditSuccess = () => {
     setIsEditing(false);
-    // Parent page should revalidate or refetch to show updated data
   };
 
   const handleDeleteConfirm = async () => {
@@ -53,13 +54,12 @@ export default function ManageMeetingInstanceDialog({
     if (result.success) {
       setIsDeleteAlertOpen(false);
       setIsDialogOpen(false);
-      toast({ // Moved toast here from alert for better control flow
+      toast({ 
         title: "Instancia Eliminada",
         description: result.message,
       });
-      router.push('/events'); // Navigate after successful deletion
+      router.push(redirectOnDeletePath || '/events'); // Use dynamic path or fallback
     }
-    // The alert itself will also show a toast if needed based on result
     return result; 
   };
 
@@ -77,7 +77,7 @@ export default function ManageMeetingInstanceDialog({
     time: instance.time,
     location: instance.location,
     description: instance.description || "",
-    imageUrl: instance.imageUrl || "",
+    // imageUrl: instance.imageUrl || "", // Removed
   }), [instance, parsedDate]);
 
   const handleSubmitUpdate = async (formData: MeetingInstanceFormValues) => {
@@ -135,12 +135,7 @@ export default function ManageMeetingInstanceDialog({
                 <InfoItem icon={MapPin} label="Lugar:" value={instance.location} />
                 <InfoItem icon={FileText} label="Descripción:" value={instance.description || "N/A"} />
                 {instance.attendeeUids && <InfoItem icon={Users} label="Asistentes Esperados (UIDs):" value={instance.attendeeUids.length > 0 ? instance.attendeeUids.join(', ') : "Ninguno especificado"} />}
-                {instance.imageUrl && (
-                  <div>
-                    <h3 className="font-semibold text-muted-foreground flex items-center mb-1"><ImageIcon className="mr-2 h-4 w-4" />Imagen:</h3>
-                    <img src={instance.imageUrl} alt={instance.name} className="mt-1 rounded-md max-h-32 object-contain border" data-ai-hint="event meeting" />
-                  </div>
-                )}
+                {/* Image display removed */}
               </div>
             )}
           </div>

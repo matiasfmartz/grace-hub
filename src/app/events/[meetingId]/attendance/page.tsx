@@ -26,8 +26,8 @@ async function getPageData(meetingId: string) {
   const meetingInstance = await getMeetingById(meetingId);
   if (!meetingInstance) notFound();
 
-  const allMeetingSeriesData = await getAllMeetingSeries(); // Fetch all series
-  const meetingSeries = allMeetingSeriesData.find(s => s.id === meetingInstance.seriesId); // Find specific series
+  const allMeetingSeriesData = await getAllMeetingSeries(); 
+  const meetingSeries = allMeetingSeriesData.find(s => s.id === meetingInstance.seriesId); 
   
   const [allMembers, allGdis, allMinistryAreas, currentAttendance] = await Promise.all([
     getAllMembersNonPaginated(),
@@ -36,7 +36,6 @@ async function getPageData(meetingId: string) {
     getAttendanceForMeeting(meetingId),
   ]);
 
-  // Pass allMembers and allMeetingSeriesData to getResolvedAttendees
   const resolvedAttendees = await getResolvedAttendees(meetingInstance, allMembers, allMeetingSeriesData);
   return { meetingInstance, meetingSeries, resolvedAttendees, currentAttendance, allMembers };
 }
@@ -78,11 +77,20 @@ async function handleUpdateMeetingInstanceAction(
       time: data.time,
       location: data.location,
       description: data.description,
-      imageUrl: data.imageUrl,
+      // imageUrl: data.imageUrl, // Removed
     };
     const updatedInstance = await updateMeeting(instanceId, instanceDataToUpdate);
     revalidatePath(`/events/${instanceId}/attendance`);
-    revalidatePath(`/events`); 
+    
+    const series = await getMeetingSeriesById(updatedInstance.seriesId);
+    if (series?.seriesType === 'gdi' && series.ownerGroupId) {
+      revalidatePath(`/groups/gdis/${series.ownerGroupId}/admin`);
+    } else if (series?.seriesType === 'ministryArea' && series.ownerGroupId) {
+      revalidatePath(`/groups/ministry-areas/${series.ownerGroupId}/admin`);
+    } else {
+      revalidatePath(`/events`); 
+    }
+    
     return { success: true, message: "Instancia de reunión actualizada exitosamente.", updatedInstance };
   } catch (error: any) {
     console.error("Error updating meeting instance:", error);
@@ -95,8 +103,10 @@ async function handleDeleteMeetingInstanceAction(
 ): Promise<{ success: boolean; message: string }> {
   'use server';
   try {
-    await deleteMeetingInstance(instanceId);
-    revalidatePath(`/events`); 
+    // Revalidation path will be handled by the dialog via redirectOnDeletePath or fallback
+    // No specific revalidation here as the parent component (dialog) or service might handle it
+    // or the redirect itself makes it unnecessary for this specific action.
+    await deleteMeetingInstance(instanceId); 
     return { success: true, message: "Instancia de reunión eliminada exitosamente." };
   } catch (error: any) {
     console.error("Error deleting meeting instance:", error);
@@ -121,13 +131,27 @@ export default async function MeetingAttendancePage({ params }: MeetingAttendanc
   const meetingDateTime = `${formatDateDisplay(meetingInstance.date)} a las ${meetingInstance.time}`;
   const meetingLocation = meetingInstance.location;
 
+  let backLink = "/events";
+  let backLinkText = "Volver a Eventos";
+
+  if (meetingSeries) {
+    if (meetingSeries.seriesType === 'gdi' && meetingSeries.ownerGroupId) {
+      backLink = `/groups/gdis/${meetingSeries.ownerGroupId}/admin`;
+      backLinkText = `Volver a Admin GDI: ${seriesName}`;
+    } else if (meetingSeries.seriesType === 'ministryArea' && meetingSeries.ownerGroupId) {
+      backLink = `/groups/ministry-areas/${meetingSeries.ownerGroupId}/admin`;
+      backLinkText = `Volver a Admin Área: ${seriesName}`;
+    }
+  }
+
+
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-6 flex justify-between items-center">
         <Button asChild variant="outline">
-          <Link href="/events">
+          <Link href={backLink}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Volver a Eventos
+            {backLinkText}
           </Link>
         </Button>
         <ManageMeetingInstanceDialog
@@ -135,6 +159,7 @@ export default async function MeetingAttendancePage({ params }: MeetingAttendanc
             series={meetingSeries}
             updateInstanceAction={handleUpdateMeetingInstanceAction}
             deleteInstanceAction={handleDeleteMeetingInstanceAction}
+            redirectOnDeletePath={backLink}
              triggerButton={
                 <Button variant="outline">
                     <Settings className="mr-2 h-4 w-4" /> Gestionar Reunión

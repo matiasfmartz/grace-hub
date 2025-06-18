@@ -30,14 +30,21 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  const initialFormValues = useMemo(() => ({
-    name: `${series.name} (Ocasional)`,
-    date: new Date(),
-    time: series.defaultTime,
-    location: series.defaultLocation,
-    description: series.description || "",
-    imageUrl: series.defaultImageUrl || "",
-  }), [series]);
+  const initialFormValues = useMemo(() => {
+    let time = "00:00"; // Fallback default
+    if (series.defaultTime && /^[0-2][0-9]:[0-5][0-9]$/.test(series.defaultTime)) {
+      time = series.defaultTime;
+    }
+
+    return {
+      name: `${series.name} (Ocasional)`,
+      date: new Date(),
+      time: time,
+      location: series.defaultLocation,
+      description: series.description || "",
+      // imageUrl: series.defaultImageUrl || "", // Removed
+    };
+  }, [series]);
 
 
   const handleSubmit = async (values: AddOccasionalMeetingFormValues) => {

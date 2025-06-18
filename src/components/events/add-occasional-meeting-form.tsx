@@ -40,7 +40,7 @@ export default function MeetingInstanceForm({
   onCancel,
 }: MeetingInstanceFormProps) {
 
-  const defaultFormValues: MeetingInstanceFormValues = useMemo(() => ({
+  const computedDefaultValues: MeetingInstanceFormValues = useMemo(() => ({
     name: initialValues?.name || "",
     date: initialValues?.date instanceof Date && isValid(initialValues.date)
         ? initialValues.date
@@ -50,32 +50,32 @@ export default function MeetingInstanceForm({
     time: initialValues?.time || "00:00",
     location: initialValues?.location || "",
     description: initialValues?.description || "",
-    imageUrl: initialValues?.imageUrl || "",
+    // imageUrl: initialValues?.imageUrl || "", // Removed
   }), [initialValues]);
 
   const form = useForm<MeetingInstanceFormValues>({
     resolver: zodResolver(MeetingInstanceFormSchema),
-    defaultValues: defaultFormValues,
+    defaultValues: computedDefaultValues,
   });
 
-  useEffect(() => {
-    form.reset(defaultFormValues);
-  }, [defaultFormValues, form]);
+  // Remove useEffect that calls form.reset as it might cause issues
+  // useEffect(() => {
+  //   form.reset(computedDefaultValues);
+  // }, [computedDefaultValues, form]);
 
   const handleSubmit = async (values: MeetingInstanceFormValues) => {
     const result = await onSubmitAction(values);
     if (result.success) {
       if (onSuccess) onSuccess();
-      if (!isEditing) form.reset(defaultFormValues); // Reset only if adding new
+      if (!isEditing) form.reset(computedDefaultValues); 
     }
-    // Toast messages will be handled by the parent dialog
   };
   
   const handleCancelClick = () => {
     if (onCancel) {
       onCancel();
     } else {
-      form.reset(defaultFormValues); // Default reset if no specific cancel handler
+      form.reset(computedDefaultValues); 
     }
   };
 
@@ -145,17 +145,7 @@ export default function MeetingInstanceForm({
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="imageUrl"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>URL de Imagen (Opcional)</FormLabel>
-              <FormControl><Input type="url" {...field} value={field.value ?? ''} disabled={isPending} /></FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* Removed imageUrl field */}
         <div className="flex justify-end space-x-2 pt-4 border-t">
            {onCancel ? (
              <Button type="button" variant="outline" onClick={handleCancelClick} disabled={isPending}>

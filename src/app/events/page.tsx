@@ -1,3 +1,4 @@
+
 'use server';
 import type { Meeting, DefineMeetingSeriesFormValues, MeetingSeries, Member, GDI, MinistryArea, AttendanceRecord, AddOccasionalMeetingFormValues } from '@/lib/types';
 import { Button } from "@/components/ui/button";
@@ -33,9 +34,12 @@ export async function defineMeetingSeriesAction(
   try {
     const dataForService: DefineMeetingSeriesFormValues = {
       ...newSeriesData,
+      seriesType: 'general', // Ensure it's general for this page context
+      ownerGroupId: null,    // Ensure it's general for this page context
       oneTimeDate: newSeriesData.oneTimeDate instanceof Date && isValid(newSeriesData.oneTimeDate)
         ? newSeriesData.oneTimeDate 
         : undefined,
+      // defaultImageUrl: newSeriesData.defaultImageUrl, // Removed
     };
     if (newSeriesData.oneTimeDate instanceof Date && isValid(newSeriesData.oneTimeDate)) {
         (dataForService as any).oneTimeDate = format(newSeriesData.oneTimeDate, 'yyyy-MM-dd');
@@ -74,9 +78,11 @@ export async function updateMeetingSeriesAction(
         description: updatedData.description,
         defaultTime: updatedData.defaultTime,
         defaultLocation: updatedData.defaultLocation,
-        defaultImageUrl: updatedData.defaultImageUrl,
+        // defaultImageUrl: updatedData.defaultImageUrl, // Removed
         targetAttendeeGroups: updatedData.targetAttendeeGroups,
         frequency: updatedData.frequency,
+        seriesType: 'general' as const, // Ensure it's general
+        ownerGroupId: null, // Ensure it's general
         oneTimeDate: updatedData.oneTimeDate instanceof Date && isValid(updatedData.oneTimeDate) ? format(updatedData.oneTimeDate, 'yyyy-MM-dd') : undefined,
         weeklyDays: updatedData.weeklyDays,
         monthlyRuleType: updatedData.monthlyRuleType,
@@ -121,7 +127,7 @@ export async function addOccasionalMeetingAction(
       time: formData.time,
       location: formData.location,
       description: formData.description,
-      imageUrl: formData.imageUrl,
+      // imageUrl: formData.imageUrl, // Removed
     });
     revalidatePath('/events');
     return { success: true, message: `Instancia ocasional "${newInstance.name}" agregada exitosamente.`, newInstance };
@@ -193,7 +199,10 @@ async function getEventsPageData(
     getAllAttendanceRecords()
   ]);
 
-  const seriesPresentInFilter = allSeriesData.sort((a,b) => a.name.localeCompare(b.name));
+  // Filter for 'general' series type only
+  const generalSeriesOnly = allSeriesData.filter(s => s.seriesType === 'general');
+  const seriesPresentInFilter = generalSeriesOnly.sort((a,b) => a.name.localeCompare(b.name));
+
   const actualSelectedSeriesId = selectedSeriesIdParam && seriesPresentInFilter.some(s => s.id === selectedSeriesIdParam)
     ? selectedSeriesIdParam
     : seriesPresentInFilter.length > 0
@@ -221,7 +230,7 @@ async function getEventsPageData(
   const expectedAttendeesMap: Record<string, Set<string>> = {};
 
   for (const meeting of meetingsForPage) {
-    const resolvedForThisInstance = await getResolvedAttendees(meeting, allMembersData, allSeriesData);
+    const resolvedForThisInstance = await getResolvedAttendees(meeting, allMembersData, allSeriesData); // Pass full allSeriesData for resolver
     expectedAttendeesMap[meeting.id] = new Set(resolvedForThisInstance.map(m => m.id));
     resolvedForThisInstance.forEach(member => rowMemberIds.add(member.id));
   }
@@ -231,7 +240,7 @@ async function getEventsPageData(
     .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
 
   return {
-    allSeries: seriesPresentInFilter,
+    allSeries: seriesPresentInFilter, // Use the filtered list for the page
     meetingsForPage,
     totalMeetingInstances,
     meetingInstancesTotalPages,
@@ -253,7 +262,7 @@ async function getEventsPageData(
 
 export default async function EventsPage({ searchParams }: EventsPageProps) {
   const {
-    allSeries,
+    allSeries, // This will now only contain 'general' series
     meetingsForPage,
     totalMeetingInstances,
     meetingInstancesTotalPages,
@@ -305,8 +314,8 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-6">
-        <h1 className="font-headline text-4xl font-bold text-primary">Administración de Reuniones</h1>
-        <p className="text-muted-foreground mt-1">Defina series, programe instancias y vea el historial de asistencia.</p>
+        <h1 className="font-headline text-4xl font-bold text-primary">Administración de Reuniones Generales</h1>
+        <p className="text-muted-foreground mt-1">Defina series, programe instancias y vea el historial de asistencia para eventos generales de la iglesia.</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-6 lg:gap-8">
@@ -317,7 +326,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           <div className="p-4 border rounded-lg shadow-sm bg-card">
             <h2 className="text-lg font-semibold mb-3 flex items-center">
               <LayoutGrid className="mr-2 h-5 w-5 text-primary" />
-              Series de Reuniones
+              Series de Reuniones Generales
             </h2>
             {allSeries.length > 0 ? (
               <ScrollArea className="max-h-60 md:max-h-72 lg:max-h-80 pr-3">
@@ -340,7 +349,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                 </div>
               </ScrollArea>
             ) : (
-              <p className="text-sm text-muted-foreground py-2">No hay series definidas.</p>
+              <p className="text-sm text-muted-foreground py-2">No hay series generales definidas.</p>
             )}
           </div>
 
@@ -397,7 +406,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               {totalMeetingInstances > 0 ? (
                 <MeetingTypeAttendanceTable
                   displayedInstances={meetingsForPage} 
-                  allMeetingSeries={allSeries} 
+                  allMeetingSeries={allSeries} // Pass the filtered general series
                   initialRowMembers={initialRowMembers} 
                   expectedAttendeesMap={expectedAttendeesMap}
                   allAttendanceRecords={allAttendanceRecords}
@@ -455,14 +464,14 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               <CalendarDays className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
               <h2 className="text-2xl font-semibold text-muted-foreground">
                 {allSeries.length > 0 ? "Seleccione una Serie" : 
-                  (appliedStartDate && appliedEndDate ? "No hay reuniones para el rango seleccionado" : "No hay Series de Reuniones Definidas")
+                  (appliedStartDate && appliedEndDate ? "No hay reuniones para el rango seleccionado" : "No hay Series de Reuniones Generales Definidas")
                 }
               </h2>
                <p className="text-muted-foreground mt-3 max-w-md">
                 {allSeries.length > 0 ? "Elija una serie de la lista de la izquierda para ver sus instancias y gestionar la asistencia." :
                   (appliedStartDate && appliedEndDate && appliedStartDate === appliedEndDate ? `(${format(parseISO(appliedStartDate), 'dd/MM/yy', { locale: es })})` :
                    appliedStartDate && appliedEndDate ? `(${format(parseISO(appliedStartDate), 'dd/MM/yy', { locale: es })} - ${format(parseISO(appliedEndDate), 'dd/MM/yy', { locale: es })})` :
-                  "Defina una nueva serie de reuniones o ajuste los filtros de fecha para comenzar.")
+                  "Defina una nueva serie de reuniones generales o ajuste los filtros de fecha para comenzar.")
                 }
               </p>
             </div>

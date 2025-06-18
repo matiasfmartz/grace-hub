@@ -1,3 +1,4 @@
+
 [
   {
     "id": "instance-1750198570442-dsqy77p-0",
@@ -7,7 +8,6 @@
     "time": "20:00",
     "location": "Auditorio",
     "description": "",
-    "imageUrl": "https://placehold.co/600x400",
     "attendeeUids": [
       "1",
       "2",
@@ -31,7 +31,6 @@
     "time": "20:00",
     "location": "Auditorio",
     "description": "",
-    "imageUrl": "https://placehold.co/600x400",
     "attendeeUids": [
       "1",
       "2",
@@ -55,7 +54,6 @@
     "time": "20:00",
     "location": "Auditorio",
     "description": "",
-    "imageUrl": "https://placehold.co/600x400",
     "attendeeUids": [
       "7",
       "2",
@@ -73,7 +71,6 @@
     "time": "20:00",
     "location": "Auditorio",
     "description": "",
-    "imageUrl": "https://placehold.co/600x400",
     "attendeeUids": [
       "7",
       "2",
@@ -91,7 +88,6 @@
     "time": "20:00",
     "location": "Auditorio",
     "description": "",
-    "imageUrl": "https://placehold.co/600x400",
     "attendeeUids": [
       "7",
       "2",
@@ -109,7 +105,6 @@
     "time": "20:00",
     "location": "Auditorio",
     "description": "",
-    "imageUrl": "https://placehold.co/600x400",
     "attendeeUids": [
       "7",
       "2",

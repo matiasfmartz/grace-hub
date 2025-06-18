@@ -187,6 +187,7 @@ export const placeholderMeetingSeries: MeetingSeries[] = [
     description: 'Weekly worship service for everyone.',
     defaultTime: '10:00',
     defaultLocation: 'Main Sanctuary',
+    // defaultImageUrl: 'https://placehold.co/600x400', // Removed
     seriesType: 'general',
     ownerGroupId: null,
     targetAttendeeGroups: ['allMembers'],
@@ -199,6 +200,7 @@ export const placeholderMeetingSeries: MeetingSeries[] = [
     description: 'Weekly meeting for members of GDI Alpha.',
     defaultTime: '19:00',
     defaultLocation: 'Room 101',
+    // defaultImageUrl: 'https://placehold.co/600x400', // Removed
     seriesType: 'gdi',
     ownerGroupId: 'gdi1', // Assumes GDI Alpha has id 'gdi1'
     targetAttendeeGroups: ['allMembers'], // Contextually for GDI members only
@@ -211,6 +213,7 @@ export const placeholderMeetingSeries: MeetingSeries[] = [
     description: 'Practice session for the worship team.',
     defaultTime: '18:30',
     defaultLocation: 'Music Room',
+    // defaultImageUrl: 'https://placehold.co/600x400', // Removed
     seriesType: 'ministryArea',
     ownerGroupId: 'ma2', // Assumes Worship Team area has id 'ma2'
     targetAttendeeGroups: ['allMembers'], // Contextually for MA members only
@@ -230,6 +233,7 @@ export const placeholderMeetings: Meeting[] = [
     time: '10:00', 
     location: 'Main Sanctuary', 
     description: 'Join us for our weekly worship service, open to all.',
+    // imageUrl: 'https://placehold.co/600x400', // Removed
     attendeeUids: [] // For 'allMembers', this would be dynamically resolved
   },
   { 
@@ -240,6 +244,7 @@ export const placeholderMeetings: Meeting[] = [
     time: '19:00', 
     location: 'Room 101', 
     description: 'Weekly meeting for GDI Alpha.',
+    // imageUrl: 'https://placehold.co/600x400', // Removed
     attendeeUids: [] // For group-specific, this would be resolved to members of GDI Alpha
   },
 ];

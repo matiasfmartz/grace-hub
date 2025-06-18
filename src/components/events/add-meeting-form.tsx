@@ -49,6 +49,7 @@ const baseDefaultFormValues: DefineMeetingSeriesFormValues = {
   description: "",
   defaultTime: "10:00",
   defaultLocation: "Santuario Principal",
+  // defaultImageUrl: "", // Removed
   seriesType: 'general',
   ownerGroupId: null,
   targetAttendeeGroups: [],
@@ -86,6 +87,7 @@ const getResolvedDefaultValues = (
     description: currentInitialValues?.description ?? baseDefaultFormValues.description,
     defaultTime: currentInitialValues?.defaultTime ?? baseDefaultFormValues.defaultTime,
     defaultLocation: currentInitialValues?.defaultLocation ?? baseDefaultFormValues.defaultLocation,
+    // defaultImageUrl: currentInitialValues?.defaultImageUrl ?? baseDefaultFormValues.defaultImageUrl, // Removed
     seriesType: currentInitialValues?.seriesType ?? seriesTypeContext ?? baseDefaultFormValues.seriesType,
     ownerGroupId: currentInitialValues?.ownerGroupId ?? ownerGroupIdContext ?? baseDefaultFormValues.ownerGroupId,
     targetAttendeeGroups: currentInitialValues?.targetAttendeeGroups ?? baseDefaultFormValues.targetAttendeeGroups,
@@ -102,6 +104,7 @@ const getResolvedDefaultValues = (
   resolved.description = resolved.description || "";
   resolved.defaultTime = resolved.defaultTime || "00:00";
   resolved.defaultLocation = resolved.defaultLocation || "";
+  // resolved.defaultImageUrl = resolved.defaultImageUrl || ""; // Removed
   
   return resolved;
 };
@@ -194,6 +197,7 @@ export default function DefineMeetingSeriesForm({
                 delete dataToSend.monthlyDayOfWeek;
             }
         }
+        // delete dataToSend.defaultImageUrl; // Ensure it's not sent // Not needed, field removed
         return dataToSend;
   }
 
@@ -289,6 +293,8 @@ export default function DefineMeetingSeriesForm({
             />
         </div>
         
+        {/* Removed defaultImageUrl field */}
+
         <FormField
             control={form.control}
             name="targetAttendeeGroups"

@@ -1,3 +1,4 @@
+
 'use server';
 import type { Meeting, MeetingWriteData, MeetingSeries, MeetingSeriesWriteData, Member, GDI, MinistryArea, MeetingTargetRoleType, AttendanceRecord, DayOfWeekType, MonthlyRuleType, WeekOrdinalType, MeetingFrequencyType, MeetingInstanceUpdateData } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
@@ -198,7 +199,9 @@ export async function addMeetingSeries(
     description: seriesData.description,
     defaultTime: seriesData.defaultTime,
     defaultLocation: seriesData.defaultLocation,
-    defaultImageUrl: seriesData.defaultImageUrl || 'https://placehold.co/600x400',
+    // defaultImageUrl: seriesData.defaultImageUrl || 'https://placehold.co/600x400', // Removed
+    seriesType: seriesData.seriesType,
+    ownerGroupId: seriesData.ownerGroupId,
     targetAttendeeGroups: seriesData.targetAttendeeGroups,
     frequency: seriesData.frequency,
     oneTimeDate: seriesData.frequency === "OneTime" ? seriesData.oneTimeDate : undefined,
@@ -239,7 +242,7 @@ export async function addMeetingSeries(
                 time: newSeries.defaultTime,
                 location: newSeries.defaultLocation,
                 description: newSeries.description,
-                imageUrl: newSeries.defaultImageUrl,
+                // imageUrl: newSeries.defaultImageUrl, // Removed
                 attendeeUids: resolvedUids, 
                 minute: null,
             });
@@ -258,7 +261,7 @@ export async function addMeetingSeries(
                 time: newSeries.defaultTime,
                 location: newSeries.defaultLocation,
                 description: newSeries.description,
-                imageUrl: newSeries.defaultImageUrl,
+                // imageUrl: newSeries.defaultImageUrl, // Removed
                 attendeeUids: resolvedUids,
                 minute: null,
             });
@@ -277,7 +280,7 @@ export async function addMeetingSeries(
                 time: newSeries.defaultTime,
                 location: newSeries.defaultLocation,
                 description: newSeries.description,
-                imageUrl: newSeries.defaultImageUrl,
+                // imageUrl: newSeries.defaultImageUrl, // Removed
                 attendeeUids: resolvedUids,
                 minute: null,
             });
@@ -302,7 +305,7 @@ export async function updateMeetingSeries(
   const updatedSeries: MeetingSeries = {
     ...existingSeries,
     ...updates,
-    defaultImageUrl: updates.defaultImageUrl || existingSeries.defaultImageUrl || 'https://placehold.co/600x400',
+    // defaultImageUrl: updates.defaultImageUrl || existingSeries.defaultImageUrl || 'https://placehold.co/600x400', // Removed
     oneTimeDate: updates.frequency === "OneTime" ? (updates.oneTimeDate ?? existingSeries.oneTimeDate) : undefined,
     weeklyDays: updates.frequency === "Weekly" ? (updates.weeklyDays ?? existingSeries.weeklyDays) : undefined,
     monthlyRuleType: updates.frequency === "Monthly" ? (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) : undefined,
@@ -342,7 +345,7 @@ export async function updateMeetingSeries(
                 time: updatedSeries.defaultTime,
                 location: updatedSeries.defaultLocation,
                 description: updatedSeries.description,
-                imageUrl: updatedSeries.defaultImageUrl,
+                // imageUrl: updatedSeries.defaultImageUrl, // Removed
                 attendeeUids: resolvedUids,
                 minute: null,
             });
@@ -361,7 +364,7 @@ export async function updateMeetingSeries(
                 time: updatedSeries.defaultTime,
                 location: updatedSeries.defaultLocation,
                 description: updatedSeries.description,
-                imageUrl: updatedSeries.defaultImageUrl,
+                // imageUrl: updatedSeries.defaultImageUrl, // Removed
                 attendeeUids: resolvedUids,
                 minute: null,
             });
@@ -380,7 +383,7 @@ export async function updateMeetingSeries(
                 time: updatedSeries.defaultTime,
                 location: updatedSeries.defaultLocation,
                 description: updatedSeries.description,
-                imageUrl: updatedSeries.defaultImageUrl,
+                // imageUrl: updatedSeries.defaultImageUrl, // Removed
                 attendeeUids: resolvedUids,
                 minute: null,
             });
@@ -480,7 +483,7 @@ async function addMeetingInstanceInternal(meetingInstanceData: Omit<Meeting, 'id
 
 export async function addMeetingInstance(
   seriesId: string,
-  instanceDetails: Pick<Meeting, 'name' | 'date' | 'time' | 'location' | 'description' | 'imageUrl' >
+  instanceDetails: Pick<Meeting, 'name' | 'date' | 'time' | 'location' | 'description' /* removed imageUrl */>
 ): Promise<Meeting> {
   const series = await getMeetingSeriesById(seriesId);
   if (!series) {
@@ -505,7 +508,7 @@ export async function addMeetingInstance(
     time: instanceDetails.time,
     location: instanceDetails.location,
     description: instanceDetails.description,
-    imageUrl: instanceDetails.imageUrl || series.defaultImageUrl,
+    // imageUrl: instanceDetails.imageUrl || series.defaultImageUrl, // Removed
     attendeeUids: resolvedUids,
     minute: null,
   });
@@ -528,6 +531,7 @@ export async function updateMeeting(meetingId: string, updates: Partial<MeetingW
   } else if (updates.date && updates.date instanceof Date) {
      formattedUpdates.date = format(updates.date, 'yyyy-MM-dd');
   }
+  // imageUrl removed from updates processing
 
   const updatedMeeting: Meeting = {
     ...originalMeeting,

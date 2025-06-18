@@ -72,6 +72,7 @@ export interface MeetingSeries {
   description?: string;
   defaultTime: string; // HH:MM
   defaultLocation: string;
+  // defaultImageUrl?: string; // Removed
   seriesType: MeetingSeriesType; // To distinguish general events from group-specific ones
   ownerGroupId?: string | null; // ID of GDI or MinistryArea if seriesType is 'gdi' or 'ministryArea'
   targetAttendeeGroups: MeetingTargetRoleType[];
@@ -97,6 +98,7 @@ export interface Meeting {
   time: string; // HH:MM
   location: string;
   description?: string;
+  // imageUrl?: string; // Removed
   attendeeUids: string[];
   minute?: string | null;
 }
@@ -166,6 +168,7 @@ export const DefineMeetingSeriesFormSchema = z.object({
   description: z.string().optional(),
   defaultTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Formato de hora inválido (HH:MM)." }),
   defaultLocation: z.string().min(3, { message: "La ubicación por defecto es requerida." }),
+  // defaultImageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')), // Removed
   seriesType: MeetingSeriesTypeEnum.default('general'),
   ownerGroupId: z.string().nullable().optional(),
   targetAttendeeGroups: z.array(MeetingTargetRoleEnum).min(1,{message: "Debe seleccionar al menos un grupo de asistentes."}),
@@ -214,14 +217,15 @@ export const DefineMeetingSeriesFormSchema = z.object({
 });
 export type DefineMeetingSeriesFormValues = z.infer<typeof DefineMeetingSeriesFormSchema>;
 
-export const MeetingInstanceFormSchema = z.object({ // Renamed from AddOccasionalMeetingFormSchema for broader use
+export const MeetingInstanceFormSchema = z.object({
   name: z.string().min(3, { message: "El nombre de la reunión debe tener al menos 3 caracteres." }),
   date: z.date({ required_error: "La fecha es requerida." }),
   time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Formato de hora inválido (HH:MM)." }),
   location: z.string().min(3, { message: "La ubicación es requerida." }),
   description: z.string().optional(),
+  // imageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')), // Removed
 });
-export type MeetingInstanceFormValues = z.infer<typeof MeetingInstanceFormSchema>; // Renamed type
+export type MeetingInstanceFormValues = z.infer<typeof MeetingInstanceFormSchema>;
 
 
 export const daysOfWeek: { id: DayOfWeekType; label: string }[] = [
