@@ -6,7 +6,7 @@ import type { MinistryArea, Member, AddMinistryAreaFormValues } from '@/lib/type
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
-import { Mail, Phone, UserCircle, UsersRound, PlusCircle, Edit } from 'lucide-react';
+import { Mail, Phone, UserCircle, UsersRound, PlusCircle, Settings } from 'lucide-react'; // Changed Edit to Settings
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import AddMinistryAreaForm from './add-ministry-area-form';
 
@@ -28,7 +28,7 @@ export default function MinistryAreasManager({ ministryAreas, allMembers, active
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">Ministry Areas</h2>
+        <h2 className="text-2xl font-semibold">Áreas Ministeriales</h2>
         <Button onClick={() => setIsAddAreaDialogOpen(true)} disabled={isSubmitting}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add New Area
         </Button>
@@ -48,29 +48,29 @@ export default function MinistryAreasManager({ ministryAreas, allMembers, active
                 </CardHeader>
                 <CardContent className="flex-grow space-y-3">
                   <div>
-                    <h4 className="font-semibold text-sm mb-1 flex items-center"><UserCircle className="mr-2 h-4 w-4 text-muted-foreground" /> Area Leader:</h4>
+                    <h4 className="font-semibold text-sm mb-1 flex items-center"><UserCircle className="mr-2 h-4 w-4 text-muted-foreground" /> Líder del Área:</h4>
                     <p className="text-muted-foreground text-sm">{leader ? `${leader.firstName} ${leader.lastName}` : 'N/A'}</p>
                   </div>
                   {leader && (
                     <>
                       <div>
-                        <h4 className="font-semibold text-sm mb-1 flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" /> Leader Email:</h4>
+                        <h4 className="font-semibold text-sm mb-1 flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" /> Email del Líder:</h4>
                         <a href={`mailto:${leader.email}`} className="text-primary hover:underline text-sm">{leader.email}</a>
                       </div>
                       <div>
-                        <h4 className="font-semibold text-sm mb-1 flex items-center"><Phone className="mr-2 h-4 w-4 text-muted-foreground" /> Leader Phone:</h4>
+                        <h4 className="font-semibold text-sm mb-1 flex items-center"><Phone className="mr-2 h-4 w-4 text-muted-foreground" /> Teléfono del Líder:</h4>
                         <a href={`tel:${leader.phone}`} className="text-primary hover:underline text-sm">{leader.phone}</a>
                       </div>
                     </>
                   )}
                    <CardDescription className="text-sm pt-2">
-                    Members: {area.memberIds.length}
+                    Miembros: {area.memberIds.length}
                   </CardDescription>
                 </CardContent>
                 <CardFooter>
                   <Button asChild variant="outline" className="w-full border-primary text-primary hover:bg-primary/10">
-                    <Link href={`/groups/ministry-areas/${area.id}/manage`}>
-                      <Edit className="mr-2 h-4 w-4" /> Manage Area
+                    <Link href={`/groups/ministry-areas/${area.id}/admin`}> {/* Changed link to /admin */}
+                      <Settings className="mr-2 h-4 w-4" /> Admin. Reuniones {/* Changed text and icon */}
                     </Link>
                   </Button>
                 </CardFooter>

@@ -5,7 +5,7 @@ import { useState } from 'react';
 import type { GDI, Member, AddGdiFormValues } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, UserCheck, PlusCircle, Mail, Phone, Edit } from 'lucide-react';
+import { Users, UserCheck, PlusCircle, Mail, Phone, Settings } from 'lucide-react'; // Changed Edit to Settings
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import AddGdiForm from './add-gdi-form';
 import Link from 'next/link';
@@ -28,7 +28,7 @@ export default function GdisManager({ gdis, allMembers, activeMembers, onAddGDI,
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">GDIs (Integration Groups)</h2>
+        <h2 className="text-2xl font-semibold">GDIs (Grupos de Integración)</h2>
         <Button onClick={() => setIsAddGdiDialogOpen(true)} disabled={isSubmitting}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add New GDI
         </Button>
@@ -47,23 +47,23 @@ export default function GdisManager({ gdis, allMembers, activeMembers, onAddGDI,
                 </CardHeader>
                 <CardContent className="flex-grow space-y-3">
                   <div>
-                    <h4 className="font-semibold text-sm mb-1 flex items-center"><UserCheck className="mr-2 h-4 w-4 text-muted-foreground" /> GDI Guide:</h4>
+                    <h4 className="font-semibold text-sm mb-1 flex items-center"><UserCheck className="mr-2 h-4 w-4 text-muted-foreground" /> Guía del GDI:</h4>
                     <p className="text-muted-foreground text-sm">{guide ? `${guide.firstName} ${guide.lastName}` : 'N/A'}</p>
                   </div>
                   {guide && (
                      <>
                       <div>
-                        <h4 className="font-semibold text-sm mb-1 flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" /> Guide Email:</h4>
+                        <h4 className="font-semibold text-sm mb-1 flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" /> Email del Guía:</h4>
                         <a href={`mailto:${guide.email}`} className="text-primary hover:underline text-sm">{guide.email}</a>
                       </div>
                       <div>
-                        <h4 className="font-semibold text-sm mb-1 flex items-center"><Phone className="mr-2 h-4 w-4 text-muted-foreground" /> Guide Phone:</h4>
+                        <h4 className="font-semibold text-sm mb-1 flex items-center"><Phone className="mr-2 h-4 w-4 text-muted-foreground" /> Teléfono del Guía:</h4>
                         <a href={`tel:${guide.phone}`} className="text-primary hover:underline text-sm">{guide.phone}</a>
                       </div>
                     </>
                   )}
                   <CardDescription className="text-sm">
-                    Members: {gdi.memberIds.length}
+                    Miembros: {gdi.memberIds.length}
                   </CardDescription>
                 </CardContent>
                 <CardFooter>
@@ -72,8 +72,8 @@ export default function GdisManager({ gdis, allMembers, activeMembers, onAddGDI,
                     variant="outline" 
                     className="w-full border-primary text-primary hover:bg-primary/10"
                   >
-                    <Link href={`/groups/gdis/${gdi.id}/manage`}>
-                      <Edit className="mr-2 h-4 w-4" /> Manage GDI
+                    <Link href={`/groups/gdis/${gdi.id}/admin`}> {/* Changed link to /admin */}
+                      <Settings className="mr-2 h-4 w-4" /> Admin. Reuniones {/* Changed text and icon */}
                     </Link>
                   </Button>
                 </CardFooter>

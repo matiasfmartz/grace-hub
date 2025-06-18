@@ -5,7 +5,7 @@ import { getGdiById } from '@/services/gdiService';
 import { notFound } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ArrowLeft, Settings } from 'lucide-react';
+import { Edit } from 'lucide-react'; // Changed ArrowLeft to Edit
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 // Import actions and other necessary components/services later
 
@@ -29,8 +29,8 @@ export default async function GdiAdminPage({ params }: GdiAdminPageProps) {
       <div className="mb-6">
         <Button asChild variant="outline">
           <Link href={`/groups/gdis/${gdi.id}/manage`}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Volver a Administrar GDI
+            <Edit className="mr-2 h-4 w-4" /> {/* Changed icon */}
+            Editar Detalles del GDI {/* Changed text */}
           </Link>
         </Button>
       </div>
