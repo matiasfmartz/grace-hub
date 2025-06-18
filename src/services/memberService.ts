@@ -24,18 +24,19 @@ export async function getAllMembers(
   page: number = 1,
   pageSize: number = 10,
   searchTerm?: string,
-  statusFilterParams?: string[], // Expecting an array of statuses
-  roleFilterParams?: string[],   // Expecting an array of roles
-  guideIdFilterParams?: string[] // Expecting an array of guide IDs
+  statusFilterParams?: string[],
+  roleFilterParams?: string[],
+  guideIdFilterParams?: string[]
 ): Promise<{ members: Member[], totalMembers: number, totalPages: number }> {
   const allMembersFromFile = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
   let workingFilteredMembers = [...allMembersFromFile];
 
   // Apply Status Filter (Multi-select)
   if (statusFilterParams && statusFilterParams.length > 0) {
-    workingFilteredMembers = workingFilteredMembers.filter(member =>
-      member.status && statusFilterParams.includes(member.status)
-    );
+    workingFilteredMembers = workingFilteredMembers.filter(member => {
+      // Ensure member.status exists and is one of the selected statuses
+      return member.status && statusFilterParams.includes(member.status);
+    });
   }
 
   // Apply Role Filter (Multi-select)
@@ -54,13 +55,16 @@ export async function getAllMembers(
       membersToInclude.add(guideId); // Add the guide themselves
       const gdisLedByThisGuide = allGdis.filter(gdi => gdi.guideId === guideId);
       gdisLedByThisGuide.forEach(gdi => {
-        gdi.memberIds.forEach(memberId => membersToInclude.add(memberId));
+        if (gdi.memberIds) { // Ensure memberIds exists
+            gdi.memberIds.forEach(memberId => membersToInclude.add(memberId));
+        }
       });
     });
     
-    if (membersToInclude.size > 0) { // Only filter if there are guides to filter by
-      workingFilteredMembers = workingFilteredMembers.filter(member => membersToInclude.has(member.id));
-    } else if (guideIdFilterParams.length > 0) { // If guide IDs were specified but none matched, result is empty
+    if (membersToInclude.size > 0) {
+        workingFilteredMembers = workingFilteredMembers.filter(member => membersToInclude.has(member.id));
+    } else {
+        // If guide IDs were specified but resulted in no members to include (e.g., guides not found or no members in their GDIs)
         workingFilteredMembers = [];
     }
   }
@@ -263,7 +267,7 @@ export async function updateMemberAssignments(
 export async function addMemberToAssignments(
   newMember: Member
 ): Promise<void> {
-  let affectedMemberIds = new Set<string>([newMember.id]); // Start with the new member
+  // let affectedMemberIds = new Set<string>([newMember.id]); // Start with the new member // Not used in this func
 
   if (newMember.assignedGDIId) {
     let allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
@@ -295,8 +299,6 @@ export async function addMemberToAssignments(
       await writeDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, allMinistryAreas);
     }
   }
-  // Note: Role calculation should happen after assignments are settled.
-  // `bulkRecalculateAndUpdateRoles` can be called from the page action after `addMember` succeeds.
 }
 
 
@@ -338,3 +340,5 @@ export async function bulkRecalculateAndUpdateRoles(memberIdsToUpdate: string[])
     await writeDbFile<Member>(MEMBERS_DB_FILE, allMembers);
   }
 }
+
+    
