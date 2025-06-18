@@ -162,6 +162,7 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
         <p className="text-muted-foreground mt-2">Manage and connect with members of our church community.</p>
       </div>
       <MembersListView 
+        key={`${currentPage}-${pageSize}-${searchTerm}-${statusFilter}-${roleFilter}-${guideIdFilter}`}
         initialMembers={membersForPage} 
         allMembersForDropdowns={allMembersForDropdowns}
         allGDIs={gdis}
