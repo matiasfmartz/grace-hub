@@ -3,12 +3,12 @@
 import type { Member, GDI, MinistryArea, MemberWriteData, Meeting, MeetingSeries, AttendanceRecord, MemberRoleType } from '@/lib/types';
 import MembersListView from '@/components/members/members-list-view';
 import { revalidatePath } from 'next/cache';
-import { 
-    getAllMembers, 
-    getMemberById, 
-    addMember, 
-    updateMember, 
-    updateMemberAssignments, 
+import {
+    getAllMembers,
+    getMemberById,
+    addMember,
+    updateMember,
+    updateMemberAssignments,
     getAllMembersNonPaginated,
     bulkRecalculateAndUpdateRoles
 } from '@/services/memberService';
@@ -20,9 +20,9 @@ import { getAllAttendanceRecords } from '@/services/attendanceService';
 export async function addSingleMemberAction(newMemberData: MemberWriteData): Promise<{ success: boolean; message: string; newMember?: Member }> {
   try {
     const newMember = await addMember(newMemberData);
-    
+
     revalidatePath('/members');
-    revalidatePath('/groups'); 
+    revalidatePath('/groups');
     if (newMember.assignedAreaIds) {
       newMember.assignedAreaIds.forEach(areaId => {
         revalidatePath(`/groups/ministry-areas/${areaId}/manage`);
@@ -31,7 +31,7 @@ export async function addSingleMemberAction(newMemberData: MemberWriteData): Pro
     if (newMember.assignedGDIId) {
         revalidatePath(`/groups/gdis/${newMember.assignedGDIId}/manage`);
     }
-    
+
     return { success: true, message: `Miembro ${newMember.firstName} ${newMember.lastName} agregado exitosamente. Roles calculados.`, newMember };
   } catch (error: any) {
     console.error("Error saving single member:", error);
@@ -50,25 +50,25 @@ export async function updateMemberAction(updatedMemberData: Member): Promise<{ s
     }
 
     const memberToUpdate = await updateMember(updatedMemberData.id, updatedMemberData);
-    
+
     const affectedIdsFromAssignments = await updateMemberAssignments(
       memberToUpdate.id,
-      originalMemberData, 
-      memberToUpdate 
+      originalMemberData,
+      memberToUpdate
     );
 
     const allAffectedIds = Array.from(new Set([memberToUpdate.id, ...affectedIdsFromAssignments]));
     if (allAffectedIds.length > 0) {
         await bulkRecalculateAndUpdateRoles(allAffectedIds);
     }
-    
+
     revalidatePath('/members');
     revalidatePath('/groups');
     const allPotentiallyAffectedAreaIds = new Set([...(originalMemberData.assignedAreaIds || []), ...(memberToUpdate.assignedAreaIds || [])]);
     allPotentiallyAffectedAreaIds.forEach(areaId => revalidatePath(`/groups/ministry-areas/${areaId}/manage`));
     if (originalMemberData.assignedGDIId) revalidatePath(`/groups/gdis/${originalMemberData.assignedGDIId}/manage`);
     if (memberToUpdate.assignedGDIId && memberToUpdate.assignedGDIId !== originalMemberData.assignedGDIId) revalidatePath(`/groups/gdis/${memberToUpdate.assignedGDIId}/manage`);
-    
+
     const finalUpdatedMember = await getMemberById(memberToUpdate.id);
 
     return { success: true, message: `Miembro ${memberToUpdate.firstName} ${memberToUpdate.lastName} actualizado exitosamente. Roles actualizados.`, updatedMember: finalUpdatedMember };
@@ -90,16 +90,16 @@ interface MembersPageProps {
 }
 
 async function getMembersPageData(
-    page: number, 
-    pageSize: number, 
+    page: number,
+    pageSize: number,
     searchTerm?: string,
-    statusFilter?: string,
+    statusFilterParam?: string, // Renamed from statusFilter
     roleFilter?: string,
     guideIdFilter?: string
-): Promise<{ 
-  membersForPage: Member[], 
+): Promise<{
+  membersForPage: Member[],
   allMembersForDropdowns: Member[],
-  gdis: GDI[], 
+  gdis: GDI[],
   ministryAreas: MinistryArea[],
   allMeetings: Meeting[],
   allMeetingSeries: MeetingSeries[],
@@ -107,10 +107,10 @@ async function getMembersPageData(
   currentPage: number,
   totalPages: number
 }> {
-  const { members, totalMembers, totalPages } = await getAllMembers(page, pageSize, searchTerm, statusFilter, roleFilter, guideIdFilter);
+  const { members, totalMembers, totalPages } = await getAllMembers(page, pageSize, searchTerm, statusFilterParam, roleFilter, guideIdFilter); // Pass renamed param
   const [
-    allMembersForDropdowns, 
-    gdis, 
+    allMembersForDropdowns,
+    gdis,
     ministryAreas,
     allMeetings,
     allMeetingSeries,
@@ -123,36 +123,36 @@ async function getMembersPageData(
     getAllMeetingSeries(),
     getAllAttendanceRecords()
   ]);
-  return { 
-    membersForPage: members, 
-    allMembersForDropdowns, 
-    gdis, 
-    ministryAreas, 
+  return {
+    membersForPage: members,
+    allMembersForDropdowns,
+    gdis,
+    ministryAreas,
     allMeetings,
     allMeetingSeries,
     allAttendanceRecords,
-    currentPage: page, 
-    totalPages 
+    currentPage: page,
+    totalPages
   };
 }
 
 export default async function MembersPage({ searchParams }: MembersPageProps) {
   const currentPage = Number(searchParams?.page) || 1;
-  const pageSize = Number(searchParams?.pageSize) || 10; 
+  const pageSize = Number(searchParams?.pageSize) || 10;
   const searchTerm = searchParams?.search || '';
-  const statusFilter = searchParams?.status || '';
+  const statusFilter = searchParams?.status || ''; // This will be used as statusFilterParam for the service
   const roleFilter = searchParams?.role || '';
   const guideIdFilter = searchParams?.guide || '';
-  
-  const { 
-    membersForPage, 
-    allMembersForDropdowns, 
-    gdis, 
-    ministryAreas, 
+
+  const {
+    membersForPage,
+    allMembersForDropdowns,
+    gdis,
+    ministryAreas,
     allMeetings,
     allMeetingSeries,
     allAttendanceRecords,
-    totalPages 
+    totalPages
   } = await getMembersPageData(currentPage, pageSize, searchTerm, statusFilter, roleFilter, guideIdFilter);
 
   return (
@@ -161,9 +161,9 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
         <h1 className="font-headline text-4xl font-bold text-primary">Member Directory</h1>
         <p className="text-muted-foreground mt-2">Manage and connect with members of our church community.</p>
       </div>
-      <MembersListView 
+      <MembersListView
         key={`${currentPage}-${pageSize}-${searchTerm}-${statusFilter}-${roleFilter}-${guideIdFilter}`}
-        initialMembers={membersForPage} 
+        initialMembers={membersForPage}
         allMembersForDropdowns={allMembersForDropdowns}
         allGDIs={gdis}
         allMinistryAreas={ministryAreas}
@@ -183,4 +183,3 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
     </div>
   );
 }
-
