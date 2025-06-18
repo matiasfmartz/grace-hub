@@ -15,7 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
 
 interface MembersListViewProps {
@@ -95,9 +96,14 @@ export default function MembersListView({
   useEffect(() => {
     setMembers(initialMembers);
   }, [initialMembers]);
+  
+  useEffect(() => {
+    setSearchInput(currentSearchTerm);
+    setSelectedStatuses(currentStatusFilters);
+    setSelectedRoles(currentRoleFilters);
+    setSelectedGuideIds(currentGuideIdFilters);
+  }, [currentSearchTerm, currentStatusFilters, currentRoleFilters, currentGuideIdFilters]);
 
-  // Removed useEffect that synced searchInput, selectedStatuses, selectedRoles, selectedGuideIds from props.
-  // Relying on key prop for remount and useState initializers.
 
   const gdiGuides = useMemo(() => {
     const guideIds = new Set(allGDIs.map(gdi => gdi.guideId).filter(Boolean));
@@ -536,3 +542,4 @@ export default function MembersListView({
     </>
   );
 }
+
