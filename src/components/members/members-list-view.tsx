@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck, Filter } from 'lucide-react';
+import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck, Filter, Check, X } from 'lucide-react';
 import MemberDetailsDialog from './member-details-dialog';
 import AddMemberForm from './add-member-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -16,11 +16,12 @@ import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { Label } from '@/components/ui/label';
 
 interface MembersListViewProps {
-  initialMembers: Member[]; 
-  allMembersForDropdowns: Member[]; 
+  initialMembers: Member[];
+  allMembersForDropdowns: Member[];
   allGDIs: GDI[];
   allMinistryAreas: MinistryArea[];
   allMeetings: Meeting[];
@@ -32,41 +33,35 @@ interface MembersListViewProps {
   totalPages: number;
   pageSize: number;
   currentSearchTerm?: string;
-  currentStatusFilter?: string;
-  currentRoleFilter?: string;
-  currentGuideIdFilter?: string;
+  currentStatusFilters?: string[];
+  currentRoleFilters?: string[];
+  currentGuideIdFilters?: string[];
 }
 
 type SortKey = Exclude<keyof Member, 'email' | 'assignedGDIId' | 'assignedAreaIds' | 'avatarUrl' | 'attendsLifeSchool' | 'attendsBibleInstitute' | 'fromAnotherChurch' | 'baptismDate' | 'roles'> | 'fullName';
 type SortOrder = 'asc' | 'desc';
-
-const SELECT_ALL_VALUE = "__ALL__"; // Special value for "All" options
 
 const roleDisplayMap: Record<MemberRoleType, string> = {
   Leader: "Líder",
   Worker: "Obrero",
   GeneralAttendee: "Asistente General",
 };
-const roleFilterOptions: { value: MemberRoleType | typeof SELECT_ALL_VALUE; label: string }[] = [
-  { value: SELECT_ALL_VALUE, label: "Todos los Roles" },
-  ...Object.entries(roleDisplayMap).map(([value, label]) => ({ value: value as MemberRoleType, label }))
-];
+const roleFilterOptions: { value: MemberRoleType; label: string }[] = Object.entries(roleDisplayMap)
+    .map(([value, label]) => ({ value: value as MemberRoleType, label }));
 
 const statusDisplayMap: Record<Member['status'], string> = {
   Active: "Activo",
   Inactive: "Inactivo",
   New: "Nuevo"
 };
-const statusFilterOptions: { value: Member['status'] | typeof SELECT_ALL_VALUE; label: string }[] = [
-  { value: SELECT_ALL_VALUE, label: "Todos los Estados" },
-  ...Object.entries(statusDisplayMap).map(([value, label]) => ({ value: value as Member['status'], label }))
-];
+const statusFilterOptions: { value: Member['status']; label: string }[] = Object.entries(statusDisplayMap)
+    .map(([value, label]) => ({ value: value as Member['status'], label }));
 
 
-export default function MembersListView({ 
-  initialMembers, 
+export default function MembersListView({
+  initialMembers,
   allMembersForDropdowns,
-  allGDIs, 
+  allGDIs,
   allMinistryAreas,
   allMeetings,
   allMeetingSeries,
@@ -77,15 +72,15 @@ export default function MembersListView({
   totalPages,
   pageSize,
   currentSearchTerm = '',
-  currentStatusFilter = '',
-  currentRoleFilter = '',
-  currentGuideIdFilter = ''
+  currentStatusFilters = [],
+  currentRoleFilters = [],
+  currentGuideIdFilters = []
 }: MembersListViewProps) {
   const [members, setMembers] = useState<Member[]>(initialMembers);
-  const [searchInput, setSearchInput] = useState(currentSearchTerm); 
-  const [selectedStatus, setSelectedStatus] = useState(currentStatusFilter);
-  const [selectedRole, setSelectedRole] = useState(currentRoleFilter);
-  const [selectedGuideId, setSelectedGuideId] = useState(currentGuideIdFilter);
+  const [searchInput, setSearchInput] = useState(currentSearchTerm);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(currentStatusFilters);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>(currentRoleFilters);
+  const [selectedGuideIds, setSelectedGuideIds] = useState<string[]>(currentGuideIdFilters);
   const [sortKey, setSortKey] = useState<SortKey>('fullName');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -104,10 +99,10 @@ export default function MembersListView({
 
   useEffect(() => {
     setSearchInput(currentSearchTerm);
-    setSelectedStatus(currentStatusFilter);
-    setSelectedRole(currentRoleFilter);
-    setSelectedGuideId(currentGuideIdFilter);
-  }, [currentSearchTerm, currentStatusFilter, currentRoleFilter, currentGuideIdFilter]);
+    setSelectedStatuses(currentStatusFilters);
+    setSelectedRoles(currentRoleFilters);
+    setSelectedGuideIds(currentGuideIdFilters);
+  }, [currentSearchTerm, currentStatusFilters, currentRoleFilters, currentGuideIdFilters]);
 
   const gdiGuides = useMemo(() => {
     const guideIds = new Set(allGDIs.map(gdi => gdi.guideId).filter(Boolean));
@@ -116,26 +111,40 @@ export default function MembersListView({
         .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
   }, [allGDIs, allMembersForDropdowns]);
 
-
   const getGdiGuideName = useCallback((member: Member): string => {
     if (!member.assignedGDIId) return "No asignado";
     const gdi = allGDIs.find(g => g.id === member.assignedGDIId);
     if (!gdi) return "GDI no encontrado";
-    const guide = allMembersForDropdowns.find(m => m.id === gdi.guideId); 
+    const guide = allMembersForDropdowns.find(m => m.id === gdi.guideId);
     return guide ? `${guide.firstName} ${guide.lastName}` : "Guía no encontrado";
   }, [allGDIs, allMembersForDropdowns]);
 
   const handleFilterOrSearch = () => {
     const params = new URLSearchParams(searchParamsHook.toString());
-    params.set('page', '1'); 
-    
+    params.set('page', '1');
+
     if (searchInput.trim()) params.set('search', searchInput.trim()); else params.delete('search');
-    if (selectedStatus) params.set('status', selectedStatus); else params.delete('status');
-    if (selectedRole) params.set('role', selectedRole); else params.delete('role');
-    if (selectedGuideId) params.set('guide', selectedGuideId); else params.delete('guide');
-    
+    if (selectedStatuses.length > 0) params.set('status', selectedStatuses.join(',')); else params.delete('status');
+    if (selectedRoles.length > 0) params.set('role', selectedRoles.join(',')); else params.delete('role');
+    if (selectedGuideIds.length > 0) params.set('guide', selectedGuideIds.join(',')); else params.delete('guide');
+
     router.push(`${pathname}?${params.toString()}`);
   };
+  
+  const handleClearAllFilters = () => {
+    setSearchInput('');
+    setSelectedStatuses([]);
+    setSelectedRoles([]);
+    setSelectedGuideIds([]);
+    const params = new URLSearchParams(searchParamsHook.toString());
+    params.delete('search');
+    params.delete('status');
+    params.delete('role');
+    params.delete('guide');
+    params.set('page', '1');
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -145,9 +154,9 @@ export default function MembersListView({
       setSortOrder('asc');
     }
   };
-  
+
   const processedMembers = useMemo(() => {
-    let membersToProcess = [...members]; 
+    let membersToProcess = [...members];
     membersToProcess.sort((a, b) => {
       let valA, valB;
       if (sortKey === 'fullName') {
@@ -192,7 +201,7 @@ export default function MembersListView({
       ...data,
       birthDate: data.birthDate ? data.birthDate.toISOString().split('T')[0] : undefined,
       churchJoinDate: data.churchJoinDate ? data.churchJoinDate.toISOString().split('T')[0] : undefined,
-      roles: [], 
+      roles: [],
     };
 
     startMemberTransition(async () => {
@@ -200,7 +209,7 @@ export default function MembersListView({
       if (result.success && result.newMember) {
         toast({ title: "Éxito", description: result.message });
         setIsAddMemberDialogOpen(false);
-        router.refresh(); 
+        router.refresh();
       } else {
         toast({ title: "Error al Agregar", description: result.message, variant: "destructive" });
       }
@@ -208,10 +217,10 @@ export default function MembersListView({
   };
 
   const handleMemberUpdated = (updatedMember: Member) => {
-    setMembers(prevMembers => 
+    setMembers(prevMembers =>
       prevMembers.map(m => m.id === updatedMember.id ? updatedMember : m)
     );
-    router.refresh(); 
+    router.refresh();
   };
 
   const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
@@ -220,7 +229,7 @@ export default function MembersListView({
   };
 
   const displayStatus = (status: Member['status']) => statusDisplayMap[status] || status;
-  
+
   const createPageURL = (pageNumber: number) => {
     const params = new URLSearchParams(searchParamsHook.toString());
     params.set('page', pageNumber.toString());
@@ -230,9 +239,17 @@ export default function MembersListView({
   const handlePageSizeChange = (newSize: string) => {
     const params = new URLSearchParams(searchParamsHook.toString());
     params.set('pageSize', newSize);
-    params.set('page', '1'); 
+    params.set('page', '1');
     router.push(`${pathname}?${params.toString()}`);
   };
+  
+  const toggleFilterItem = (selectedItems: string[], setSelectedItems: React.Dispatch<React.SetStateAction<string[]>>, itemValue: string) => {
+    setSelectedItems(prev =>
+      prev.includes(itemValue) ? prev.filter(i => i !== itemValue) : [...prev, itemValue]
+    );
+  };
+  
+  const hasActiveFilters = searchInput.trim() !== '' || selectedStatuses.length > 0 || selectedRoles.length > 0 || selectedGuideIds.length > 0;
 
 
   return (
@@ -240,7 +257,7 @@ export default function MembersListView({
       <div className="mb-6 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
           <form onSubmit={(e) => { e.preventDefault(); handleFilterOrSearch(); }} className="relative lg:col-span-1">
-             <Label htmlFor="memberSearchInput" className="text-sm font-medium">Buscar Miembro</Label>
+            <Label htmlFor="memberSearchInput" className="text-sm font-medium">Buscar Miembro</Label>
             <Search className="absolute left-3 top-[calc(50%+7px)] transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               id="memberSearchInput"
@@ -252,65 +269,91 @@ export default function MembersListView({
             />
             <button type="submit" className="hidden" />
           </form>
-          
+
           <div>
-            <Label htmlFor="statusFilter" className="text-sm font-medium">Filtrar por Estado</Label>
-            <Select 
-              value={selectedStatus === "" ? SELECT_ALL_VALUE : selectedStatus} 
-              onValueChange={(value) => setSelectedStatus(value === SELECT_ALL_VALUE ? "" : value)}
-            >
-              <SelectTrigger id="statusFilter" className="w-full mt-1">
-                <SelectValue placeholder="Todos los Estados" />
-              </SelectTrigger>
-              <SelectContent>
+            <Label className="text-sm font-medium">Estado</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-between mt-1">
+                  <span>{selectedStatuses.length > 0 ? `Estado (${selectedStatuses.length})` : "Todos los Estados"}</span>
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56">
+                <DropdownMenuLabel>Filtrar por Estado</DropdownMenuLabel>
+                <DropdownMenuSeparator />
                 {statusFilterOptions.map(opt => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  <DropdownMenuCheckboxItem
+                    key={opt.value}
+                    checked={selectedStatuses.includes(opt.value)}
+                    onCheckedChange={() => toggleFilterItem(selectedStatuses, setSelectedStatuses, opt.value)}
+                  >
+                    {opt.label}
+                  </DropdownMenuCheckboxItem>
                 ))}
-              </SelectContent>
-            </Select>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <div>
-            <Label htmlFor="roleFilter" className="text-sm font-medium">Filtrar por Rol</Label>
-            <Select 
-              value={selectedRole === "" ? SELECT_ALL_VALUE : selectedRole}
-              onValueChange={(value) => setSelectedRole(value === SELECT_ALL_VALUE ? "" : value)}
-            >
-              <SelectTrigger id="roleFilter" className="w-full mt-1">
-                <SelectValue placeholder="Todos los Roles" />
-              </SelectTrigger>
-              <SelectContent>
+            <Label className="text-sm font-medium">Rol</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-between mt-1">
+                  <span>{selectedRoles.length > 0 ? `Rol (${selectedRoles.length})` : "Todos los Roles"}</span>
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56">
+                <DropdownMenuLabel>Filtrar por Rol</DropdownMenuLabel>
+                <DropdownMenuSeparator />
                 {roleFilterOptions.map(opt => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  <DropdownMenuCheckboxItem
+                    key={opt.value}
+                    checked={selectedRoles.includes(opt.value)}
+                    onCheckedChange={() => toggleFilterItem(selectedRoles, setSelectedRoles, opt.value)}
+                  >
+                    {opt.label}
+                  </DropdownMenuCheckboxItem>
                 ))}
-              </SelectContent>
-            </Select>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <div>
-            <Label htmlFor="guideFilter" className="text-sm font-medium">Filtrar por Guía de GDI</Label>
-            <Select 
-              value={selectedGuideId === "" ? SELECT_ALL_VALUE : selectedGuideId}
-              onValueChange={(value) => setSelectedGuideId(value === SELECT_ALL_VALUE ? "" : value)}
-            >
-              <SelectTrigger id="guideFilter" className="w-full mt-1">
-                <SelectValue placeholder="Todos los Guías" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={SELECT_ALL_VALUE}>Todos los Guías</SelectItem>
+            <Label className="text-sm font-medium">Guía de GDI</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-between mt-1">
+                  <span>{selectedGuideIds.length > 0 ? `Guía (${selectedGuideIds.length})` : "Todos los Guías"}</span>
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-64 max-h-72 overflow-y-auto">
+                <DropdownMenuLabel>Filtrar por Guía de GDI</DropdownMenuLabel>
+                <DropdownMenuSeparator />
                 {gdiGuides.map(guide => (
-                  <SelectItem key={guide.id} value={guide.id}>
+                  <DropdownMenuCheckboxItem
+                    key={guide.id}
+                    checked={selectedGuideIds.includes(guide.id)}
+                    onCheckedChange={() => toggleFilterItem(selectedGuideIds, setSelectedGuideIds, guide.id)}
+                  >
                     {guide.firstName} {guide.lastName}
-                  </SelectItem>
+                  </DropdownMenuCheckboxItem>
                 ))}
-              </SelectContent>
-            </Select>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
             <Button onClick={handleFilterOrSearch} className="w-full sm:w-auto">
                 <Filter className="mr-2 h-4 w-4" /> Aplicar Filtros y Búsqueda
             </Button>
+             {hasActiveFilters && (
+              <Button onClick={handleClearAllFilters} variant="outline" className="w-full sm:w-auto">
+                <X className="mr-2 h-4 w-4" /> Limpiar Filtros
+              </Button>
+            )}
             <Button onClick={() => setIsAddMemberDialogOpen(true)} disabled={isProcessingMember} className="w-full sm:w-auto">
               <UserPlus className="mr-2 h-4 w-4" /> Agregar Nuevo Miembro
             </Button>
@@ -321,7 +364,6 @@ export default function MembersListView({
             </Button>
         </div>
       </div>
-
 
       <div className="overflow-x-auto bg-card rounded-lg shadow-md">
         <Table>
@@ -394,14 +436,14 @@ export default function MembersListView({
           </TableBody>
         </Table>
       </div>
-      {processedMembers.length === 0 && (currentSearchTerm || currentStatusFilter || currentRoleFilter || currentGuideIdFilter) && (
+      {processedMembers.length === 0 && hasActiveFilters && (
         <p className="text-center text-muted-foreground mt-8">No se encontraron miembros con los filtros aplicados.</p>
       )}
-      {initialMembers.length === 0 && !currentSearchTerm && !currentStatusFilter && !currentRoleFilter && !currentGuideIdFilter && (
+      {initialMembers.length === 0 && !hasActiveFilters && (
          <p className="text-center text-muted-foreground mt-8">No hay miembros para mostrar.</p>
       )}
 
-    {totalPages > 0 && ( 
+    {totalPages > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0 sm:space-x-2 py-4">
           <div className="text-sm text-muted-foreground">
             Página {currentPage} de {totalPages}
@@ -446,11 +488,10 @@ export default function MembersListView({
         </div>
       )}
 
-
       {selectedMember && (
         <MemberDetailsDialog
           member={selectedMember}
-          allMembers={allMembersForDropdowns} 
+          allMembers={allMembersForDropdowns}
           allGDIs={allGDIs}
           allMinistryAreas={allMinistryAreas}
           allMeetings={allMeetings}
@@ -475,7 +516,7 @@ export default function MembersListView({
               onSubmitMember={handleAddSingleMemberSubmit}
               allGDIs={allGDIs}
               allMinistryAreas={allMinistryAreas}
-              allMembers={allMembersForDropdowns} 
+              allMembers={allMembersForDropdowns}
               submitButtonText="Agregar Miembro"
               cancelButtonText="Cancelar"
               onDialogClose={() => setIsAddMemberDialogOpen(false)}
@@ -487,4 +528,3 @@ export default function MembersListView({
     </>
   );
 }
-

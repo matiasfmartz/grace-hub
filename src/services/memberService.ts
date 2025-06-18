@@ -9,7 +9,6 @@ const MEMBERS_DB_FILE = 'members-db.json';
 const GDIS_DB_FILE = 'gdis-db.json';
 const MINISTRY_AREAS_DB_FILE = 'ministry-areas-db.json';
 
-// Helper maps for searching displayed values (if needed by search logic)
 const roleDisplayMap: Record<MemberRoleType, string> = {
   Leader: "Líder",
   Worker: "Obrero",
@@ -25,51 +24,55 @@ export async function getAllMembers(
   page: number = 1,
   pageSize: number = 10,
   searchTerm?: string,
-  statusFilterParam?: string,
-  roleFilter?: string,
-  guideIdFilter?: string
+  statusFilterParams?: string[],
+  roleFilterParams?: string[],
+  guideIdFilterParams?: string[]
 ): Promise<{ members: Member[], totalMembers: number, totalPages: number }> {
   const allMembersFromFile = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
   let workingFilteredMembers = [...allMembersFromFile];
 
-  // Apply status filter
-  // Only filter if statusFilterParam is provided and is not an empty string (which implies "All")
-  if (statusFilterParam && statusFilterParam.trim() !== "") {
-    workingFilteredMembers = workingFilteredMembers.filter(member => member.status === statusFilterParam);
+  if (statusFilterParams && statusFilterParams.length > 0) {
+    workingFilteredMembers = workingFilteredMembers.filter(member => 
+      statusFilterParams.includes(member.status)
+    );
   }
 
-  // Apply role filter
-  if (roleFilter) {
-    workingFilteredMembers = workingFilteredMembers.filter(member => member.roles?.includes(roleFilter as MemberRoleType));
+  if (roleFilterParams && roleFilterParams.length > 0) {
+    workingFilteredMembers = workingFilteredMembers.filter(member =>
+      member.roles?.some(role => roleFilterParams.includes(role))
+    );
   }
 
-  // Apply guide filter
-  if (guideIdFilter) {
+  if (guideIdFilterParams && guideIdFilterParams.length > 0) {
     const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
-    const gdisLedByThisGuide = allGdis.filter(gdi => gdi.guideId === guideIdFilter);
-    if (gdisLedByThisGuide.length > 0) {
-        const membersToInclude = new Set<string>();
-        membersToInclude.add(guideIdFilter); 
-        gdisLedByThisGuide.forEach(gdi => {
-            gdi.memberIds.forEach(memberId => membersToInclude.add(memberId));
-        });
+    const membersToInclude = new Set<string>();
+    
+    guideIdFilterParams.forEach(guideId => {
+      membersToInclude.add(guideId); // Add the guide themselves
+      const gdisLedByThisGuide = allGdis.filter(gdi => gdi.guideId === guideId);
+      gdisLedByThisGuide.forEach(gdi => {
+        gdi.memberIds.forEach(memberId => membersToInclude.add(memberId));
+      });
+    });
+    
+    if (membersToInclude.size > 0) {
         workingFilteredMembers = workingFilteredMembers.filter(member => membersToInclude.has(member.id));
     } else {
-        workingFilteredMembers = [];
+        // If selected guides lead no one (or themselves are not found), result is empty if this filter is active
+        workingFilteredMembers = []; 
     }
   }
 
-  // Then apply general search term to the already filtered list
   if (searchTerm) {
     const lowercasedSearchTerm = searchTerm.toLowerCase();
     workingFilteredMembers = workingFilteredMembers.filter(member =>
       `${member.firstName} ${member.lastName}`.toLowerCase().includes(lowercasedSearchTerm) ||
       member.email.toLowerCase().includes(lowercasedSearchTerm) ||
       member.phone.toLowerCase().includes(lowercasedSearchTerm) ||
-      (member.status && member.status.toLowerCase().includes(lowercasedSearchTerm)) || 
-      (member.status && statusDisplayMap[member.status]?.toLowerCase().includes(lowercasedSearchTerm)) || 
-      (member.roles && member.roles.some(role => role.toLowerCase().includes(lowercasedSearchTerm))) || 
-      (member.roles && member.roles.some(role => { 
+      (member.status && member.status.toLowerCase().includes(lowercasedSearchTerm)) ||
+      (member.status && statusDisplayMap[member.status]?.toLowerCase().includes(lowercasedSearchTerm)) ||
+      (member.roles && member.roles.some(role => role.toLowerCase().includes(lowercasedSearchTerm))) ||
+      (member.roles && member.roles.some(role => {
          return (roleDisplayMap[role] || role).toLowerCase().includes(lowercasedSearchTerm);
       }))
     );
@@ -100,13 +103,13 @@ export async function addMember(memberData: MemberWriteData): Promise<Member> {
   const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
 
   const tempMemberForRoleCalc: Pick<Member, 'id' | 'assignedGDIId' | 'assignedAreaIds'> = {
-      id: '', 
+      id: '',
       assignedGDIId: memberData.assignedGDIId,
       assignedAreaIds: memberData.assignedAreaIds
   };
 
   const newMemberId = `${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}`;
-  tempMemberForRoleCalc.id = newMemberId; 
+  tempMemberForRoleCalc.id = newMemberId;
 
   const calculatedRoles = calculateMemberRoles(tempMemberForRoleCalc, allGdis, allMinistryAreas);
 
@@ -119,7 +122,7 @@ export async function addMember(memberData: MemberWriteData): Promise<Member> {
 
   const updatedMembers = [...members, newMember];
   await writeDbFile<Member>(MEMBERS_DB_FILE, updatedMembers);
-  await addMemberToAssignments(newMember); 
+  await addMemberToAssignments(newMember);
 
   return newMember;
 }
@@ -137,7 +140,7 @@ export async function updateMember(memberId: string, updates: Partial<Omit<Membe
   const updatedMemberInstance: Member = {
     ...members[memberIndex],
     ...updates,
-    avatarUrl: updates.avatarUrl || members[memberIndex].avatarUrl || 'https://placehold.co/100x100', 
+    avatarUrl: updates.avatarUrl || members[memberIndex].avatarUrl || 'https://placehold.co/100x100',
   };
 
   const memberForRoleCalc: Pick<Member, 'id' | 'assignedGDIId' | 'assignedAreaIds'> = {
@@ -154,9 +157,9 @@ export async function updateMember(memberId: string, updates: Partial<Omit<Membe
 
 export async function updateMemberAssignments(
   memberId: string,
-  originalMemberData: Member, 
-  updatedMemberData: Member   
-): Promise<string[]> { 
+  originalMemberData: Member,
+  updatedMemberData: Member
+): Promise<string[]> {
   const oldAssignedGDIId = originalMemberData.assignedGDIId;
   const newAssignedGDIId = updatedMemberData.assignedGDIId;
   const oldAssignedAreaIds = originalMemberData.assignedAreaIds || [];
@@ -172,8 +175,8 @@ export async function updateMemberAssignments(
       const oldGdiIndex = allGdis.findIndex(gdi => gdi.id === oldAssignedGDIId);
       if (oldGdiIndex !== -1) {
         if (allGdis[oldGdiIndex].guideId === memberId) {
-           allGdis[oldGdiIndex].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${oldAssignedGDIId}`; 
-           affectedMemberIdsForRoleRecalculation.add(allGdis[oldGdiIndex].guideId); 
+           allGdis[oldGdiIndex].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${oldAssignedGDIId}`;
+           affectedMemberIdsForRoleRecalculation.add(allGdis[oldGdiIndex].guideId);
         }
         allGdis[oldGdiIndex].memberIds = allGdis[oldGdiIndex].memberIds.filter(id => id !== memberId);
         gdisDbChanged = true;
@@ -222,8 +225,8 @@ export async function updateMemberAssignments(
       const areaIndex = allMinistryAreas.findIndex(area => area.id === areaId);
       if (areaIndex !== -1) {
         if (allMinistryAreas[areaIndex].leaderId === memberId) {
-          allMinistryAreas[areaIndex].leaderId = placeholderMembers[0]?.id || `NEEDS_LEADER_${areaId}`; 
-          affectedMemberIdsForRoleRecalculation.add(allMinistryAreas[areaIndex].leaderId); 
+          allMinistryAreas[areaIndex].leaderId = placeholderMembers[0]?.id || `NEEDS_LEADER_${areaId}`;
+          affectedMemberIdsForRoleRecalculation.add(allMinistryAreas[areaIndex].leaderId);
         }
         allMinistryAreas[areaIndex].memberIds = allMinistryAreas[areaIndex].memberIds.filter(id => id !== memberId);
         ministryAreasDbChanged = true;
@@ -238,9 +241,9 @@ export async function updateMemberAssignments(
 }
 
 export async function addMemberToAssignments(
-  newMember: Member 
+  newMember: Member
 ): Promise<void> {
-  let affectedMemberIds = new Set<string>([newMember.id]); 
+  let affectedMemberIds = new Set<string>([newMember.id]);
 
   if (newMember.assignedGDIId) {
     let allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
@@ -272,7 +275,6 @@ export async function addMemberToAssignments(
   }
 }
 
-
 export async function bulkRecalculateAndUpdateRoles(memberIdsToUpdate: string[]): Promise<void> {
   if (memberIdsToUpdate.length === 0) {
     return;
@@ -290,8 +292,8 @@ export async function bulkRecalculateAndUpdateRoles(memberIdsToUpdate: string[])
       const memberToUpdate = allMembers[memberIndex];
       const memberForRoleCalc: Pick<Member, 'id' | 'assignedGDIId' | 'assignedAreaIds'> = {
         id: memberToUpdate.id,
-        assignedGDIId: memberToUpdate.assignedGDIId, 
-        assignedAreaIds: memberToUpdate.assignedAreaIds, 
+        assignedGDIId: memberToUpdate.assignedGDIId,
+        assignedAreaIds: memberToUpdate.assignedAreaIds,
       };
       const newRoles = calculateMemberRoles(memberForRoleCalc, allGdis, allMinistryAreas);
 

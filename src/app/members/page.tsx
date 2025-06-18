@@ -83,9 +83,9 @@ interface MembersPageProps {
     page?: string;
     pageSize?: string;
     search?: string;
-    status?: string;
-    role?: string;
-    guide?: string;
+    status?: string; // Comma-separated string for multiple statuses
+    role?: string;   // Comma-separated string for multiple roles
+    guide?: string;  // Comma-separated string for multiple guide IDs
   };
 }
 
@@ -93,9 +93,9 @@ async function getMembersPageData(
     page: number,
     pageSize: number,
     searchTerm?: string,
-    statusFilterParam?: string, 
-    roleFilter?: string,
-    guideIdFilter?: string
+    statusFilterString?: string,
+    roleFilterString?: string,
+    guideIdFilterString?: string
 ): Promise<{
   membersForPage: Member[],
   allMembersForDropdowns: Member[],
@@ -107,7 +107,11 @@ async function getMembersPageData(
   currentPage: number,
   totalPages: number
 }> {
-  const { members, totalMembers, totalPages } = await getAllMembers(page, pageSize, searchTerm, statusFilterParam, roleFilter, guideIdFilter);
+  const statusFilters = statusFilterString ? statusFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const roleFilters = roleFilterString ? roleFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const guideIdFilters = guideIdFilterString ? guideIdFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+  const { members, totalMembers, totalPages } = await getAllMembers(page, pageSize, searchTerm, statusFilters, roleFilters, guideIdFilters);
   const [
     allMembersForDropdowns,
     gdis,
@@ -140,9 +144,9 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
   const currentPage = Number(searchParams?.page) || 1;
   const pageSize = Number(searchParams?.pageSize) || 10;
   const searchTerm = (searchParams?.search || '').trim();
-  const statusFilter = (searchParams?.status || '').trim();
-  const roleFilter = (searchParams?.role || '').trim();
-  const guideIdFilter = (searchParams?.guide || '').trim();
+  const statusFilterString = (searchParams?.status || '').trim();
+  const roleFilterString = (searchParams?.role || '').trim();
+  const guideIdFilterString = (searchParams?.guide || '').trim();
 
   const {
     membersForPage,
@@ -153,7 +157,11 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
     allMeetingSeries,
     allAttendanceRecords,
     totalPages
-  } = await getMembersPageData(currentPage, pageSize, searchTerm, statusFilter, roleFilter, guideIdFilter);
+  } = await getMembersPageData(currentPage, pageSize, searchTerm, statusFilterString, roleFilterString, guideIdFilterString);
+
+  const currentStatusFiltersArray = statusFilterString ? statusFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const currentRoleFiltersArray = roleFilterString ? roleFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const currentGuideIdFiltersArray = guideIdFilterString ? guideIdFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -162,7 +170,7 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
         <p className="text-muted-foreground mt-2">Manage and connect with members of our church community.</p>
       </div>
       <MembersListView
-        key={`${currentPage}-${pageSize}-${searchTerm}-${statusFilter}-${roleFilter}-${guideIdFilter}`}
+        key={`${currentPage}-${pageSize}-${searchTerm}-${statusFilterString}-${roleFilterString}-${guideIdFilterString}`}
         initialMembers={membersForPage}
         allMembersForDropdowns={allMembersForDropdowns}
         allGDIs={gdis}
@@ -176,9 +184,9 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
         totalPages={totalPages}
         pageSize={pageSize}
         currentSearchTerm={searchTerm}
-        currentStatusFilter={statusFilter}
-        currentRoleFilter={roleFilter}
-        currentGuideIdFilter={guideIdFilter}
+        currentStatusFilters={currentStatusFiltersArray}
+        currentRoleFilters={currentRoleFiltersArray}
+        currentGuideIdFilters={currentGuideIdFiltersArray}
       />
     </div>
   );
