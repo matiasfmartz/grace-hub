@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck, Filter, Check, X, ChevronDown } from 'lucide-react';
+import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck, Filter, X, ChevronDown } from 'lucide-react';
 import MemberDetailsDialog from './member-details-dialog';
 import AddMemberForm from './add-member-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -33,7 +33,7 @@ interface MembersListViewProps {
   totalPages: number;
   pageSize: number;
   currentSearchTerm?: string;
-  currentMemberStatusFilters?: string[]; // Renamed from currentStatusFilters
+  currentMemberStatusFilters?: string[];
   currentRoleFilters?: string[];
   currentGuideIdFilters?: string[];
 }
@@ -72,13 +72,13 @@ export default function MembersListView({
   totalPages,
   pageSize,
   currentSearchTerm = '',
-  currentMemberStatusFilters = [], // Renamed from currentStatusFilters
+  currentMemberStatusFilters = [],
   currentRoleFilters = [],
   currentGuideIdFilters = []
 }: MembersListViewProps) {
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [searchInput, setSearchInput] = useState(currentSearchTerm);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(currentMemberStatusFilters || []); // Internal state name unchanged
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(currentMemberStatusFilters || []);
   const [selectedRoles, setSelectedRoles] = useState<string[]>(currentRoleFilters || []);
   const [selectedGuideIds, setSelectedGuideIds] = useState<string[]>(currentGuideIdFilters || []);
 
@@ -133,8 +133,8 @@ export default function MembersListView({
 
     if (searchInput.trim()) params.set('search', searchInput.trim());
 
-    if (selectedStatuses.length > 0) params.set('memberStatus', selectedStatuses.join(',')); // Changed 'status' to 'memberStatus'
-    else params.delete('memberStatus'); // Changed 'status' to 'memberStatus'
+    if (selectedStatuses.length > 0) params.set('memberStatus', selectedStatuses.join(','));
+    else params.delete('memberStatus');
 
     if (selectedRoles.length > 0) params.set('role', selectedRoles.join(','));
     else params.delete('role');
@@ -264,21 +264,38 @@ export default function MembersListView({
   return (
     <>
       <div className="mb-6 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-          <form onSubmit={(e) => { e.preventDefault(); handleFilterOrSearch(); }} className="relative lg:col-span-1">
-            <Label htmlFor="memberSearchInput" className="text-sm font-medium">Buscar Miembro</Label>
-            <Search className="absolute left-3 top-[calc(50%+7px)] transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              id="memberSearchInput"
-              type="search"
-              placeholder="Nombre, email, etc."
-              className="w-full pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-primary focus:border-primary mt-1"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-            />
-            <button type="submit" className="hidden" />
-          </form>
+        {/* Top row: Search on left, Action buttons on right */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="w-full md:w-auto md:flex-grow md:max-w-sm"> {/* Adjusted max-width */}
+            <form onSubmit={(e) => { e.preventDefault(); handleFilterOrSearch(); }} className="relative">
+              <Label htmlFor="memberSearchInput" className="sr-only">Buscar Miembro</Label>
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                id="memberSearchInput"
+                type="search"
+                placeholder="Buscar por nombre, email..."
+                className="w-full pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-primary focus:border-primary"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+              />
+              <button type="submit" className="hidden" />
+            </form>
+          </div>
 
+          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+            <Button onClick={() => setIsAddMemberDialogOpen(true)} disabled={isProcessingMember} className="w-full sm:w-auto">
+              <UserPlus className="mr-2 h-4 w-4" /> Agregar Nuevo Miembro
+            </Button>
+            <Button asChild variant="outline" disabled={isProcessingMember} className="w-full sm:w-auto">
+              <Link href="/members/bulk-add">
+                <ListPlus className="mr-2 h-4 w-4" /> Agregar Múltiples Miembros
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* Filters row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end p-4 border rounded-lg bg-card shadow-sm">
           <div>
             <Label className="text-sm font-medium">Estado</Label>
             <DropdownMenu>
@@ -354,24 +371,17 @@ export default function MembersListView({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2">
+          
+          <div className="flex flex-col sm:flex-row gap-2 xl:col-span-2 sm:items-end justify-end pt-2 sm:pt-0">
             <Button onClick={handleFilterOrSearch} className="w-full sm:w-auto">
-                <Filter className="mr-2 h-4 w-4" /> Aplicar Filtros y Búsqueda
+                <Filter className="mr-2 h-4 w-4" /> Aplicar Filtros
             </Button>
              {hasActiveFilters && (
               <Button onClick={handleClearAllFilters} variant="outline" className="w-full sm:w-auto">
                 <X className="mr-2 h-4 w-4" /> Limpiar Filtros
               </Button>
             )}
-            <Button onClick={() => setIsAddMemberDialogOpen(true)} disabled={isProcessingMember} className="w-full sm:w-auto">
-              <UserPlus className="mr-2 h-4 w-4" /> Agregar Nuevo Miembro
-            </Button>
-            <Button asChild variant="outline" disabled={isProcessingMember} className="w-full sm:w-auto">
-              <Link href="/members/bulk-add">
-                <ListPlus className="mr-2 h-4 w-4" /> Agregar Múltiples Miembros
-              </Link>
-            </Button>
+          </div>
         </div>
       </div>
 
@@ -538,3 +548,4 @@ export default function MembersListView({
     </>
   );
 }
+
