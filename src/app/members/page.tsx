@@ -1,6 +1,6 @@
 
 'use server';
-import type { Member, GDI, MinistryArea, MemberWriteData, Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
+import type { Member, GDI, MinistryArea, MemberWriteData, Meeting, MeetingSeries, AttendanceRecord, MemberRoleType } from '@/lib/types';
 import MembersListView from '@/components/members/members-list-view';
 import { revalidatePath } from 'next/cache';
 import { 
@@ -83,10 +83,20 @@ interface MembersPageProps {
     page?: string;
     pageSize?: string;
     search?: string;
+    status?: string;
+    role?: string;
+    guide?: string;
   };
 }
 
-async function getMembersPageData(page: number, pageSize: number, searchTerm?: string): Promise<{ 
+async function getMembersPageData(
+    page: number, 
+    pageSize: number, 
+    searchTerm?: string,
+    statusFilter?: string,
+    roleFilter?: string,
+    guideIdFilter?: string
+): Promise<{ 
   membersForPage: Member[], 
   allMembersForDropdowns: Member[],
   gdis: GDI[], 
@@ -97,7 +107,7 @@ async function getMembersPageData(page: number, pageSize: number, searchTerm?: s
   currentPage: number,
   totalPages: number
 }> {
-  const { members, totalMembers, totalPages } = await getAllMembers(page, pageSize, searchTerm);
+  const { members, totalMembers, totalPages } = await getAllMembers(page, pageSize, searchTerm, statusFilter, roleFilter, guideIdFilter);
   const [
     allMembersForDropdowns, 
     gdis, 
@@ -130,6 +140,9 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
   const currentPage = Number(searchParams?.page) || 1;
   const pageSize = Number(searchParams?.pageSize) || 10; 
   const searchTerm = searchParams?.search || '';
+  const statusFilter = searchParams?.status || '';
+  const roleFilter = searchParams?.role || '';
+  const guideIdFilter = searchParams?.guide || '';
   
   const { 
     membersForPage, 
@@ -140,7 +153,7 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
     allMeetingSeries,
     allAttendanceRecords,
     totalPages 
-  } = await getMembersPageData(currentPage, pageSize, searchTerm);
+  } = await getMembersPageData(currentPage, pageSize, searchTerm, statusFilter, roleFilter, guideIdFilter);
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -162,7 +175,11 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
         totalPages={totalPages}
         pageSize={pageSize}
         currentSearchTerm={searchTerm}
+        currentStatusFilter={statusFilter}
+        currentRoleFilter={roleFilter}
+        currentGuideIdFilter={guideIdFilter}
       />
     </div>
   );
 }
+

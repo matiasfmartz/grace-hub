@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
+import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck, Filter } from 'lucide-react';
 import MemberDetailsDialog from './member-details-dialog';
 import AddMemberForm from './add-member-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -16,7 +16,7 @@ import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
+import { Label } from '@/components/ui/label';
 
 interface MembersListViewProps {
   initialMembers: Member[]; 
@@ -32,16 +32,34 @@ interface MembersListViewProps {
   totalPages: number;
   pageSize: number;
   currentSearchTerm?: string;
+  currentStatusFilter?: string;
+  currentRoleFilter?: string;
+  currentGuideIdFilter?: string;
 }
 
 type SortKey = Exclude<keyof Member, 'email' | 'assignedGDIId' | 'assignedAreaIds' | 'avatarUrl' | 'attendsLifeSchool' | 'attendsBibleInstitute' | 'fromAnotherChurch' | 'baptismDate' | 'roles'> | 'fullName';
 type SortOrder = 'asc' | 'desc';
 
-const roleDisplayNames: Record<MemberRoleType, string> = {
+const roleDisplayMap: Record<MemberRoleType, string> = {
   Leader: "Líder",
   Worker: "Obrero",
   GeneralAttendee: "Asistente General",
 };
+const roleFilterOptions: { value: MemberRoleType | ''; label: string }[] = [
+  { value: '', label: "Todos los Roles" },
+  ...Object.entries(roleDisplayMap).map(([value, label]) => ({ value: value as MemberRoleType, label }))
+];
+
+const statusDisplayMap: Record<Member['status'], string> = {
+  Active: "Activo",
+  Inactive: "Inactivo",
+  New: "Nuevo"
+};
+const statusFilterOptions: { value: Member['status'] | ''; label: string }[] = [
+  { value: '', label: "Todos los Estados" },
+  ...Object.entries(statusDisplayMap).map(([value, label]) => ({ value: value as Member['status'], label }))
+];
+
 
 export default function MembersListView({ 
   initialMembers, 
@@ -56,10 +74,16 @@ export default function MembersListView({
   currentPage,
   totalPages,
   pageSize,
-  currentSearchTerm = ''
+  currentSearchTerm = '',
+  currentStatusFilter = '',
+  currentRoleFilter = '',
+  currentGuideIdFilter = ''
 }: MembersListViewProps) {
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [searchInput, setSearchInput] = useState(currentSearchTerm); 
+  const [selectedStatus, setSelectedStatus] = useState(currentStatusFilter);
+  const [selectedRole, setSelectedRole] = useState(currentRoleFilter);
+  const [selectedGuideId, setSelectedGuideId] = useState(currentGuideIdFilter);
   const [sortKey, setSortKey] = useState<SortKey>('fullName');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -70,7 +94,7 @@ export default function MembersListView({
 
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const searchParamsHook = useSearchParams();
 
   useEffect(() => {
     setMembers(initialMembers);
@@ -78,7 +102,17 @@ export default function MembersListView({
 
   useEffect(() => {
     setSearchInput(currentSearchTerm);
-  }, [currentSearchTerm]);
+    setSelectedStatus(currentStatusFilter);
+    setSelectedRole(currentRoleFilter);
+    setSelectedGuideId(currentGuideIdFilter);
+  }, [currentSearchTerm, currentStatusFilter, currentRoleFilter, currentGuideIdFilter]);
+
+  const gdiGuides = useMemo(() => {
+    const guideIds = new Set(allGDIs.map(gdi => gdi.guideId).filter(Boolean));
+    return allMembersForDropdowns
+        .filter(member => guideIds.has(member.id))
+        .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+  }, [allGDIs, allMembersForDropdowns]);
 
 
   const getGdiGuideName = useCallback((member: Member): string => {
@@ -89,18 +123,15 @@ export default function MembersListView({
     return guide ? `${guide.firstName} ${guide.lastName}` : "Guía no encontrado";
   }, [allGDIs, allMembersForDropdowns]);
 
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchInput(event.target.value);
-  };
-
-  const handleSearchSubmit = () => {
-    const params = new URLSearchParams(searchParams.toString());
+  const handleFilterOrSearch = () => {
+    const params = new URLSearchParams(searchParamsHook.toString());
     params.set('page', '1'); 
-    if (searchInput.trim()) {
-      params.set('search', searchInput.trim());
-    } else {
-      params.delete('search');
-    }
+    
+    if (searchInput.trim()) params.set('search', searchInput.trim()); else params.delete('search');
+    if (selectedStatus) params.set('status', selectedStatus); else params.delete('status');
+    if (selectedRole) params.set('role', selectedRole); else params.delete('role');
+    if (selectedGuideId) params.set('guide', selectedGuideId); else params.delete('guide');
+    
     router.push(`${pathname}?${params.toString()}`);
   };
 
@@ -115,7 +146,6 @@ export default function MembersListView({
   
   const processedMembers = useMemo(() => {
     let membersToProcess = [...members]; 
-
     membersToProcess.sort((a, b) => {
       let valA, valB;
       if (sortKey === 'fullName') {
@@ -187,54 +217,100 @@ export default function MembersListView({
     return sortOrder === 'asc' ? <ArrowUpNarrowWide size={16} /> : <ArrowDownNarrowWide size={16} />;
   };
 
-  const displayStatus = (status: Member['status']) => {
-    switch (status) {
-      case 'Active': return 'Activo';
-      case 'Inactive': return 'Inactivo';
-      case 'New': return 'Nuevo';
-      default: return status;
-    }
-  };
-
+  const displayStatus = (status: Member['status']) => statusDisplayMap[status] || status;
+  
   const createPageURL = (pageNumber: number) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(searchParamsHook.toString());
     params.set('page', pageNumber.toString());
     return `${pathname}?${params.toString()}`;
   };
 
   const handlePageSizeChange = (newSize: string) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(searchParamsHook.toString());
     params.set('pageSize', newSize);
-    params.set('page', '1'); // Reset to first page when size changes
+    params.set('page', '1'); 
     router.push(`${pathname}?${params.toString()}`);
   };
 
 
   return (
     <>
-      <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
-        <form onSubmit={(e) => { e.preventDefault(); handleSearchSubmit(); }} className="relative flex-grow sm:flex-none sm:w-full md:w-1/2 lg:w-2/3 xl:w-1/3">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar miembros (nombre, email, rol...)"
-            className="w-full pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-primary focus:border-primary"
-            value={searchInput}
-            onChange={handleSearchChange}
-          />
-          <button type="submit" className="hidden" />
-        </form>
-        <div className="flex gap-2 flex-wrap">
-          <Button onClick={() => setIsAddMemberDialogOpen(true)} disabled={isProcessingMember}>
-            <UserPlus className="mr-2 h-4 w-4" /> Agregar Nuevo Miembro
-          </Button>
-          <Button asChild variant="outline" disabled={isProcessingMember}>
-            <Link href="/members/bulk-add">
-              <ListPlus className="mr-2 h-4 w-4" /> Agregar Múltiples Miembros
-            </Link>
-          </Button>
+      <div className="mb-6 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+          <form onSubmit={(e) => { e.preventDefault(); handleFilterOrSearch(); }} className="relative lg:col-span-1">
+             <Label htmlFor="memberSearchInput" className="text-sm font-medium">Buscar Miembro</Label>
+            <Search className="absolute left-3 top-[calc(50%+7px)] transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              id="memberSearchInput"
+              type="search"
+              placeholder="Nombre, email, etc."
+              className="w-full pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-primary focus:border-primary mt-1"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+            <button type="submit" className="hidden" />
+          </form>
+          
+          <div>
+            <Label htmlFor="statusFilter" className="text-sm font-medium">Filtrar por Estado</Label>
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger id="statusFilter" className="w-full mt-1">
+                <SelectValue placeholder="Todos los Estados" />
+              </SelectTrigger>
+              <SelectContent>
+                {statusFilterOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="roleFilter" className="text-sm font-medium">Filtrar por Rol</Label>
+            <Select value={selectedRole} onValueChange={setSelectedRole}>
+              <SelectTrigger id="roleFilter" className="w-full mt-1">
+                <SelectValue placeholder="Todos los Roles" />
+              </SelectTrigger>
+              <SelectContent>
+                {roleFilterOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="guideFilter" className="text-sm font-medium">Filtrar por Guía de GDI</Label>
+            <Select value={selectedGuideId} onValueChange={setSelectedGuideId}>
+              <SelectTrigger id="guideFilter" className="w-full mt-1">
+                <SelectValue placeholder="Todos los Guías" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Todos los Guías</SelectItem>
+                {gdiGuides.map(guide => (
+                  <SelectItem key={guide.id} value={guide.id}>
+                    {guide.firstName} {guide.lastName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={handleFilterOrSearch} className="w-full sm:w-auto">
+                <Filter className="mr-2 h-4 w-4" /> Aplicar Filtros y Búsqueda
+            </Button>
+            <Button onClick={() => setIsAddMemberDialogOpen(true)} disabled={isProcessingMember} className="w-full sm:w-auto">
+              <UserPlus className="mr-2 h-4 w-4" /> Agregar Nuevo Miembro
+            </Button>
+            <Button asChild variant="outline" disabled={isProcessingMember} className="w-full sm:w-auto">
+              <Link href="/members/bulk-add">
+                <ListPlus className="mr-2 h-4 w-4" /> Agregar Múltiples Miembros
+              </Link>
+            </Button>
         </div>
       </div>
+
 
       <div className="overflow-x-auto bg-card rounded-lg shadow-md">
         <Table>
@@ -274,7 +350,7 @@ export default function MembersListView({
                     {member.roles && member.roles.length > 0 ? (
                       member.roles.map(role => (
                         <Badge key={role} variant="secondary" className="text-xs">
-                          {roleDisplayNames[role] || role}
+                          {roleDisplayMap[role] || role}
                         </Badge>
                       ))
                     ) : (
@@ -307,19 +383,17 @@ export default function MembersListView({
           </TableBody>
         </Table>
       </div>
-      {processedMembers.length === 0 && currentSearchTerm && (
-        <p className="text-center text-muted-foreground mt-8">No se encontraron miembros con el término de búsqueda "{currentSearchTerm}".</p>
+      {processedMembers.length === 0 && (currentSearchTerm || currentStatusFilter || currentRoleFilter || currentGuideIdFilter) && (
+        <p className="text-center text-muted-foreground mt-8">No se encontraron miembros con los filtros aplicados.</p>
       )}
-      {initialMembers.length === 0 && !currentSearchTerm && (
+      {initialMembers.length === 0 && !currentSearchTerm && !currentStatusFilter && !currentRoleFilter && !currentGuideIdFilter && (
          <p className="text-center text-muted-foreground mt-8">No hay miembros para mostrar.</p>
       )}
 
-    {totalPages > 0 && ( // Show pagination controls only if there are pages
+    {totalPages > 0 && ( 
         <div className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0 sm:space-x-2 py-4">
           <div className="text-sm text-muted-foreground">
             Página {currentPage} de {totalPages}
-            <span className="hidden sm:inline"> ({initialMembers.length > 0 ? ((currentPage -1) * pageSize) + 1 : 0}-{(Math.min(currentPage * pageSize, processedMembers.reduce((acc, _curr) => acc + 1, (currentPage - 1) * pageSize + (initialMembers.length > 0 ? initialMembers.length % pageSize === 0 ? pageSize : initialMembers.length % pageSize : 0 ) )))} de {processedMembers.reduce((acc, _curr) => acc + 1, (currentPage - 1) * pageSize + (initialMembers.length > 0 ? initialMembers.length % pageSize === 0 ? pageSize : initialMembers.length % pageSize : 0 ) - initialMembers.length + (totalPages*pageSize - (pageSize - (initialMembers.length % pageSize === 0 ? pageSize : initialMembers.length % pageSize))) )} total)</span>
-            {/* The total count logic above is complex to get the total across all pages; consider simplifying if just total on current page is needed */}
           </div>
           <div className="flex items-center space-x-2">
             <div className="flex items-center space-x-1">

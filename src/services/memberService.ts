@@ -9,9 +9,40 @@ const MEMBERS_DB_FILE = 'members-db.json';
 const GDIS_DB_FILE = 'gdis-db.json';
 const MINISTRY_AREAS_DB_FILE = 'ministry-areas-db.json';
 
-export async function getAllMembers(page: number = 1, pageSize: number = 10, searchTerm?: string): Promise<{ members: Member[], totalMembers: number, totalPages: number }> {
+export async function getAllMembers(
+  page: number = 1, 
+  pageSize: number = 10, 
+  searchTerm?: string,
+  statusFilter?: string,
+  roleFilter?: string,
+  guideIdFilter?: string
+): Promise<{ members: Member[], totalMembers: number, totalPages: number }> {
   let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
+  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
 
+  // Apply specific filters first
+  if (statusFilter) {
+    allMembers = allMembers.filter(member => member.status === statusFilter);
+  }
+  if (roleFilter) {
+    allMembers = allMembers.filter(member => member.roles?.includes(roleFilter as MemberRoleType));
+  }
+  if (guideIdFilter) {
+    const gdisLedByThisGuide = allGdis.filter(gdi => gdi.guideId === guideIdFilter);
+    if (gdisLedByThisGuide.length > 0) {
+        const membersToInclude = new Set<string>();
+        membersToInclude.add(guideIdFilter); // Add the guide themselves
+        gdisLedByThisGuide.forEach(gdi => {
+            gdi.memberIds.forEach(memberId => membersToInclude.add(memberId));
+        });
+        allMembers = allMembers.filter(member => membersToInclude.has(member.id));
+    } else {
+        // If a specific guide is selected but they don't lead any GDI, result in no members for this filter.
+        allMembers = [];
+    }
+  }
+
+  // Then apply general search term
   if (searchTerm) {
     const lowercasedSearchTerm = searchTerm.toLowerCase();
     allMembers = allMembers.filter(member =>
