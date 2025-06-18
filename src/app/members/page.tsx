@@ -83,7 +83,7 @@ async function getMembersPageData(
   currentPageParam: number,
   pageSizeParam: number,
   searchTermParam?: string,
-  statusFiltersParam?: string[],
+  memberStatusFiltersParam?: string[], // Renamed from statusFiltersParam
   roleFiltersParam?: string[],
   guideFiltersParam?: string[]
 ) {
@@ -91,7 +91,7 @@ async function getMembersPageData(
     currentPageParam,
     pageSizeParam,
     searchTermParam,
-    statusFiltersParam,
+    memberStatusFiltersParam, // Passed to getAllMembers
     roleFiltersParam,
     guideFiltersParam
   );
@@ -120,7 +120,7 @@ interface MembersPageProps {
     page?: string;
     pageSize?: string;
     search?: string;
-    status?: string;
+    memberStatus?: string; // Renamed from status
     role?: string;
     guide?: string;
   };
@@ -130,11 +130,11 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
   const currentPage = Number(searchParams.page) || 1;
   const pageSize = Number(searchParams.pageSize) || 10;
   const searchTerm = searchParams.search || '';
-  const statusFilterString = searchParams.status || '';
+  const memberStatusFilterString = searchParams.memberStatus || ''; // Renamed from statusFilterString
   const roleFilterString = searchParams.role || '';
   const guideFilterString = searchParams.guide || '';
   
-  const currentStatusFiltersArray = statusFilterString ? statusFilterString.split(',') : [];
+  const currentMemberStatusFiltersArray = memberStatusFilterString ? memberStatusFilterString.split(',') : []; // Renamed
   const currentRoleFiltersArray = roleFilterString ? roleFilterString.split(',') : [];
   const currentGuideFiltersArray = guideFilterString ? guideFilterString.split(',') : [];
 
@@ -152,13 +152,12 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
     currentPage,
     pageSize,
     searchTerm,
-    currentStatusFiltersArray,
+    currentMemberStatusFiltersArray, // Renamed
     currentRoleFiltersArray,
     currentGuideFiltersArray
   );
 
-  // The key prop forces a re-render when searchParams change
-  const viewKey = `${currentPage}-${pageSize}-${searchTerm}-${statusFilterString}-${roleFilterString}-${guideFilterString}`;
+  const viewKey = `${currentPage}-${pageSize}-${searchTerm}-${memberStatusFilterString}-${roleFilterString}-${guideFilterString}`; // Updated key
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -183,7 +182,7 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
         totalPages={totalPages}
         pageSize={pageSize}
         currentSearchTerm={searchTerm}
-        currentStatusFilters={currentStatusFiltersArray}
+        currentMemberStatusFilters={currentMemberStatusFiltersArray} // Renamed prop
         currentRoleFilters={currentRoleFiltersArray}
         currentGuideIdFilters={currentGuideFiltersArray}
       />

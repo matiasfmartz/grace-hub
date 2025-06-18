@@ -33,7 +33,7 @@ interface MembersListViewProps {
   totalPages: number;
   pageSize: number;
   currentSearchTerm?: string;
-  currentStatusFilters?: string[];
+  currentMemberStatusFilters?: string[]; // Renamed from currentStatusFilters
   currentRoleFilters?: string[];
   currentGuideIdFilters?: string[];
 }
@@ -72,13 +72,13 @@ export default function MembersListView({
   totalPages,
   pageSize,
   currentSearchTerm = '',
-  currentStatusFilters = [],
+  currentMemberStatusFilters = [], // Renamed from currentStatusFilters
   currentRoleFilters = [],
   currentGuideIdFilters = []
 }: MembersListViewProps) {
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [searchInput, setSearchInput] = useState(currentSearchTerm);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(currentStatusFilters || []);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(currentMemberStatusFilters || []); // Internal state name unchanged
   const [selectedRoles, setSelectedRoles] = useState<string[]>(currentRoleFilters || []);
   const [selectedGuideIds, setSelectedGuideIds] = useState<string[]>(currentGuideIdFilters || []);
 
@@ -133,8 +133,8 @@ export default function MembersListView({
 
     if (searchInput.trim()) params.set('search', searchInput.trim());
 
-    if (selectedStatuses.length > 0) params.set('status', selectedStatuses.join(','));
-    else params.delete('status');
+    if (selectedStatuses.length > 0) params.set('memberStatus', selectedStatuses.join(',')); // Changed 'status' to 'memberStatus'
+    else params.delete('memberStatus'); // Changed 'status' to 'memberStatus'
 
     if (selectedRoles.length > 0) params.set('role', selectedRoles.join(','));
     else params.delete('role');

@@ -24,7 +24,7 @@ export async function getAllMembers(
   page: number = 1,
   pageSize: number = 10,
   searchTerm?: string,
-  statusFilterParams?: string[],
+  memberStatusFiltersParam?: string[], // Renamed from statusFilterParams
   roleFilterParams?: string[],
   guideIdFilterParams?: string[]
 ): Promise<{ members: Member[], totalMembers: number, totalPages: number }> {
@@ -32,10 +32,10 @@ export async function getAllMembers(
   let workingFilteredMembers = [...allMembersFromFile];
 
   // Apply Status Filter (Multi-select)
-  if (statusFilterParams && statusFilterParams.length > 0) {
-    workingFilteredMembers = workingFilteredMembers.filter(member => {
-      return member.status && statusFilterParams.includes(member.status);
-    });
+  if (memberStatusFiltersParam && memberStatusFiltersParam.length > 0) { // Renamed
+    workingFilteredMembers = workingFilteredMembers.filter(member =>
+      member.status && memberStatusFiltersParam.includes(member.status) // Renamed
+    );
   }
 
   // Apply Role Filter (Multi-select)
@@ -63,8 +63,6 @@ export async function getAllMembers(
     if (membersToInclude.size > 0) {
         workingFilteredMembers = workingFilteredMembers.filter(member => membersToInclude.has(member.id));
     } else {
-        // If guideIdFilterParams has values but membersToInclude is empty (e.g., selected guides have no members or are not found)
-        // then no members should match this part of the filter.
         workingFilteredMembers = []; 
     }
   }
