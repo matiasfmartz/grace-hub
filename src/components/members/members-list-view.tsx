@@ -15,7 +15,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { Label } from '@/components/ui/label';
 
@@ -57,8 +56,6 @@ const statusDisplayMap: Record<Member['status'], string> = {
 const statusFilterOptions: { value: Member['status']; label: string }[] = Object.entries(statusDisplayMap)
     .map(([value, label]) => ({ value: value as Member['status'], label }));
 
-const SELECT_ALL_VALUE = "__ALL__"; // Used for UI representation of "All" options
-
 
 export default function MembersListView({
   initialMembers,
@@ -99,12 +96,8 @@ export default function MembersListView({
     setMembers(initialMembers);
   }, [initialMembers]);
 
-  useEffect(() => {
-    setSearchInput(currentSearchTerm);
-    setSelectedStatuses(currentStatusFilters);
-    setSelectedRoles(currentRoleFilters);
-    setSelectedGuideIds(currentGuideIdFilters);
-  }, [currentSearchTerm, currentStatusFilters, currentRoleFilters, currentGuideIdFilters]);
+  // Removed useEffect that synced searchInput, selectedStatuses, selectedRoles, selectedGuideIds from props.
+  // Relying on key prop for remount and useState initializers.
 
   const gdiGuides = useMemo(() => {
     const guideIds = new Set(allGDIs.map(gdi => gdi.guideId).filter(Boolean));
@@ -120,6 +113,23 @@ export default function MembersListView({
     const guide = allMembersForDropdowns.find(m => m.id === gdi.guideId);
     return guide ? `${guide.firstName} ${guide.lastName}` : "Guía no encontrado";
   }, [allGDIs, allMembersForDropdowns]);
+
+
+  const toggleFilterItem = (
+    itemValue: string,
+    filterType: 'status' | 'role' | 'guide'
+  ) => {
+    const setter =
+      filterType === 'status' ? setSelectedStatuses :
+      filterType === 'role' ? setSelectedRoles :
+      setSelectedGuideIds;
+
+    setter(prev =>
+      prev.includes(itemValue)
+        ? prev.filter(i => i !== itemValue)
+        : [...prev, itemValue]
+    );
+  };
 
   const handleFilterOrSearch = () => {
     const params = new URLSearchParams(searchParamsHook.toString());
@@ -138,6 +148,7 @@ export default function MembersListView({
     setSelectedStatuses([]);
     setSelectedRoles([]);
     setSelectedGuideIds([]);
+    
     const params = new URLSearchParams(searchParamsHook.toString());
     params.delete('search');
     params.delete('status');
@@ -245,12 +256,6 @@ export default function MembersListView({
     router.push(`${pathname}?${params.toString()}`);
   };
   
-  const toggleFilterItem = (selectedItems: string[], setSelectedItems: React.Dispatch<React.SetStateAction<string[]>>, itemValue: string) => {
-    setSelectedItems(prev =>
-      prev.includes(itemValue) ? prev.filter(i => i !== itemValue) : [...prev, itemValue]
-    );
-  };
-  
   const hasActiveFilters = searchInput.trim() !== '' || selectedStatuses.length > 0 || selectedRoles.length > 0 || selectedGuideIds.length > 0;
 
 
@@ -288,7 +293,7 @@ export default function MembersListView({
                   <DropdownMenuCheckboxItem
                     key={opt.value}
                     checked={selectedStatuses.includes(opt.value)}
-                    onCheckedChange={() => toggleFilterItem(selectedStatuses, setSelectedStatuses, opt.value)}
+                    onCheckedChange={() => toggleFilterItem(opt.value, 'status')}
                   >
                     {opt.label}
                   </DropdownMenuCheckboxItem>
@@ -313,7 +318,7 @@ export default function MembersListView({
                   <DropdownMenuCheckboxItem
                     key={opt.value}
                     checked={selectedRoles.includes(opt.value)}
-                    onCheckedChange={() => toggleFilterItem(selectedRoles, setSelectedRoles, opt.value)}
+                    onCheckedChange={() => toggleFilterItem(opt.value, 'role')}
                   >
                     {opt.label}
                   </DropdownMenuCheckboxItem>
@@ -338,11 +343,12 @@ export default function MembersListView({
                   <DropdownMenuCheckboxItem
                     key={guide.id}
                     checked={selectedGuideIds.includes(guide.id)}
-                    onCheckedChange={() => toggleFilterItem(selectedGuideIds, setSelectedGuideIds, guide.id)}
+                    onCheckedChange={() => toggleFilterItem(guide.id, 'guide')}
                   >
                     {guide.firstName} {guide.lastName}
                   </DropdownMenuCheckboxItem>
                 ))}
+                {gdiGuides.length === 0 && <DropdownMenuItem disabled>No hay guías para mostrar</DropdownMenuItem>}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
