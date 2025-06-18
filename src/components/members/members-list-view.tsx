@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck, Filter, X, ChevronDown } from 'lucide-react';
+import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck, Filter, X, ChevronDown, Users } from 'lucide-react'; // Added Users
 import MemberDetailsDialog from './member-details-dialog';
 import AddMemberForm from './add-member-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -261,9 +261,8 @@ export default function MembersListView({
   return (
     <>
       <div className="mb-6 space-y-4">
-        {/* Top row: Search on left, Action buttons on right */}
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="w-full md:w-auto md:flex-grow md:max-w-sm"> {/* Adjusted max-width */}
+          <div className="w-full md:w-auto md:flex-grow md:max-w-sm">
             <form onSubmit={(e) => { e.preventDefault(); handleFilterOrSearch(); }} className="relative">
               <Label htmlFor="memberSearchInput" className="sr-only">Buscar Miembro</Label>
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -278,7 +277,6 @@ export default function MembersListView({
               <button type="submit" className="hidden" />
             </form>
           </div>
-
           <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
             <Button onClick={() => setIsAddMemberDialogOpen(true)} disabled={isProcessingMember} className="w-full sm:w-auto">
               <UserPlus className="mr-2 h-4 w-4" /> Agregar Nuevo Miembro
@@ -291,8 +289,7 @@ export default function MembersListView({
           </div>
         </div>
 
-        {/* Filters row - subtle, single line */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 py-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 py-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary data-[state=open]:text-primary">
@@ -364,12 +361,12 @@ export default function MembersListView({
           </DropdownMenu>
           
           <div className="flex items-center gap-2 ml-auto">
-            <Button onClick={handleFilterOrSearch} size="sm" variant="default">
-                <Filter className="mr-2 h-4 w-4" /> Aplicar
+            <Button onClick={handleFilterOrSearch} size="sm" variant="outline">
+                <Filter className="mr-2 h-3.5 w-3.5" /> Aplicar
             </Button>
              {hasActiveFilters && (
               <Button onClick={handleClearAllFilters} variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
-                <X className="mr-1 h-4 w-4" /> Limpiar
+                <X className="mr-1 h-3.5 w-3.5" /> Limpiar
               </Button>
             )}
           </div>
@@ -539,4 +536,3 @@ export default function MembersListView({
     </>
   );
 }
-
