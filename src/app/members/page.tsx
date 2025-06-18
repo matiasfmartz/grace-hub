@@ -83,9 +83,9 @@ interface MembersPageProps {
     page?: string;
     pageSize?: string;
     search?: string;
-    status?: string; // Comma-separated string for multiple statuses
-    role?: string;   // Comma-separated string for multiple roles
-    guide?: string;  // Comma-separated string for multiple guide IDs
+    status?: string; 
+    role?: string;   
+    guide?: string;  
   };
 }
 
@@ -110,7 +110,9 @@ async function getMembersPageData(
   currentRoleFiltersArray: string[],
   currentGuideIdFiltersArray: string[]
 }> {
+  console.log("[MembersPage] getMembersPageData - statusFilterString from URL:", statusFilterString); // DEBUG LOG
   const statusFilters = statusFilterString ? statusFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
+  console.log("[MembersPage] getMembersPageData - parsed statusFilters array:", statusFilters); // DEBUG LOG
   const roleFilters = roleFilterString ? roleFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
   const guideIdFilters = guideIdFilterString ? guideIdFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
 
@@ -197,3 +199,4 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
     </div>
   );
 }
+

@@ -18,8 +18,6 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
-import { SELECT_ALL_VALUE } from '@/lib/types';
-
 
 interface MembersListViewProps {
   initialMembers: Member[];
@@ -125,10 +123,10 @@ export default function MembersListView({
   };
 
  const handleFilterOrSearch = () => {
-    const params = new URLSearchParams(); // Start fresh
-    params.set('page', '1'); // Reset to first page on new filter/search
+    console.log("[MembersListView] handleFilterOrSearch - selectedStatuses:", selectedStatuses); // DEBUG LOG
+    const params = new URLSearchParams(); 
+    params.set('page', '1'); 
 
-    // Preserve existing pageSize if it's in the URL, otherwise use the prop
     const currentHookParams = new URLSearchParams(searchParamsHook.toString());
     if (currentHookParams.has('pageSize')) {
         params.set('pageSize', currentHookParams.get('pageSize')!);
@@ -142,7 +140,7 @@ export default function MembersListView({
     if (selectedGuideIds.length > 0) params.set('guide', selectedGuideIds.join(','));
 
     router.push(`${pathname}?${params.toString()}`);
-    router.refresh(); // Force re-fetch of server data
+    router.refresh(); 
   };
   
   const handleClearAllFilters = () => {
@@ -160,7 +158,7 @@ export default function MembersListView({
         params.set('pageSize', pageSize.toString());
     }
     router.push(`${pathname}?${params.toString()}`);
-    router.refresh(); // Force re-fetch of server data
+    router.refresh(); 
   };
 
 
@@ -174,7 +172,7 @@ export default function MembersListView({
   };
 
   const processedMembers = useMemo(() => {
-    let membersToProcess = [...members]; // Use the members state which is initialized from initialMembers
+    let membersToProcess = [...members]; 
     membersToProcess.sort((a, b) => {
       let valA, valB;
       if (sortKey === 'fullName') {
@@ -259,7 +257,7 @@ export default function MembersListView({
     params.set('pageSize', newSize);
     params.set('page', '1');
     router.push(`${pathname}?${params.toString()}`);
-    router.refresh(); // Ensure data re-fetch on page size change
+    router.refresh(); 
   };
   
   const hasActiveFilters = searchInput.trim() !== '' || selectedStatuses.length > 0 || selectedRoles.length > 0 || selectedGuideIds.length > 0;
@@ -542,3 +540,4 @@ export default function MembersListView({
     </>
   );
 }
+

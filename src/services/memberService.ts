@@ -28,16 +28,20 @@ export async function getAllMembers(
   roleFilterParams?: string[],
   guideIdFilterParams?: string[]
 ): Promise<{ members: Member[], totalMembers: number, totalPages: number }> {
+  console.log("[memberService] getAllMembers - Received statusFilterParams:", statusFilterParams); // DEBUG LOG
   const allMembersFromFile = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
   let workingFilteredMembers = [...allMembersFromFile];
 
   // Apply Status Filter (Multi-select)
   if (statusFilterParams && statusFilterParams.length > 0) {
     workingFilteredMembers = workingFilteredMembers.filter(member => {
-      // Ensure member.status exists and is one of the selected statuses
-      return member.status && statusFilterParams.includes(member.status);
+      const isMatch = member.status && statusFilterParams.includes(member.status);
+      // console.log(`[memberService] Member ID: ${member.id}, Status: ${member.status}, Filters: ${statusFilterParams}, Match: ${isMatch}`); // DEBUG LOG (can be too verbose)
+      return isMatch;
     });
   }
+  console.log(`[memberService] Members after status filter (${statusFilterParams}): ${workingFilteredMembers.length}`);
+
 
   // Apply Role Filter (Multi-select)
   if (roleFilterParams && roleFilterParams.length > 0) {
@@ -45,6 +49,8 @@ export async function getAllMembers(
       member.roles && member.roles.some(role => roleFilterParams.includes(role))
     );
   }
+  console.log(`[memberService] Members after role filter (${roleFilterParams}): ${workingFilteredMembers.length}`);
+
 
   // Apply GDI Guide Filter (Multi-select)
   if (guideIdFilterParams && guideIdFilterParams.length > 0) {
@@ -52,10 +58,10 @@ export async function getAllMembers(
     const membersToInclude = new Set<string>();
     
     guideIdFilterParams.forEach(guideId => {
-      membersToInclude.add(guideId); // Add the guide themselves
+      membersToInclude.add(guideId); 
       const gdisLedByThisGuide = allGdis.filter(gdi => gdi.guideId === guideId);
       gdisLedByThisGuide.forEach(gdi => {
-        if (gdi.memberIds) { // Ensure memberIds exists
+        if (gdi.memberIds) { 
             gdi.memberIds.forEach(memberId => membersToInclude.add(memberId));
         }
       });
@@ -64,10 +70,10 @@ export async function getAllMembers(
     if (membersToInclude.size > 0) {
         workingFilteredMembers = workingFilteredMembers.filter(member => membersToInclude.has(member.id));
     } else {
-        // If guide IDs were specified but resulted in no members to include (e.g., guides not found or no members in their GDIs)
         workingFilteredMembers = [];
     }
   }
+  console.log(`[memberService] Members after guide filter (${guideIdFilterParams}): ${workingFilteredMembers.length}`);
 
   // Apply Search Term Filter
   if (searchTerm) {
@@ -84,6 +90,7 @@ export async function getAllMembers(
       );
     }
   }
+  console.log(`[memberService] Members after search filter ('${searchTerm}'): ${workingFilteredMembers.length}`);
 
   const totalMembers = workingFilteredMembers.length;
   const totalPages = Math.ceil(totalMembers / pageSize);
@@ -111,13 +118,13 @@ export async function addMember(memberData: MemberWriteData): Promise<Member> {
   const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
 
   const tempMemberForRoleCalc: Pick<Member, 'id' | 'assignedGDIId' | 'assignedAreaIds'> = {
-      id: '', // Temporary, will be replaced
+      id: '', 
       assignedGDIId: memberData.assignedGDIId,
       assignedAreaIds: memberData.assignedAreaIds
   };
 
   const newMemberId = `${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}`;
-  tempMemberForRoleCalc.id = newMemberId; // Use actual new ID for role calculation
+  tempMemberForRoleCalc.id = newMemberId; 
 
   const calculatedRoles = calculateMemberRoles(tempMemberForRoleCalc, allGdis, allMinistryAreas);
 
@@ -130,7 +137,7 @@ export async function addMember(memberData: MemberWriteData): Promise<Member> {
 
   const updatedMembers = [...members, newMember];
   await writeDbFile<Member>(MEMBERS_DB_FILE, updatedMembers);
-  await addMemberToAssignments(newMember); // Ensure this correctly updates GDI/Area member lists
+  await addMemberToAssignments(newMember); 
 
   return newMember;
 }
@@ -151,7 +158,7 @@ export async function updateMember(memberId: string, updates: Partial<Omit<Membe
     avatarUrl: updates.avatarUrl || members[memberIndex].avatarUrl || 'https://placehold.co/100x100',
   };
 
-  // Recalculate roles based on potentially updated assignments
+  
   const memberForRoleCalc: Pick<Member, 'id' | 'assignedGDIId' | 'assignedAreaIds'> = {
     id: memberId,
     assignedGDIId: updatedMemberInstance.assignedGDIId,
@@ -161,16 +168,15 @@ export async function updateMember(memberId: string, updates: Partial<Omit<Membe
 
   members[memberIndex] = updatedMemberInstance;
   await writeDbFile<Member>(MEMBERS_DB_FILE, members);
-  return members[memberIndex]; // Return the updated member from the array
+  return members[memberIndex]; 
 }
 
-// This function is responsible for updating GDI/Area member lists when a member's assignments change.
-// It's crucial that this correctly removes the member from old groups and adds to new ones.
+
 export async function updateMemberAssignments(
   memberId: string,
   originalMemberData: Member,
   updatedMemberData: Member
-): Promise<string[]> { // Returns IDs of members whose roles might need recalculation
+): Promise<string[]> { 
   const oldAssignedGDIId = originalMemberData.assignedGDIId;
   const newAssignedGDIId = updatedMemberData.assignedGDIId;
   const oldAssignedAreaIds = originalMemberData.assignedAreaIds || [];
@@ -178,39 +184,39 @@ export async function updateMemberAssignments(
 
   let affectedMemberIdsForRoleRecalculation = new Set<string>([memberId]);
 
-  // Handle GDI Assignment Change
+  
   if (oldAssignedGDIId !== newAssignedGDIId) {
     let allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
     let gdisDbChanged = false;
 
-    // Remove from old GDI (if any)
+    
     if (oldAssignedGDIId) {
       const oldGdiIndex = allGdis.findIndex(gdi => gdi.id === oldAssignedGDIId);
       if (oldGdiIndex !== -1) {
-        // If member was the guide, assign a placeholder guide or handle as needed
+        
         if (allGdis[oldGdiIndex].guideId === memberId) {
-           allGdis[oldGdiIndex].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${oldAssignedGDIId}`; // Or null, or specific logic
-           affectedMemberIdsForRoleRecalculation.add(allGdis[oldGdiIndex].guideId); // The new placeholder guide might need role update
+           allGdis[oldGdiIndex].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${oldAssignedGDIId}`; 
+           affectedMemberIdsForRoleRecalculation.add(allGdis[oldGdiIndex].guideId); 
         }
-        // Remove from member list
+        
         allGdis[oldGdiIndex].memberIds = allGdis[oldGdiIndex].memberIds.filter(id => id !== memberId);
         gdisDbChanged = true;
       }
     }
 
-    // Add to new GDI (if any)
+    
     if (newAssignedGDIId) {
       const newGdiIndex = allGdis.findIndex(gdi => gdi.id === newAssignedGDIId);
       if (newGdiIndex !== -1) {
-        // Ensure not adding if already guide, and not duplicating if already member
+        
         if (allGdis[newGdiIndex].guideId !== memberId && !allGdis[newGdiIndex].memberIds.includes(memberId)) {
           allGdis[newGdiIndex].memberIds.push(memberId);
           gdisDbChanged = true;
         }
-        // If they are assigned as guide to this GDI, ensure they are NOT in memberIds for this GDI
+        
         if (allGdis[newGdiIndex].guideId === memberId) {
             allGdis[newGdiIndex].memberIds = allGdis[newGdiIndex].memberIds.filter(id => id !== memberId);
-            gdisDbChanged = true; // MemberIds might have changed
+            gdisDbChanged = true; 
         }
       }
     }
@@ -219,7 +225,7 @@ export async function updateMemberAssignments(
     }
   }
 
-  // Handle Ministry Area Assignment Changes
+  
   const originalAreaIdsSet = new Set(oldAssignedAreaIds);
   const updatedAreaIdsSet = new Set(newAssignedAreaIds);
 
@@ -233,7 +239,7 @@ export async function updateMemberAssignments(
     areasAddedTo.forEach(areaId => {
       const areaIndex = allMinistryAreas.findIndex(area => area.id === areaId);
       if (areaIndex !== -1 && !allMinistryAreas[areaIndex].memberIds.includes(memberId)) {
-        // Ensure not adding if already leader, and not duplicating if already member
+        
         if(allMinistryAreas[areaIndex].leaderId !== memberId){
             allMinistryAreas[areaIndex].memberIds.push(memberId);
             ministryAreasDbChanged = true;
@@ -244,12 +250,12 @@ export async function updateMemberAssignments(
     areasRemovedFrom.forEach(areaId => {
       const areaIndex = allMinistryAreas.findIndex(area => area.id === areaId);
       if (areaIndex !== -1) {
-        // If member was the leader, assign a placeholder leader or handle as needed
+        
         if (allMinistryAreas[areaIndex].leaderId === memberId) {
-          allMinistryAreas[areaIndex].leaderId = placeholderMembers[0]?.id || `NEEDS_LEADER_${areaId}`; // Or null
+          allMinistryAreas[areaIndex].leaderId = placeholderMembers[0]?.id || `NEEDS_LEADER_${areaId}`; 
           affectedMemberIdsForRoleRecalculation.add(allMinistryAreas[areaIndex].leaderId);
         }
-        // Remove from member list
+        
         allMinistryAreas[areaIndex].memberIds = allMinistryAreas[areaIndex].memberIds.filter(id => id !== memberId);
         ministryAreasDbChanged = true;
       }
@@ -263,17 +269,17 @@ export async function updateMemberAssignments(
 }
 
 
-// Called when a new member is added, to update their GDI/Area memberships
+
 export async function addMemberToAssignments(
   newMember: Member
 ): Promise<void> {
-  // let affectedMemberIds = new Set<string>([newMember.id]); // Start with the new member // Not used in this func
+  
 
   if (newMember.assignedGDIId) {
     let allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
     const gdiIndex = allGdis.findIndex(gdi => gdi.id === newMember.assignedGDIId);
     if (gdiIndex !== -1) {
-      // If the new member is NOT the guide of this GDI and not already in its member list, add them.
+      
       if (allGdis[gdiIndex].guideId !== newMember.id && !allGdis[gdiIndex].memberIds.includes(newMember.id)) {
         allGdis[gdiIndex].memberIds.push(newMember.id);
         await writeDbFile<GDI>(GDIS_DB_FILE, allGdis);
@@ -288,7 +294,7 @@ export async function addMemberToAssignments(
     assignedAreaIds.forEach(areaId => {
       const areaIndex = allMinistryAreas.findIndex(area => area.id === areaId);
       if (areaIndex !== -1) {
-        // If the new member is NOT the leader of this Area and not already in its member list, add them.
+        
         if (allMinistryAreas[areaIndex].leaderId !== newMember.id && !allMinistryAreas[areaIndex].memberIds.includes(newMember.id)) {
           allMinistryAreas[areaIndex].memberIds.push(newMember.id);
           ministryAreasDbChanged = true;
@@ -317,7 +323,7 @@ export async function bulkRecalculateAndUpdateRoles(memberIdsToUpdate: string[])
     const memberIndex = allMembers.findIndex(m => m.id === memberId);
     if (memberIndex !== -1) {
       const memberToUpdate = allMembers[memberIndex];
-      // Create the specific object structure expected by calculateMemberRoles
+      
       const memberForRoleCalc: Pick<Member, 'id' | 'assignedGDIId' | 'assignedAreaIds'> = {
         id: memberToUpdate.id,
         assignedGDIId: memberToUpdate.assignedGDIId,
@@ -325,7 +331,7 @@ export async function bulkRecalculateAndUpdateRoles(memberIdsToUpdate: string[])
       };
       const newRoles = calculateMemberRoles(memberForRoleCalc, allGdis, allMinistryAreas);
 
-      // Compare sorted arrays to see if roles actually changed
+      
       const currentRolesSorted = [...(memberToUpdate.roles || [])].sort();
       const newRolesSorted = [...newRoles].sort();
 
