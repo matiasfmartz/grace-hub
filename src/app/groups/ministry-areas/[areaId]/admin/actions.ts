@@ -10,9 +10,34 @@ import {
   getSeriesByIdForGroup,
   updateMeetingInstanceMinuteForGroup,
 } from '@/services/groupMeetingService';
-import type { DefineMeetingSeriesFormValues, MeetingSeries, MeetingInstanceFormValues, Meeting } from '@/lib/types';
+import type { DefineMeetingSeriesFormValues, MeetingSeries, MeetingInstanceFormValues, Meeting, MinistryArea } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { format } from 'date-fns';
+import { updateMinistryAreaAndSyncMembers } from '@/services/ministryAreaService'; // For Area details
+import { bulkRecalculateAndUpdateRoles } from '@/services/memberService';
+
+// --- Ministry Area Detail Actions ---
+export async function updateMinistryAreaDetailsAction(
+  areaId: string,
+  updatedData: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description'>>
+): Promise<{ success: boolean; message: string; updatedArea?: MinistryArea }> {
+  try {
+    const { updatedArea, affectedMemberIds } = await updateMinistryAreaAndSyncMembers(areaId, updatedData);
+    
+    if (affectedMemberIds && affectedMemberIds.length > 0) {
+      await bulkRecalculateAndUpdateRoles(affectedMemberIds);
+    }
+    
+    revalidatePath(`/groups/ministry-areas/${areaId}/admin`);
+    revalidatePath('/groups');
+    revalidatePath('/members'); 
+
+    return { success: true, message: `Área Ministerial "${updatedArea.name}" actualizada exitosamente. Asignaciones y roles sincronizados.`, updatedArea };
+  } catch (error: any) {
+    console.error("Error actualizando Área Ministerial y asignaciones:", error);
+    return { success: false, message: `Error actualizando Área Ministerial: ${error.message}` };
+  }
+}
 
 // --- Ministry Area Meeting Series Actions ---
 export async function handleAddAreaMeetingSeriesAction(
@@ -110,7 +135,6 @@ export async function handleDeleteAreaMeetingInstanceAction(
      if (!series) throw new Error("Serie padre no encontrada para la instancia.");
     await deleteMeetingInstanceForGroup('ministryArea', areaId, series.id, instanceId);
     revalidatePath(`/groups/ministry-areas/${areaId}/admin`);
-    // No redirect here, handled by client if it's on attendance page
     return { success: true, message: "Instancia de reunión del Área eliminada." };
   } catch (error: any) {
     return { success: false, message: `Error al eliminar instancia del Área: ${error.message}` };
@@ -133,10 +157,9 @@ export async function handleUpdateAreaMeetingMinuteAction(
   }
 }
 
-// Helper to find the series an instance belongs to (needed for some operations)
 async function getSeriesForInstance(instanceId: string, groupType: 'gdi' | 'ministryArea', groupId: string): Promise<MeetingSeries | undefined> {
-    const allSeries = await getSeriesByIdForGroup(groupType, groupId, undefined); // Gets all series for the group
-    const allMeetings = await readDbFile<Meeting>('meetings-db.json');
+    const allSeries = await getSeriesByIdForGroup(groupType, groupId, undefined); 
+    const allMeetings = await readDbFile<Meeting>('meetings-db.json'); // Assuming readDbFile is accessible
     const meetingInstance = allMeetings.find(m => m.id === instanceId);
     if (!meetingInstance) return undefined;
     return allSeries.find(s => s.id === meetingInstance.seriesId);

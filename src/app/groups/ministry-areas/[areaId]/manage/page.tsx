@@ -1,86 +1,17 @@
 
 'use server';
-import type { MinistryArea, Member } from '@/lib/types';
-import ManageSingleMinistryAreaView from '@/components/groups/manage-single-ministry-area-view';
-import { revalidatePath } from 'next/cache';
-import { notFound } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { ArrowLeft, Settings } from 'lucide-react'; // Added Settings
-import { getMinistryAreaById, updateMinistryAreaAndSyncMembers } from '@/services/ministryAreaService';
-import { getAllMembersNonPaginated, bulkRecalculateAndUpdateRoles } from '@/services/memberService';
+// This page component is no longer directly used for UI.
+// Its primary purpose was to host the updateMinistryAreaDetailsAction and fetch data.
+// The action has been moved to src/app/groups/ministry-areas/[areaId]/admin/actions.ts
+// Data fetching for ManageSingleMinistryAreaView will now occur in the admin page that hosts the dialog.
 
-export async function updateMinistryAreaDetailsAction(
-  areaId: string,
-  updatedData: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description'>>
-): Promise<{ success: boolean; message: string; updatedArea?: MinistryArea }> {
-  try {
-    const { updatedArea, affectedMemberIds } = await updateMinistryAreaAndSyncMembers(areaId, updatedData);
-    
-    // Recalculate roles for all affected members
-    if (affectedMemberIds && affectedMemberIds.length > 0) {
-      await bulkRecalculateAndUpdateRoles(affectedMemberIds);
-    }
-    
-    revalidatePath(`/groups/ministry-areas/${areaId}/manage`);
-    revalidatePath(`/groups/ministry-areas/${areaId}/admin`);
-    revalidatePath('/groups');
-    revalidatePath('/members'); 
+import { redirect } from 'next/navigation';
 
-
-    return { success: true, message: `Ministry Area "${updatedArea.name}" updated successfully. Member assignments and roles synchronized.`, updatedArea };
-  } catch (error: any) {
-    console.error("Error updating ministry area and member assignments:", error);
-    return { success: false, message: `Error updating ministry area: ${error.message}` };
-  }
+export default async function ManageMinistryAreaPage_DEPRECATED({ params }: { params: { areaId: string }}) {
+  // Redirect to the new admin page
+  redirect(`/groups/ministry-areas/${params.areaId}/admin`);
+  // return null;
 }
 
-interface ManageMinistryAreaPageProps {
-  params: { areaId: string };
-}
-
-async function getData(areaId: string): Promise<{ ministryArea: MinistryArea | null; allMembers: Member[] }> {
-  const ministryArea = await getMinistryAreaById(areaId);
-  const allMembersData = await getAllMembersNonPaginated();
-  return { ministryArea, allMembers: allMembersData };
-}
-
-export default async function ManageMinistryAreaPage({ params }: ManageMinistryAreaPageProps) {
-  const { ministryArea, allMembers } = await getData(params.areaId);
-
-  if (!ministryArea) {
-    notFound();
-  }
-  
-  const activeMembers = allMembers.filter(m => m.status === 'Active');
-
-  return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="mb-6 flex justify-between items-center">
-        <Button asChild variant="outline">
-          <Link href="/groups">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Groups
-          </Link>
-        </Button>
-        <Button asChild variant="outline">
-            <Link href={`/groups/ministry-areas/${ministryArea.id}/admin`}>
-                <Settings className="mr-2 h-4 w-4" /> Administrar Reuniones
-            </Link>
-        </Button>
-      </div>
-      <div className="mb-8 text-center">
-        <h1 className="font-headline text-4xl font-bold text-primary">Manage: {ministryArea.name}</h1>
-        <p className="text-muted-foreground mt-2">
-          Update leader, assign members, and manage other details for this ministry area.
-        </p>
-      </div>
-      <ManageSingleMinistryAreaView
-        ministryArea={ministryArea}
-        allMembers={allMembers} 
-        activeMembers={activeMembers}
-        updateMinistryAreaAction={updateMinistryAreaDetailsAction}
-      />
-    </div>
-  );
-}
+// The updateMinistryAreaDetailsAction has been moved to ./admin/actions.ts
+// The getData function is no longer needed here as the admin page will fetch data.

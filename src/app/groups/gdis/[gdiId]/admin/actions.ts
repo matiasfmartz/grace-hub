@@ -10,9 +10,42 @@ import {
   getSeriesByIdForGroup,
   updateMeetingInstanceMinuteForGroup,
 } from '@/services/groupMeetingService';
-import type { DefineMeetingSeriesFormValues, MeetingSeries, MeetingInstanceFormValues, Meeting } from '@/lib/types';
+import type { DefineMeetingSeriesFormValues, MeetingSeries, MeetingInstanceFormValues, Meeting, GDI, Member } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { format } from 'date-fns';
+import { updateGdiAndSyncMembers } from '@/services/gdiService'; // For GDI details
+import { bulkRecalculateAndUpdateRoles } from '@/services/memberService';
+
+// --- GDI Detail Actions ---
+export async function updateGdiDetailsAction(
+  gdiIdToUpdate: string,
+  updatedData: Partial<Pick<GDI, 'name' | 'guideId' | 'memberIds'>>
+): Promise<{ success: boolean; message: string; updatedGdi?: GDI }> {
+  try {
+    const finalMemberIds = (updatedData.memberIds || []).filter(id => id !== updatedData.guideId);
+    const finalDataToUpdate = {
+      name: updatedData.name,
+      guideId: updatedData.guideId,
+      memberIds: finalMemberIds,
+    };
+    
+    const { updatedGdi, affectedMemberIds } = await updateGdiAndSyncMembers(gdiIdToUpdate, finalDataToUpdate);
+
+    if (affectedMemberIds && affectedMemberIds.length > 0) {
+      await bulkRecalculateAndUpdateRoles(affectedMemberIds);
+    }
+
+    revalidatePath(`/groups/gdis/${gdiIdToUpdate}/admin`);
+    revalidatePath('/groups');
+    revalidatePath('/members');
+
+    return { success: true, message: `GDI "${updatedGdi.name}" actualizado exitosamente. Roles actualizados.`, updatedGdi };
+  } catch (error: any) {
+    console.error("Error actualizando GDI y asignaciones de miembros:", error);
+    return { success: false, message: `Error actualizando GDI: ${error.message}` };
+  }
+}
+
 
 // --- GDI Meeting Series Actions ---
 export async function handleAddGdiMeetingSeriesAction(
@@ -110,7 +143,6 @@ export async function handleDeleteGdiMeetingInstanceAction(
      if (!series) throw new Error("Serie padre no encontrada para la instancia.");
     await deleteMeetingInstanceForGroup('gdi', gdiId, series.id, instanceId);
     revalidatePath(`/groups/gdis/${gdiId}/admin`);
-    // No redirect here, handled by client if it's on attendance page
     return { success: true, message: "Instancia de reunión del GDI eliminada." };
   } catch (error: any) {
     return { success: false, message: `Error al eliminar instancia del GDI: ${error.message}` };
@@ -134,8 +166,10 @@ export async function handleUpdateGdiMeetingMinuteAction(
 
 // Helper to find the series an instance belongs to (needed for some operations)
 async function getSeriesForInstance(instanceId: string, groupType: 'gdi' | 'ministryArea', groupId: string): Promise<MeetingSeries | undefined> {
-    const allSeries = await getSeriesByIdForGroup(groupType, groupId, undefined); // Gets all series for the group
-    const allMeetings = await readDbFile<Meeting>('meetings-db.json');
+    // This helper might need access to readDbFile directly if not available in groupMeetingService
+    // For now, assuming getSeriesByIdForGroup can fetch all for the group
+    const allSeries = await getSeriesByIdForGroup(groupType, groupId, undefined);
+    const allMeetings = await readDbFile<Meeting>('meetings-db.json'); // Assuming readDbFile is accessible
     const meetingInstance = allMeetings.find(m => m.id === instanceId);
     if (!meetingInstance) return undefined;
     return allSeries.find(s => s.id === meetingInstance.seriesId);
