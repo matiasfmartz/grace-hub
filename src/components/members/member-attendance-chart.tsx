@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Filter, CalendarRange, Users, CheckCircle2, XCircle, ListChecks, UserX, HelpCircle, Clock, PieChart } from 'lucide-react';
-import { format, parseISO, isValid, isWithinInterval, startOfDay, endOfDay, isPast, isToday } from 'date-fns'; // Removed isFuture as isPast/isToday covers it
+import { format, parseISO, isValid, isWithinInterval, startOfDay, endOfDay, isPast, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -45,13 +45,23 @@ export default function MemberAttendanceSummary({
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
+  const relevantSeriesForDropdown = useMemo(() => {
+    const memberMeetings = allMeetings.filter(meeting => {
+      const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
+      if (!series) return false;
+      if (series.targetAttendeeGroups.includes('allMembers')) return true;
+      return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
+    });
+    const uniqueSeriesIds = Array.from(new Set(memberMeetings.map(m => m.seriesId)));
+    return allMeetingSeries.filter(series => uniqueSeriesIds.includes(series.id));
+  }, [allMeetings, allMeetingSeries, memberId]);
+
   const processedMeetingData = useMemo(() => {
+    // Start with meetings the member was expected to attend
     const memberExpectedMeetings = allMeetings.filter(meeting => {
       const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
-      if (series && series.targetAttendeeGroups.includes('allMembers')) {
-        return true; // If series targets "allMembers", this meeting is relevant for everyone
-      }
-      // Otherwise, rely on the specific UIDs stored in the meeting instance (which might be empty for non-"allMembers" series too)
+      if (!series) return false;
+      if (series.targetAttendeeGroups.includes('allMembers')) return true;
       return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
     });
 
@@ -82,8 +92,6 @@ export default function MemberAttendanceSummary({
       parseISO(b.date).getTime() - parseISO(a.date).getTime()
     );
 
-    const todayDate = startOfDay(new Date());
-
     const detailedInfo: FilteredMeetingInfo[] = sortedMeetings.map(meeting => {
       const attendanceRecord = allAttendanceRecords.find(
         record => record.meetingId === meeting.id && record.memberId === memberId
@@ -98,11 +106,11 @@ export default function MemberAttendanceSummary({
         } else {
           currentStatus = 'pending_past';
         }
-      } else { // Meeting is today or in the future
-        if (attendanceRecord) { // Allow pre-marking attendance for future/today meetings
+      } else { 
+        if (attendanceRecord) {
             currentStatus = attendanceRecord.attended ? 'attended' : 'absent';
         } else {
-            currentStatus = 'pending_future'; // Includes today if no record
+            currentStatus = 'pending_future';
         }
       }
 
@@ -199,8 +207,8 @@ export default function MemberAttendanceSummary({
                 <SelectValue placeholder="Seleccionar serie..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas las Series</SelectItem>
-                {allMeetingSeries.map(series => (
+                <SelectItem value="all">Todas las Series Relevantes</SelectItem>
+                {relevantSeriesForDropdown.map(series => (
                   <SelectItem key={series.id} value={series.id}>
                     {series.name}
                   </SelectItem>

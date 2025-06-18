@@ -60,20 +60,34 @@ export default function MemberAttendanceLineChart({
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
+  const relevantSeriesForDropdown = useMemo(() => {
+    const memberMeetings = allMeetings.filter(meeting => {
+      const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
+      if (!series) return false;
+      if (series.targetAttendeeGroups.includes('allMembers')) return true;
+      return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
+    });
+    const uniqueSeriesIds = Array.from(new Set(memberMeetings.map(m => m.seriesId)));
+    return allMeetingSeries.filter(series => uniqueSeriesIds.includes(series.id));
+  }, [allMeetings, allMeetingSeries, memberId]);
+
+
   const { chartData, yAxisDomainMax } = useMemo(() => {
-    let relevantMeetings = allMeetings.filter(meeting => {
+    let memberExpectedMeetings = allMeetings.filter(meeting => {
       const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
       if (!series) return false;
       if (series.targetAttendeeGroups.includes('allMembers')) return true;
       return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
     });
 
+    let meetingsToProcess = memberExpectedMeetings;
+
     if (selectedSeriesId !== 'all') {
-      relevantMeetings = relevantMeetings.filter(meeting => meeting.seriesId === selectedSeriesId);
+      meetingsToProcess = meetingsToProcess.filter(meeting => meeting.seriesId === selectedSeriesId);
     }
 
     if (startDate || endDate) {
-        relevantMeetings = relevantMeetings.filter(meeting => {
+        meetingsToProcess = meetingsToProcess.filter(meeting => {
             const meetingDateObj = parseISO(meeting.date);
             if (!isValid(meetingDateObj)) return false;
             const isAfterStart = startDate ? meetingDateObj >= startOfDay(startDate) : true;
@@ -88,7 +102,7 @@ export default function MemberAttendanceLineChart({
     }
     const monthlyAggregationMap: Record<string, MonthlyAggregation> = {};
 
-    relevantMeetings.forEach(meeting => {
+    meetingsToProcess.forEach(meeting => {
       const meetingDateObj = parseISO(meeting.date);
       if (!isValid(meetingDateObj)) return;
       const yearMonth = format(meetingDateObj, 'yyyy-MM');
@@ -96,7 +110,7 @@ export default function MemberAttendanceLineChart({
       if (!monthlyAggregationMap[yearMonth]) {
         monthlyAggregationMap[yearMonth] = { attended: 0, convocated: 0 };
       }
-      monthlyAggregationMap[yearMonth].convocated += 1; // Each meeting is an instance
+      monthlyAggregationMap[yearMonth].convocated += 1;
 
       const attendanceRecord = allAttendanceRecords.find(
         record => record.meetingId === meeting.id && record.memberId === memberId
@@ -146,8 +160,8 @@ export default function MemberAttendanceLineChart({
                 <SelectValue placeholder="Seleccionar serie..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas las Series</SelectItem>
-                {allMeetingSeries.map(series => (
+                <SelectItem value="all">Todas las Series Relevantes</SelectItem>
+                {relevantSeriesForDropdown.map(series => (
                   <SelectItem key={series.id} value={series.id}>
                     {series.name}
                   </SelectItem>
@@ -243,4 +257,3 @@ export default function MemberAttendanceLineChart({
     </Card>
   );
 }
-
