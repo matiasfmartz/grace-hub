@@ -130,17 +130,20 @@ export default function ManageSingleGdiView({
     return activeMembers.filter(member => { // Filter from activeMembers
       if (member.id === editableGdi.guideId) return false;
       if ((editableGdi.memberIds || []).includes(member.id)) return false;
-      // Check if member is already a guide of *another* GDI if we are editing an existing GDI.
-      // If adding a new GDI, this check is less strict or might be handled by server if a guide can't be reassigned.
-      const isGuideOfAnotherGdi = allGdis.some(g => g.id !== initialGdi.id && g.guideId === member.id);
-      if (isGuideOfAnotherGdi && !isAdding) return false; // Stricter for edit
-      // Check if member is already assigned to any GDI (as a member)
+      
+      // A member cannot be assigned to a GDI if they are already guiding another GDI
+      // (unless it's the GDI being edited and they are the current guide).
+      const isGuideOfAnotherGdi = allGdis.some(g => g.guideId === member.id && g.id !== initialGdi.id);
+      if (isGuideOfAnotherGdi) return false;
+      
+      // A member cannot be assigned to a GDI if they are already a member of another GDI
+      // (unless it's the GDI being edited and they are already a member of it).
       if (member.assignedGDIId && member.assignedGDIId !== "" && member.assignedGDIId !== initialGdi.id) return false;
 
       return (`${member.firstName} ${member.lastName}`.toLowerCase().includes(addMemberSearchTerm.toLowerCase()) ||
               member.email.toLowerCase().includes(addMemberSearchTerm.toLowerCase()));
     });
-  }, [activeMembers, editableGdi.guideId, editableGdi.memberIds, addMemberSearchTerm, allGdis, initialGdi.id, isAdding]);
+  }, [activeMembers, editableGdi.guideId, editableGdi.memberIds, addMemberSearchTerm, allGdis, initialGdi.id]);
 
   const currentlyAssignedDisplayMembers = useMemo(() => {
     return (editableGdi.memberIds || [])
@@ -165,10 +168,10 @@ export default function ManageSingleGdiView({
                           <SelectItem 
                               key={member.id} 
                               value={member.id} 
-                              disabled={member.id === editableGdi.guideId || (!isAdding && allGdis.some(g => g.guideId === member.id && g.id !== initialGdi.id))}
+                              disabled={allGdis.some(g => g.guideId === member.id && (isAdding || g.id !== initialGdi.id))}
                           >
                               {member.firstName} {member.lastName} ({member.email})
-                              {(!isAdding && allGdis.some(g => g.guideId === member.id && g.id !== initialGdi.id)) && " (Guía de otro GDI)"}
+                              {allGdis.some(g => g.guideId === member.id && (isAdding || g.id !== initialGdi.id)) && " (Guía de otro GDI)"}
                           </SelectItem>
                           ))}
                       </SelectContent>
@@ -208,11 +211,12 @@ export default function ManageSingleGdiView({
                           <Label htmlFor={`add-member-${member.id}`} className="font-normal text-sm cursor-pointer flex-grow">
                               {member.firstName} {member.lastName} ({member.status})
                                {member.assignedGDIId && member.assignedGDIId !== initialGdi.id ? " (En otro GDI)" : ""}
+                               {allGdis.some(g => g.guideId === member.id && g.id !== initialGdi.id) ? " (Guía de otro GDI)" : ""}
                           </Label>
                       </div>
                       )) : (
                       <p className="text-sm text-muted-foreground text-center py-4">
-                          {addMemberSearchTerm ? "No hay miembros que coincidan." : "No hay miembros activos disponibles para agregar (verifique que no estén ya en un GDI o sean guías de otro GDI)."}
+                          {addMemberSearchTerm ? "No hay miembros que coincidan." : "No hay miembros activos disponibles (verifique que no estén ya en un GDI o sean guías de otro GDI)."}
                       </p>
                       )}
                   </ScrollArea>
@@ -277,3 +281,4 @@ export default function ManageSingleGdiView({
     </>
   );
 }
+
