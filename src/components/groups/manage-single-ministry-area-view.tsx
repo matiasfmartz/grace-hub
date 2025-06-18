@@ -12,8 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { Loader2, Save, Image as ImageIcon, Users, UserCheck, ArrowLeft, Edit3, Search, UserPlus, UserMinus, ChevronRight, ChevronsRightLeft, Badge } from 'lucide-react';
-import Image from 'next/image';
+import { Loader2, Save, Users, UserCheck, ArrowLeft, Edit3, Search, UserPlus, UserMinus, Badge } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 
@@ -23,7 +22,7 @@ interface ManageSingleMinistryAreaViewProps {
   activeMembers: Member[];
   updateMinistryAreaAction: (
     areaId: string,
-    updatedData: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description' | 'imageUrl'>>
+    updatedData: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description'>>
   ) => Promise<{ success: boolean; message: string; updatedArea?: MinistryArea }>;
 }
 
@@ -58,10 +57,6 @@ export default function ManageSingleMinistryAreaView({
       return { ...prev, leaderId, memberIds: newMemberIds };
     });
   };
-
-  const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEditableArea(prev => ({ ...prev, imageUrl: e.target.value || undefined }));
-  }
 
   const handleAvailableMemberSelection = (memberId: string, isChecked: boolean) => {
     setSelectedAvailableMembers(prev =>
@@ -110,7 +105,6 @@ export default function ManageSingleMinistryAreaView({
         description: dataToUpdate.description,
         leaderId: dataToUpdate.leaderId,
         memberIds: (dataToUpdate.memberIds || []).filter(mId => mId !== dataToUpdate.leaderId),
-        imageUrl: dataToUpdate.imageUrl || 'https://placehold.co/600x400',
       };
 
       const result = await updateMinistryAreaAction(initialMinistryArea.id, finalDataToUpdate);
@@ -181,7 +175,7 @@ export default function ManageSingleMinistryAreaView({
                 </div>
 
                 <div className="p-4 border rounded-lg shadow-sm bg-card">
-                    <h3 className="text-lg font-semibold mb-3 flex items-center"><ImageIcon className="mr-2 h-5 w-5 text-muted-foreground" />Area Details</h3>
+                    <h3 className="text-lg font-semibold mb-3 flex items-center">Area Details</h3>
                     <div className="space-y-4">
                         <div>
                             <Label htmlFor="name">Area Name</Label>
@@ -190,15 +184,6 @@ export default function ManageSingleMinistryAreaView({
                         <div>
                             <Label htmlFor="description">Description</Label>
                             <Textarea id="description" name="description" value={editableArea.description} onChange={handleInputChange} rows={3} disabled={isPending} className="mt-1" />
-                        </div>
-                        <div>
-                            <Label htmlFor="imageUrl">Image URL</Label>
-                            <Input id="imageUrl" name="imageUrl" type="url" value={editableArea.imageUrl || ''} placeholder="https://placehold.co/600x400" onChange={handleImageUrlChange} disabled={isPending} className="mt-1" />
-                            {(editableArea.imageUrl || initialMinistryArea.imageUrl) && (
-                            <div className="mt-2 relative w-full h-32 rounded overflow-hidden border">
-                                <Image src={editableArea.imageUrl || initialMinistryArea.imageUrl || 'https://placehold.co/600x400'} alt="Area image preview" layout="fill" objectFit="cover" data-ai-hint="ministry team group" />
-                            </div>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -305,4 +290,3 @@ export default function ManageSingleMinistryAreaView({
     </Card>
   );
 }
-

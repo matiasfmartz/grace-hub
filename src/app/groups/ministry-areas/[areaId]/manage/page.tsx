@@ -12,7 +12,7 @@ import { getAllMembersNonPaginated, bulkRecalculateAndUpdateRoles } from '@/serv
 
 export async function updateMinistryAreaDetailsAction(
   areaId: string,
-  updatedData: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description' | 'imageUrl'>>
+  updatedData: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description'>>
 ): Promise<{ success: boolean; message: string; updatedArea?: MinistryArea }> {
   try {
     const { updatedArea, affectedMemberIds } = await updateMinistryAreaAndSyncMembers(areaId, updatedData);
@@ -25,6 +25,8 @@ export async function updateMinistryAreaDetailsAction(
     revalidatePath(`/groups/ministry-areas/${areaId}/manage`);
     revalidatePath('/groups');
     revalidatePath('/members'); 
+    revalidatePath(`/groups/ministry-areas/${areaId}/admin`);
+
 
     return { success: true, message: `Ministry Area "${updatedArea.name}" updated successfully. Member assignments and roles synchronized.`, updatedArea };
   } catch (error: any) {
@@ -54,12 +56,17 @@ export default async function ManageMinistryAreaPage({ params }: ManageMinistryA
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="mb-6">
+      <div className="mb-6 flex justify-between items-center">
         <Button asChild variant="outline">
           <Link href="/groups">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Groups
           </Link>
+        </Button>
+        <Button asChild variant="outline">
+            <Link href={`/groups/ministry-areas/${ministryArea.id}/admin`}>
+                Admin Meetings
+            </Link>
         </Button>
       </div>
       <div className="mb-8 text-center">

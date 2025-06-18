@@ -1,5 +1,5 @@
 
-import type { Member, MinistryArea, GDI, Meeting, Resource, AttendanceRecord, MeetingType } from './types';
+import type { MinistryArea, Member, GDI, Meeting, Resource, AttendanceRecord, MeetingSeries } from './types'; // Updated import
 
 export const placeholderMembers: Member[] = [
   { 
@@ -146,24 +146,21 @@ export const placeholderMinistryAreas: MinistryArea[] = [
     name: 'Youth Ministry', 
     description: 'Engaging young people with faith and community activities.',
     leaderId: '1', // Alice Johnson
-    memberIds: ['4'],
-    imageUrl: 'https://placehold.co/600x400'
+    memberIds: ['4']
   },
   { 
     id: 'ma2', 
     name: 'Worship Team', 
     description: 'Leading the congregation in worship through music and song.',
     leaderId: '2', // Bob Smith
-    memberIds: ['5'],
-    imageUrl: 'https://placehold.co/600x400'
+    memberIds: ['5']
   },
   { 
     id: 'ma3', 
     name: 'Community Outreach', 
     description: 'Serving the local community and sharing our faith.',
     leaderId: '8', // James Wilson
-    memberIds: ['4'],
-    imageUrl: 'https://placehold.co/600x400'
+    memberIds: ['4']
   },
 ];
 
@@ -182,47 +179,69 @@ export const placeholderGDIs: GDI[] = [
   }
 ];
 
+// Placeholder MeetingSeries
+export const placeholderMeetingSeries: MeetingSeries[] = [
+  {
+    id: 'series-general-1',
+    name: 'Sunday General Service',
+    description: 'Weekly worship service for everyone.',
+    defaultTime: '10:00',
+    defaultLocation: 'Main Sanctuary',
+    seriesType: 'general',
+    ownerGroupId: null,
+    targetAttendeeGroups: ['allMembers'],
+    frequency: 'Weekly',
+    weeklyDays: ['Sunday'],
+  },
+  {
+    id: 'series-gdi-alpha-weekly',
+    name: 'GDI Alpha Weekly Connect',
+    description: 'Weekly meeting for members of GDI Alpha.',
+    defaultTime: '19:00',
+    defaultLocation: 'Room 101',
+    seriesType: 'gdi',
+    ownerGroupId: 'gdi1', // Assumes GDI Alpha has id 'gdi1'
+    targetAttendeeGroups: ['allMembers'], // Contextually for GDI members only
+    frequency: 'Weekly',
+    weeklyDays: ['Wednesday'],
+  },
+  {
+    id: 'series-worship-team-practice',
+    name: 'Worship Team Practice',
+    description: 'Practice session for the worship team.',
+    defaultTime: '18:30',
+    defaultLocation: 'Music Room',
+    seriesType: 'ministryArea',
+    ownerGroupId: 'ma2', // Assumes Worship Team area has id 'ma2'
+    targetAttendeeGroups: ['allMembers'], // Contextually for MA members only
+    frequency: 'Weekly',
+    weeklyDays: ['Thursday'],
+  }
+];
+
+
+// Placeholder Meetings (Instances) - simplified, specific attendee UIDs would be resolved
 export const placeholderMeetings: Meeting[] = [
   { 
     id: 'm1', 
+    seriesId: 'series-general-1', // Belongs to "Sunday General Service"
     name: 'Sunday General Service', 
-    type: 'General',
     date: '2024-07-28', 
     time: '10:00', 
     location: 'Main Sanctuary', 
     description: 'Join us for our weekly worship service, open to all.',
-    imageUrl: 'https://placehold.co/600x400' 
+    attendeeUids: [] // For 'allMembers', this would be dynamically resolved
   },
   { 
     id: 'm2', 
-    name: 'Mid-week GDI Focus', 
-    type: 'GDI Focus',
+    seriesId: 'series-gdi-alpha-weekly', // Belongs to "GDI Alpha Weekly Connect"
+    name: 'GDI Alpha Connect', 
     date: '2024-07-31', 
     time: '19:00', 
-    location: 'Fellowship Hall', 
-    description: 'A time for all GDI members to connect and grow together.',
-    imageUrl: 'https://placehold.co/600x400'
-  },
-  { 
-    id: 'm3', 
-    name: 'Obreros Training Session', 
-    type: 'Obreros',
-    date: '2024-08-03', 
-    time: '09:00', 
     location: 'Room 101', 
-    description: 'Special training for all active workers (members of ministry areas).',
-    imageUrl: 'https://placehold.co/600x400'
+    description: 'Weekly meeting for GDI Alpha.',
+    attendeeUids: [] // For group-specific, this would be resolved to members of GDI Alpha
   },
-  {
-    id: 'm4',
-    name: 'Leadership Council',
-    type: 'Lideres',
-    date: '2024-08-05',
-    time: '18:00',
-    location: 'Pastor\'s Office',
-    description: 'Meeting for all GDI Guides and Ministry Area Leaders.',
-    imageUrl: 'https://placehold.co/600x400'
-  }
 ];
 
 export const placeholderAttendanceRecords: AttendanceRecord[] = [

@@ -13,7 +13,6 @@ export async function addMinistryAreaActionSvc(newAreaData: AddMinistryAreaFormV
         name: newAreaData.name,
         description: newAreaData.description,
         leaderId: newAreaData.leaderId,
-        imageUrl: newAreaData.imageUrl || 'https://placehold.co/600x400',
         memberIds: [] 
     };
     const newArea = await addMinistryArea(areaToWrite);

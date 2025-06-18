@@ -3,8 +3,8 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller } from "react-hook-form";
-import type { DefineMeetingSeriesFormValues, MeetingTargetRoleType, MeetingFrequencyType, MeetingSeries, DayOfWeekType, MonthlyRuleType, WeekOrdinalType } from "@/lib/types";
-import { DefineMeetingSeriesFormSchema, MeetingTargetRoleEnum, MeetingFrequencyEnum, DayOfWeekEnum, MonthlyRuleTypeEnum, WeekOrdinalEnum, daysOfWeek, weekOrdinals } from "@/lib/types";
+import type { DefineMeetingSeriesFormValues, MeetingTargetRoleType, MeetingFrequencyType, MeetingSeries, DayOfWeekType, MonthlyRuleType, WeekOrdinalType, MeetingSeriesType } from "@/lib/types";
+import { DefineMeetingSeriesFormSchema, MeetingTargetRoleEnum, MeetingFrequencyEnum, DayOfWeekEnum, MonthlyRuleTypeEnum, WeekOrdinalEnum, daysOfWeek, weekOrdinals, MeetingSeriesTypeEnum } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -40,6 +40,8 @@ interface DefineMeetingSeriesFormProps {
   initialValues?: DefineMeetingSeriesFormValues;
   isEditing?: boolean;
   onCancelEdit?: () => void;
+  seriesTypeContext?: MeetingSeriesType; // To know if we are creating for 'general', 'gdi', or 'ministryArea'
+  ownerGroupIdContext?: string | null; // GDI or MinistryArea ID
 }
 
 const baseDefaultFormValues: DefineMeetingSeriesFormValues = {
@@ -47,7 +49,8 @@ const baseDefaultFormValues: DefineMeetingSeriesFormValues = {
   description: "",
   defaultTime: "10:00",
   defaultLocation: "Santuario Principal",
-  defaultImageUrl: "",
+  seriesType: 'general',
+  ownerGroupId: null,
   targetAttendeeGroups: [],
   frequency: "Weekly",
   oneTimeDate: undefined,
@@ -60,6 +63,8 @@ const baseDefaultFormValues: DefineMeetingSeriesFormValues = {
 
 const getResolvedDefaultValues = (
   currentInitialValues?: DefineMeetingSeriesFormValues,
+  seriesTypeContext?: MeetingSeriesType,
+  ownerGroupIdContext?: string | null,
 ): DefineMeetingSeriesFormValues => {
   
   let oneTimeDateToSet: Date | undefined = undefined;
@@ -81,7 +86,8 @@ const getResolvedDefaultValues = (
     description: currentInitialValues?.description ?? baseDefaultFormValues.description,
     defaultTime: currentInitialValues?.defaultTime ?? baseDefaultFormValues.defaultTime,
     defaultLocation: currentInitialValues?.defaultLocation ?? baseDefaultFormValues.defaultLocation,
-    defaultImageUrl: currentInitialValues?.defaultImageUrl ?? baseDefaultFormValues.defaultImageUrl,
+    seriesType: currentInitialValues?.seriesType ?? seriesTypeContext ?? baseDefaultFormValues.seriesType,
+    ownerGroupId: currentInitialValues?.ownerGroupId ?? ownerGroupIdContext ?? baseDefaultFormValues.ownerGroupId,
     targetAttendeeGroups: currentInitialValues?.targetAttendeeGroups ?? baseDefaultFormValues.targetAttendeeGroups,
     frequency: currentInitialValues?.frequency ?? baseDefaultFormValues.frequency,
     oneTimeDate: oneTimeDateToSet,
@@ -94,7 +100,6 @@ const getResolvedDefaultValues = (
 
   resolved.name = resolved.name || "";
   resolved.description = resolved.description || "";
-  resolved.defaultImageUrl = resolved.defaultImageUrl || "";
   resolved.defaultTime = resolved.defaultTime || "00:00";
   resolved.defaultLocation = resolved.defaultLocation || "";
   
@@ -107,12 +112,14 @@ export default function DefineMeetingSeriesForm({
   onSuccess,
   initialValues,
   isEditing = false,
-  onCancelEdit
+  onCancelEdit,
+  seriesTypeContext = 'general',
+  ownerGroupIdContext = null,
 }: DefineMeetingSeriesFormProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  const resolvedDefaultValues = useMemo(() => getResolvedDefaultValues(initialValues), [initialValues]);
+  const resolvedDefaultValues = useMemo(() => getResolvedDefaultValues(initialValues, seriesTypeContext, ownerGroupIdContext), [initialValues, seriesTypeContext, ownerGroupIdContext]);
 
   const form = useForm<DefineMeetingSeriesFormValues>({
     resolver: zodResolver(DefineMeetingSeriesFormSchema),
@@ -120,8 +127,8 @@ export default function DefineMeetingSeriesForm({
   });
 
   useEffect(() => {
-    form.reset(getResolvedDefaultValues(initialValues));
-  }, [initialValues, form]);
+    form.reset(getResolvedDefaultValues(initialValues, seriesTypeContext, ownerGroupIdContext));
+  }, [initialValues, form, seriesTypeContext, ownerGroupIdContext]);
 
 
   const watchedFrequency = form.watch("frequency");
@@ -153,33 +160,54 @@ export default function DefineMeetingSeriesForm({
   }, [watchedMonthlyRuleType, watchedFrequency, form.setValue]);
 
 
-  async function onSubmit(values: DefineMeetingSeriesFormValues) {
-    startTransition(async () => {
-      const dataToSend = { ...values };
+  const getValidatedData = () => {
+        let values = form.getValues();
+         // Ensure date is formatted correctly if present
+        if (values.oneTimeDate && values.oneTimeDate instanceof Date && isValid(values.oneTimeDate)) {
+          values.oneTimeDate = format(values.oneTimeDate, 'yyyy-MM-dd') as any; // Cast to any to satisfy type
+        } else if (values.oneTimeDate && typeof values.oneTimeDate === 'string') {
+          // If it's already a string, assume it's formatted or let Zod handle it
+        } else {
+          values.oneTimeDate = undefined; // Ensure it's undefined if not valid
+        }
+        
+        // Ensure seriesType and ownerGroupId are correctly set from context if not editing.
+        // If editing, these values come from initialValues.
+        if (!isEditing) {
+            values.seriesType = seriesTypeContext;
+            values.ownerGroupId = ownerGroupIdContext;
+        }
+
+        const dataToSend = { ...values };
       
-      if (dataToSend.frequency !== 'OneTime') delete dataToSend.oneTimeDate;
-      if (dataToSend.frequency !== 'Weekly') delete dataToSend.weeklyDays;
-      if (dataToSend.frequency !== 'Monthly') {
-        delete dataToSend.monthlyRuleType;
-        delete dataToSend.monthlyDayOfMonth;
-        delete dataToSend.monthlyWeekOrdinal;
-        delete dataToSend.monthlyDayOfWeek;
-      } else { 
-        if (dataToSend.monthlyRuleType !== 'DayOfMonth') delete dataToSend.monthlyDayOfMonth;
-        if (dataToSend.monthlyRuleType !== 'DayOfWeekOfMonth') {
+        if (dataToSend.frequency !== 'OneTime') delete dataToSend.oneTimeDate;
+        if (dataToSend.frequency !== 'Weekly') delete dataToSend.weeklyDays;
+        if (dataToSend.frequency !== 'Monthly') {
+            delete dataToSend.monthlyRuleType;
+            delete dataToSend.monthlyDayOfMonth;
             delete dataToSend.monthlyWeekOrdinal;
             delete dataToSend.monthlyDayOfWeek;
+        } else { 
+            if (dataToSend.monthlyRuleType !== 'DayOfMonth') delete dataToSend.monthlyDayOfMonth;
+            if (dataToSend.monthlyRuleType !== 'DayOfWeekOfMonth') {
+                delete dataToSend.monthlyWeekOrdinal;
+                delete dataToSend.monthlyDayOfWeek;
+            }
         }
-      }
+        return dataToSend;
+  }
 
-      const result = await defineMeetingSeriesAction(dataToSend);
+  async function onSubmit() {
+    const validatedData = getValidatedData();
+    startTransition(async () => {
+      const result = await defineMeetingSeriesAction(validatedData);
       if (result.success) {
         toast({ title: "Éxito", description: result.message });
         if (onSuccess) {
           onSuccess();
         }
         if (!isEditing) { 
-            form.reset(getResolvedDefaultValues(undefined));
+            form.reset(getResolvedDefaultValues(undefined, seriesTypeContext, ownerGroupIdContext));
         }
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
@@ -190,9 +218,9 @@ export default function DefineMeetingSeriesForm({
   const handleCancel = () => {
     if (isEditing && onCancelEdit) {
       onCancelEdit(); 
-      form.reset(getResolvedDefaultValues(initialValues)); 
+      form.reset(getResolvedDefaultValues(initialValues, seriesTypeContext, ownerGroupIdContext)); 
     } else {
-      form.reset(getResolvedDefaultValues(undefined));
+      form.reset(getResolvedDefaultValues(undefined, seriesTypeContext, ownerGroupIdContext));
     }
   };
 
@@ -260,19 +288,7 @@ export default function DefineMeetingSeriesForm({
             )}
             />
         </div>
-        <FormField
-          control={form.control}
-          name="defaultImageUrl"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>URL de Imagen Predeterminada (Opcional)</FormLabel>
-              <FormControl>
-                <Input type="url" placeholder="https://placehold.co/image.png" {...field} value={field.value ?? ''} disabled={isPending} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        
         <FormField
             control={form.control}
             name="targetAttendeeGroups"

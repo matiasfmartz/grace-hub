@@ -38,7 +38,6 @@ export default function AddMinistryAreaForm({ onOpenChange, onAddArea, activeMem
     defaultValues: {
       name: "",
       description: "",
-      imageUrl: "",
       leaderId: "",
     },
   });
@@ -77,19 +76,6 @@ export default function AddMinistryAreaForm({ onOpenChange, onAddArea, activeMem
               <FormLabel>Description</FormLabel>
               <FormControl>
                 <Textarea placeholder="Describe the purpose of this area." {...field} disabled={isSubmitting} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="imageUrl"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Image URL (Optional)</FormLabel>
-              <FormControl>
-                <Input type="url" placeholder="https://example.com/image.png" {...field} value={field.value ?? ''} disabled={isSubmitting} />
               </FormControl>
               <FormMessage />
             </FormItem>

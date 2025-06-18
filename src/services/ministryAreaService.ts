@@ -37,7 +37,6 @@ export async function addMinistryArea(areaData: MinistryAreaWriteData): Promise<
     ...areaData,
     id: `${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}`,
     memberIds: [], // Initially no members other than the leader (leader is not in memberIds array)
-    imageUrl: areaData.imageUrl || 'https://placehold.co/600x400',
   };
 
   if (leaderMemberIndex !== -1) {
@@ -54,7 +53,7 @@ export async function addMinistryArea(areaData: MinistryAreaWriteData): Promise<
 
 export async function updateMinistryAreaAndSyncMembers(
   areaId: string,
-  updatedAreaData: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description' | 'imageUrl'>>
+  updatedAreaData: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description'>>
 ): Promise<{ updatedArea: MinistryArea; affectedMemberIds: string[] }> {
   let allCurrentAreas = await getAllMinistryAreas();
   let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
@@ -76,10 +75,10 @@ export async function updateMinistryAreaAndSyncMembers(
 
   const areaAfterClientUpdate: MinistryArea = {
     ...currentAreaBeforeUpdate,
-    ...updatedAreaData,
+    name: updatedAreaData.name ?? currentAreaBeforeUpdate.name,
+    description: updatedAreaData.description ?? currentAreaBeforeUpdate.description,
     leaderId: newLeaderId,
     memberIds: newMemberIdsFromClient, // Use the filtered list
-    imageUrl: updatedAreaData.imageUrl || currentAreaBeforeUpdate.imageUrl || 'https://placehold.co/600x400',
   };
   
   allCurrentAreas[areaIndex] = areaAfterClientUpdate;

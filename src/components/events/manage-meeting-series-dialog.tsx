@@ -16,7 +16,7 @@ import DefineMeetingSeriesForm from '@/components/events/add-meeting-form';
 import DeleteMeetingSeriesAlert from '@/components/events/delete-meeting-series-alert';
 import type { DefineMeetingSeriesFormValues, MeetingSeries, DayOfWeekType, WeekOrdinalType, MeetingTargetRoleType } from '@/lib/types'; // Added MeetingTargetRoleType
 import { daysOfWeek, weekOrdinals } from '@/lib/types';
-import { Settings, Edit2, Trash2, Info, Loader2, CalendarDays, Clock, MapPin, Users, Repeat, Image as ImageIcon } from 'lucide-react';
+import { Settings, Edit2, Trash2, Info, Loader2, CalendarDays, Clock, MapPin, Users, Repeat } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO, isValid as isValidDate } from 'date-fns'; 
 import { es } from 'date-fns/locale';
@@ -79,7 +79,8 @@ export default function ManageMeetingSeriesDialog({
     description: series.description || "",
     defaultTime: series.defaultTime,
     defaultLocation: series.defaultLocation,
-    defaultImageUrl: series.defaultImageUrl || "",
+    seriesType: series.seriesType,
+    ownerGroupId: series.ownerGroupId,
     targetAttendeeGroups: series.targetAttendeeGroups || [],
     frequency: series.frequency,
     oneTimeDate: (parsedOneTimeDate && isValidDate(parsedOneTimeDate)) ? parsedOneTimeDate : undefined,
@@ -155,6 +156,8 @@ export default function ManageMeetingSeriesDialog({
               initialValues={initialFormValues}
               isEditing={true}
               onCancelEdit={() => setIsEditing(false)}
+              seriesTypeContext={series.seriesType}
+              ownerGroupIdContext={series.ownerGroupId}
             />
           ) : (
             <div className="space-y-3 text-sm">
@@ -166,12 +169,6 @@ export default function ManageMeetingSeriesDialog({
               <InfoItem icon={Users} label="Grupos Objetivo:" value={
                   series.targetAttendeeGroups.map(group => getTargetGroupLabel(group)).join(', ') || "N/A"
               } />
-              {series.defaultImageUrl && (
-                <div>
-                    <h3 className="font-semibold text-muted-foreground flex items-center mb-1"><ImageIcon className="mr-2 h-4 w-4"/>Imagen Predeterminada:</h3>
-                    <img src={series.defaultImageUrl} alt={series.name} className="mt-1 rounded-md max-h-32 object-contain border" data-ai-hint="meeting event" />
-                </div>
-              )}
             </div>
           )}
         </div>

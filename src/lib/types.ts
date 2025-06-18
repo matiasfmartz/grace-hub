@@ -32,7 +32,6 @@ export interface MinistryArea {
   description: string;
   leaderId: string; // Member ID of the leader
   memberIds: string[];
-  imageUrl?: string;
 }
 
 export type MinistryAreaWriteData = Omit<MinistryArea, 'id'>;
@@ -63,13 +62,18 @@ export type MonthlyRuleType = z.infer<typeof MonthlyRuleTypeEnum>;
 export const MeetingFrequencyEnum = z.enum(["OneTime", "Weekly", "Monthly"]);
 export type MeetingFrequencyType = z.infer<typeof MeetingFrequencyEnum>;
 
+export const MeetingSeriesTypeEnum = z.enum(['general', 'gdi', 'ministryArea']);
+export type MeetingSeriesType = z.infer<typeof MeetingSeriesTypeEnum>;
+
+
 export interface MeetingSeries {
   id: string;
   name: string;
   description?: string;
   defaultTime: string; // HH:MM
   defaultLocation: string;
-  defaultImageUrl?: string;
+  seriesType: MeetingSeriesType; // To distinguish general events from group-specific ones
+  ownerGroupId?: string | null; // ID of GDI or MinistryArea if seriesType is 'gdi' or 'ministryArea'
   targetAttendeeGroups: MeetingTargetRoleType[];
   frequency: MeetingFrequencyType;
   oneTimeDate?: string; // YYYY-MM-DD, only if frequency is "OneTime"
@@ -93,7 +97,6 @@ export interface Meeting {
   time: string; // HH:MM
   location: string;
   description?: string;
-  imageUrl?: string;
   attendeeUids: string[];
   minute?: string | null;
 }
@@ -147,7 +150,6 @@ export type AddMemberFormValues = z.infer<typeof AddMemberFormSchema>;
 export const AddMinistryAreaFormSchema = z.object({
   name: z.string().min(3, { message: "Area name must be at least 3 characters." }),
   description: z.string().min(10, { message: "Description must be at least 10 characters." }),
-  imageUrl: z.string().url({ message: "Invalid URL for image." }).optional().or(z.literal('')),
   leaderId: z.string().min(1, { message: "A leader must be selected." }),
 });
 export type AddMinistryAreaFormValues = z.infer<typeof AddMinistryAreaFormSchema>;
@@ -164,7 +166,8 @@ export const DefineMeetingSeriesFormSchema = z.object({
   description: z.string().optional(),
   defaultTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Formato de hora inválido (HH:MM)." }),
   defaultLocation: z.string().min(3, { message: "La ubicación por defecto es requerida." }),
-  defaultImageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')),
+  seriesType: MeetingSeriesTypeEnum.default('general'),
+  ownerGroupId: z.string().nullable().optional(),
   targetAttendeeGroups: z.array(MeetingTargetRoleEnum).min(1,{message: "Debe seleccionar al menos un grupo de asistentes."}),
   frequency: MeetingFrequencyEnum,
   oneTimeDate: z.date().optional(),
@@ -217,7 +220,6 @@ export const MeetingInstanceFormSchema = z.object({ // Renamed from AddOccasiona
   time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Formato de hora inválido (HH:MM)." }),
   location: z.string().min(3, { message: "La ubicación es requerida." }),
   description: z.string().optional(),
-  imageUrl: z.string().url({ message: "URL de imagen inválida." }).optional().or(z.literal('')),
 });
 export type MeetingInstanceFormValues = z.infer<typeof MeetingInstanceFormSchema>; // Renamed type
 
@@ -244,3 +246,33 @@ export const weekOrdinals: { id: WeekOrdinalType; label: string }[] = [
 export type AddOccasionalMeetingFormValues = MeetingInstanceFormValues;
 export const AddOccasionalMeetingFormSchema = MeetingInstanceFormSchema;
 
+interface MeetingBase {
+  id: string;
+  seriesId: string;
+  name: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM
+  location: string;
+  description?: string;
+  attendeeUids: string[]; // Specific UIDs for this instance, especially if not 'allMembers' type
+  minute?: string | null;
+}
+
+export interface GeneralMeeting extends MeetingBase {
+  seriesType: 'general';
+  ownerGroupId?: null;
+}
+
+export interface GdiMeeting extends MeetingBase {
+  seriesType: 'gdi';
+  ownerGroupId: string; // GDI ID
+}
+
+export interface MinistryAreaMeeting extends MeetingBase {
+  seriesType: 'ministryArea';
+  ownerGroupId: string; // MinistryArea ID
+}
+
+export type AnyMeeting = GeneralMeeting | GdiMeeting | MinistryAreaMeeting;
+export type AnyMeetingWriteData = Omit<AnyMeeting, 'id' | 'attendeeUids'> & { attendeeUids?: string[] };
+export type AnyMeetingInstanceUpdateData = Partial<Omit<AnyMeeting, 'id' | 'seriesId' | 'attendeeUids' | 'seriesType' | 'ownerGroupId'>>;

@@ -5,7 +5,6 @@ import { useState } from 'react';
 import type { MinistryArea, Member, AddMinistryAreaFormValues } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import Image from 'next/image';
 import Link from 'next/link';
 import { Mail, Phone, UserCircle, UsersRound, PlusCircle, Edit } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -41,17 +40,6 @@ export default function MinistryAreasManager({ ministryAreas, allMembers, active
             const leader = getLeaderDetails(area.leaderId);
             return (
               <Card key={area.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-                {area.imageUrl && (
-                  <div className="relative h-48 w-full">
-                    <Image 
-                      src={area.imageUrl} 
-                      alt={area.name} 
-                      layout="fill" 
-                      objectFit="cover" 
-                      data-ai-hint="team meeting"
-                    />
-                  </div>
-                )}
                 <CardHeader>
                   <CardTitle className="font-headline text-2xl text-primary flex items-center">
                     <UsersRound className="mr-2 h-6 w-6" /> {area.name}

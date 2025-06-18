@@ -1,3 +1,4 @@
+
 [
   {
     "id": "ma1",
@@ -7,8 +8,7 @@
     "memberIds": [
       "8",
       "7"
-    ],
-    "imageUrl": "https://placehold.co/600x400"
+    ]
   },
   {
     "id": "ma2",
@@ -18,8 +18,7 @@
     "memberIds": [
       "2",
       "1749880160940-30020fm"
-    ],
-    "imageUrl": "https://placehold.co/600x400"
+    ]
   },
   {
     "id": "ma3",
@@ -31,13 +30,11 @@
       "1749880160940-30020fm",
       "1749877175613-ls6oqv6",
       "1749877205345-hd6yhu7"
-    ],
-    "imageUrl": "https://placehold.co/600x400"
+    ]
   },
   {
     "name": "Buen Samaritano",
     "description": "Caridad en las calles.",
-    "imageUrl": "https://placehold.co/600x400",
     "leaderId": "1749877175613-ls6oqv6",
     "id": "1749880199537-cvuyxy3",
     "memberIds": [
