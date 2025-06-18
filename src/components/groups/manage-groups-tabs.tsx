@@ -35,9 +35,6 @@ export default function ManageGroupsTabs({
   deleteGdiAction,
   deleteMinistryAreaAction
 }: ManageGroupsTabsProps) {
-  // Local state might not be strictly necessary if revalidatePath works reliably for updates.
-  // However, for delete, immediate UI feedback by filtering local state can be good.
-  // For now, we'll rely on revalidatePath to refresh the `initial*` props from the server.
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
@@ -47,30 +44,42 @@ export default function ManageGroupsTabs({
   const activeMembers = useMemo(() => allMembers.filter(m => m.status === 'Active'), [allMembers]);
 
   const handleAddMinistryAreaSubmit = useCallback(async (areaData: Partial<Omit<MinistryArea, 'id'>> & { name: string; leaderId: string; memberIds?: string[] }) => {
-    startTransition(async () => {
-      const result = await addMinistryAreaAction(areaData);
-      if (result.success && result.newArea) {
-        toast({ title: "Éxito", description: result.message });
-        setIsAddAreaDialogOpen(false);
-        // Revalidation should handle list update from server
-      } else {
-        toast({ title: "Error", description: result.message, variant: "destructive" });
-      }
+    let actionResult: { success: boolean; message: string; newArea?: MinistryArea } = { success: false, message: "Error al iniciar la creación del área." };
+    
+    // We use a Promise to bridge startTransition with the async action result
+    await new Promise<void>(resolve => {
+        startTransition(async () => {
+        actionResult = await addMinistryAreaAction(areaData);
+        if (actionResult.success && actionResult.newArea) {
+            toast({ title: "Éxito", description: actionResult.message });
+            setIsAddAreaDialogOpen(false);
+        } else {
+            toast({ title: "Error", description: actionResult.message, variant: "destructive" });
+        }
+        resolve(); 
+        });
     });
-  }, [addMinistryAreaAction, toast]);
+    return actionResult;
+  }, [addMinistryAreaAction, toast, setIsAddAreaDialogOpen]);
 
   const handleAddGdiSubmit = useCallback(async (gdiData: Partial<Omit<GDI, 'id'>> & { name: string; guideId: string; memberIds?: string[] }) => {
-    startTransition(async () => {
-      const result = await addGdiAction(gdiData);
-      if (result.success && result.newGdi) {
-        toast({ title: "Éxito", description: result.message });
-        setIsAddGdiDialogOpen(false);
-         // Revalidation should handle list update from server
-      } else {
-        toast({ title: "Error", description: result.message, variant: "destructive" });
-      }
+    let actionResult: { success: boolean; message: string; newGdi?: GDI } = { success: false, message: "Error al iniciar la creación del GDI." };
+
+    await new Promise<void>(resolve => {
+        startTransition(async () => {
+        actionResult = await addGdiAction(gdiData);
+        if (actionResult.success && actionResult.newGdi) {
+            toast({ title: "Éxito", description: actionResult.message });
+            setIsAddGdiDialogOpen(false);
+        } else {
+            toast({ title: "Error", description: actionResult.message, variant: "destructive" });
+        }
+        resolve();
+        });
     });
-  }, [addGdiAction, toast]);
+    return actionResult;
+  }, [addGdiAction, toast, setIsAddGdiDialogOpen]);
+
 
   return (
     <>
@@ -122,7 +131,7 @@ export default function ManageGroupsTabs({
               ministryArea={newAreaTemplate}
               allMembers={allMembers}
               activeMembers={activeMembers}
-              updateMinistryAreaAction={handleAddMinistryAreaSubmit as any} 
+              updateMinistryAreaAction={handleAddMinistryAreaSubmit} 
               isAdding={true}
               onSuccess={() => setIsAddAreaDialogOpen(false)}
             />
@@ -144,7 +153,7 @@ export default function ManageGroupsTabs({
               allMembers={allMembers}
               activeMembers={activeMembers}
               allGdis={initialGdis} 
-              updateGdiAction={handleAddGdiSubmit as any} 
+              updateGdiAction={handleAddGdiSubmit} 
               isAdding={true}
               onSuccess={() => setIsAddGdiDialogOpen(false)}
             />
