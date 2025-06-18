@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberRoleType, Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
@@ -5,12 +6,12 @@ import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogDescription, D
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, ShieldCheck, BarChart3, ListChecks, LineChart } from 'lucide-react'; // Added LineChart icon
+import { Pencil, ShieldCheck, BarChart3, ListChecks, LineChart } from 'lucide-react';
 import AddMemberForm from './add-member-form';
 import MemberAttendanceSummary from './member-attendance-chart';
-import MemberAttendanceLineChart from './member-attendance-line-chart'; // New import
+import MemberAttendanceLineChart from './member-attendance-line-chart';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState, useTransition, useMemo } from 'react'; // Added useMemo
+import { useState, useTransition, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
 
 interface MemberDetailsDialogProps {
@@ -141,7 +142,7 @@ export default function MemberDetailsDialog({
   return (
     <Dialog open={isOpen} onOpenChange={handleCloseDialog}>
       <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="p-6 border-b sticky top-0 bg-background z-10">
+        <DialogHeader className="p-6 border-b"> {/* Removed sticky */}
            <div className="flex items-center space-x-4">
             <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
               <AvatarImage src={member.avatarUrl} alt={`${member.firstName} ${member.lastName}`} data-ai-hint="person portrait" />
@@ -175,7 +176,7 @@ export default function MemberDetailsDialog({
         </DialogHeader>
         
         {isEditing ? (
-          <div className="flex-grow overflow-y-auto min-h-0">
+          <div className="flex-grow overflow-y-auto min-h-0"> {/* Scroll wrapper for form */}
             <AddMemberForm
               initialMemberData={member}
               onSubmitMember={handleFormSubmit}
@@ -189,85 +190,89 @@ export default function MemberDetailsDialog({
             />
           </div>
         ) : (
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-grow flex flex-col min-h-0">
-            <TabsList className="mx-6 mt-4 sticky top-0 bg-background z-10">
-                <TabsTrigger value="details" className="flex items-center gap-2">
-                    <ListChecks className="h-4 w-4" /> Detalles
-                </TabsTrigger>
-                <TabsTrigger value="attendance" className="flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4" /> Historial de Asistencia
-                </TabsTrigger>
-            </TabsList>
-            <TabsContent value="details" className="flex-grow overflow-y-auto p-6 min-h-0">
-                <div className="space-y-3 text-sm">
-                  <div className="grid grid-cols-3 gap-2">
-                    <span className="font-semibold text-muted-foreground">Email:</span>
-                    <span className="col-span-2 break-all">{member.email}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <span className="font-semibold text-muted-foreground">Teléfono:</span>
-                    <span className="col-span-2">{member.phone}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <span className="font-semibold text-muted-foreground">Fecha de Nacimiento:</span>
-                    <span className="col-span-2">{formatDate(member.birthDate)}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <span className="font-semibold text-muted-foreground">Ingreso a la Iglesia:</span>
-                    <span className="col-span-2">{formatDate(member.churchJoinDate)}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <span className="font-semibold text-muted-foreground">Bautismo:</span>
-                    <span className="col-span-2">{baptismDate}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <span className="font-semibold text-muted-foreground">Escuela de Vida:</span>
-                    <span className="col-span-2">{member.attendsLifeSchool ? 'Sí' : 'No'}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <span className="font-semibold text-muted-foreground">Instituto Bíblico (IBE):</span>
-                    <span className="col-span-2">{member.attendsBibleInstitute ? 'Sí' : 'No'}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <span className="font-semibold text-muted-foreground">Vino de otra Iglesia:</span>
-                    <span className="col-span-2">{member.fromAnotherChurch ? 'Sí' : 'No'}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <span className="font-semibold text-muted-foreground">GDI:</span>
-                    <span className="col-span-2">
-                      {memberGDIInfo.gdiName} 
-                      {member.assignedGDIId && ` (Guía: ${memberGDIInfo.guideName})`}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <span className="font-semibold text-muted-foreground">Áreas de Ministerio:</span>
-                    <span className="col-span-2">
-                      {memberAreaNames.join(', ')}
-                    </span>
-                  </div>
-                </div>
-            </TabsContent>
-            <TabsContent value="attendance" className="flex-grow overflow-y-auto p-6 space-y-6 min-h-0">
-                <MemberAttendanceLineChart
-                    memberId={member.id}
-                    memberName={`${member.firstName} ${member.lastName}`}
-                    allMeetings={allMeetings}
-                    allMeetingSeries={allMeetingSeries}
-                    allAttendanceRecords={allAttendanceRecords}
-                />
-                <MemberAttendanceSummary
-                    memberId={member.id}
-                    memberName={`${member.firstName} ${member.lastName}`}
-                    allMeetings={allMeetings}
-                    allMeetingSeries={allMeetingSeries}
-                    allAttendanceRecords={allAttendanceRecords}
-                />
-            </TabsContent>
-        </Tabs>
+        // This 'div' wraps Tabs and becomes the main scrollable area
+        <div className="flex-grow flex flex-col min-h-0 overflow-y-auto"> 
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col">
+                {/* TabsList is no longer sticky, it will scroll with the content if needed */}
+                <TabsList className="mx-6 mt-4 flex-shrink-0"> 
+                    <TabsTrigger value="details" className="flex items-center gap-2">
+                        <ListChecks className="h-4 w-4" /> Detalles
+                    </TabsTrigger>
+                    <TabsTrigger value="attendance" className="flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4" /> Historial de Asistencia
+                    </TabsTrigger>
+                </TabsList>
+                <TabsContent value="details" className="p-6">
+                    <div className="space-y-3 text-sm">
+                      <div className="grid grid-cols-3 gap-2">
+                        <span className="font-semibold text-muted-foreground">Email:</span>
+                        <span className="col-span-2 break-all">{member.email}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <span className="font-semibold text-muted-foreground">Teléfono:</span>
+                        <span className="col-span-2">{member.phone}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <span className="font-semibold text-muted-foreground">Fecha de Nacimiento:</span>
+                        <span className="col-span-2">{formatDate(member.birthDate)}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <span className="font-semibold text-muted-foreground">Ingreso a la Iglesia:</span>
+                        <span className="col-span-2">{formatDate(member.churchJoinDate)}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <span className="font-semibold text-muted-foreground">Bautismo:</span>
+                        <span className="col-span-2">{baptismDate}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <span className="font-semibold text-muted-foreground">Escuela de Vida:</span>
+                        <span className="col-span-2">{member.attendsLifeSchool ? 'Sí' : 'No'}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <span className="font-semibold text-muted-foreground">Instituto Bíblico (IBE):</span>
+                        <span className="col-span-2">{member.attendsBibleInstitute ? 'Sí' : 'No'}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <span className="font-semibold text-muted-foreground">Vino de otra Iglesia:</span>
+                        <span className="col-span-2">{member.fromAnotherChurch ? 'Sí' : 'No'}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <span className="font-semibold text-muted-foreground">GDI:</span>
+                        <span className="col-span-2">
+                          {memberGDIInfo.gdiName} 
+                          {member.assignedGDIId && ` (Guía: ${memberGDIInfo.guideName})`}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <span className="font-semibold text-muted-foreground">Áreas de Ministerio:</span>
+                        <span className="col-span-2">
+                          {memberAreaNames.join(', ')}
+                        </span>
+                      </div>
+                    </div>
+                </TabsContent>
+                <TabsContent value="attendance" className="p-6 space-y-6">
+                    <MemberAttendanceLineChart
+                        memberId={member.id}
+                        memberName={`${member.firstName} ${member.lastName}`}
+                        allMeetings={allMeetings}
+                        allMeetingSeries={allMeetingSeries}
+                        allAttendanceRecords={allAttendanceRecords}
+                    />
+                    <MemberAttendanceSummary
+                        memberId={member.id}
+                        memberName={`${member.firstName} ${member.lastName}`}
+                        allMeetings={allMeetings}
+                        allMeetingSeries={allMeetingSeries}
+                        allAttendanceRecords={allAttendanceRecords}
+                    />
+                </TabsContent>
+            </Tabs>
+        </div>
         )}
 
         {!isEditing && (
-          <DialogFooter className="p-6 border-t bg-background sticky bottom-0 z-10">
+          <DialogFooter className="p-6 border-t"> {/* Removed sticky */}
             <Button onClick={handleEditToggle} variant="default">
               <Pencil className="mr-2 h-4 w-4" />
               Editar Miembro
@@ -279,3 +284,4 @@ export default function MemberDetailsDialog({
     </Dialog>
   );
 }
+
