@@ -8,14 +8,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck, Filter, Check, X, ChevronDown } from 'lucide-react'; // Added ChevronDown
+import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck, Filter, Check, X, ChevronDown } from 'lucide-react';
 import MemberDetailsDialog from './member-details-dialog';
 import AddMemberForm from './add-member-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Keep for PageSize
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { Label } from '@/components/ui/label';
 
@@ -56,6 +56,8 @@ const statusDisplayMap: Record<Member['status'], string> = {
 };
 const statusFilterOptions: { value: Member['status']; label: string }[] = Object.entries(statusDisplayMap)
     .map(([value, label]) => ({ value: value as Member['status'], label }));
+
+const SELECT_ALL_VALUE = "__ALL__"; // Used for UI representation of "All" options
 
 
 export default function MembersListView({
@@ -249,7 +251,7 @@ export default function MembersListView({
     );
   };
   
-  const hasActiveFilters = searchInput.trim() !== '' || selectedStatuses.length > 0 || selectedRoles.length > 0 || selectedGuideIdFilters.length > 0;
+  const hasActiveFilters = searchInput.trim() !== '' || selectedStatuses.length > 0 || selectedRoles.length > 0 || selectedGuideIds.length > 0;
 
 
   return (
@@ -528,4 +530,3 @@ export default function MembersListView({
     </>
   );
 }
-
