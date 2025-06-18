@@ -126,10 +126,7 @@ export default function MembersListView({
     const params = new URLSearchParams();
     params.set('page', '1');
     
-    const currentPSElement = document.getElementById('memberPageSizeSelect') as HTMLSelectElement | null;
-    const currentPSValue = currentPSElement ? currentPSElement.value : pageSize.toString();
-    params.set('pageSize', currentPSValue);
-
+    params.set('pageSize', pageSize.toString());
 
     if (searchInput.trim()) params.set('search', searchInput.trim());
 
@@ -294,91 +291,85 @@ export default function MembersListView({
           </div>
         </div>
 
-        {/* Filters row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end p-4 border rounded-lg bg-card shadow-sm">
-          <div>
-            <Label className="text-sm font-medium">Estado</Label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full justify-between mt-1">
-                  <span>{selectedStatuses.length > 0 ? `Estado (${selectedStatuses.length})` : "Todos los Estados"}</span>
-                  <ChevronDown className="h-4 w-4 opacity-50" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
-                <DropdownMenuLabel>Filtrar por Estado</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {statusFilterOptions.map(opt => (
-                  <DropdownMenuCheckboxItem
-                    key={opt.value}
-                    checked={selectedStatuses.includes(opt.value)}
-                    onCheckedChange={() => toggleFilterItem(opt.value, selectedStatuses, setSelectedStatuses)}
-                  >
-                    {opt.label}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+        {/* Filters row - subtle, single line */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 py-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary data-[state=open]:text-primary">
+                <Filter className="mr-2 h-3.5 w-3.5" />
+                <span>{selectedStatuses.length > 0 ? `Estado (${selectedStatuses.length})` : "Estado"}</span>
+                <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuLabel>Filtrar por Estado</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {statusFilterOptions.map(opt => (
+                <DropdownMenuCheckboxItem
+                  key={opt.value}
+                  checked={selectedStatuses.includes(opt.value)}
+                  onCheckedChange={() => toggleFilterItem(opt.value, selectedStatuses, setSelectedStatuses)}
+                >
+                  {opt.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          <div>
-            <Label className="text-sm font-medium">Rol</Label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full justify-between mt-1">
-                  <span>{selectedRoles.length > 0 ? `Rol (${selectedRoles.length})` : "Todos los Roles"}</span>
-                  <ChevronDown className="h-4 w-4 opacity-50" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
-                <DropdownMenuLabel>Filtrar por Rol</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {roleFilterOptions.map(opt => (
-                  <DropdownMenuCheckboxItem
-                    key={opt.value}
-                    checked={selectedRoles.includes(opt.value)}
-                    onCheckedChange={() => toggleFilterItem(opt.value, selectedRoles, setSelectedRoles)}
-                  >
-                    {opt.label}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary data-[state=open]:text-primary">
+                <ShieldCheck className="mr-2 h-3.5 w-3.5" />
+                <span>{selectedRoles.length > 0 ? `Rol (${selectedRoles.length})` : "Rol"}</span>
+                <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuLabel>Filtrar por Rol</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {roleFilterOptions.map(opt => (
+                <DropdownMenuCheckboxItem
+                  key={opt.value}
+                  checked={selectedRoles.includes(opt.value)}
+                  onCheckedChange={() => toggleFilterItem(opt.value, selectedRoles, setSelectedRoles)}
+                >
+                  {opt.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          <div>
-            <Label className="text-sm font-medium">Guía de GDI</Label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full justify-between mt-1">
-                  <span>{selectedGuideIds.length > 0 ? `Guía (${selectedGuideIds.length})` : "Todos los Guías"}</span>
-                  <ChevronDown className="h-4 w-4 opacity-50" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-64 max-h-72 overflow-y-auto">
-                <DropdownMenuLabel>Filtrar por Guía de GDI</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {gdiGuides.map(guide => (
-                  <DropdownMenuCheckboxItem
-                    key={guide.id}
-                    checked={selectedGuideIds.includes(guide.id)}
-                    onCheckedChange={() => toggleFilterItem(guide.id, selectedGuideIds, setSelectedGuideIds)}
-                  >
-                    {guide.firstName} {guide.lastName}
-                  </DropdownMenuCheckboxItem>
-                ))}
-                {gdiGuides.length === 0 && <DropdownMenuItem disabled>No hay guías para mostrar</DropdownMenuItem>}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary data-[state=open]:text-primary">
+                <Users className="mr-2 h-3.5 w-3.5" />
+                <span>{selectedGuideIds.length > 0 ? `Guía (${selectedGuideIds.length})` : "Guía GDI"}</span>
+                <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64 max-h-72 overflow-y-auto">
+              <DropdownMenuLabel>Filtrar por Guía de GDI</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {gdiGuides.map(guide => (
+                <DropdownMenuCheckboxItem
+                  key={guide.id}
+                  checked={selectedGuideIds.includes(guide.id)}
+                  onCheckedChange={() => toggleFilterItem(guide.id, selectedGuideIds, setSelectedGuideIds)}
+                >
+                  {guide.firstName} {guide.lastName}
+                </DropdownMenuCheckboxItem>
+              ))}
+              {gdiGuides.length === 0 && <DropdownMenuItem disabled>No hay guías para mostrar</DropdownMenuItem>}
+            </DropdownMenuContent>
+          </DropdownMenu>
           
-          <div className="flex flex-col sm:flex-row gap-2 xl:col-span-2 sm:items-end justify-end pt-2 sm:pt-0">
-            <Button onClick={handleFilterOrSearch} className="w-full sm:w-auto">
-                <Filter className="mr-2 h-4 w-4" /> Aplicar Filtros
+          <div className="flex items-center gap-2 ml-auto">
+            <Button onClick={handleFilterOrSearch} size="sm" variant="default">
+                <Filter className="mr-2 h-4 w-4" /> Aplicar
             </Button>
              {hasActiveFilters && (
-              <Button onClick={handleClearAllFilters} variant="outline" className="w-full sm:w-auto">
-                <X className="mr-2 h-4 w-4" /> Limpiar Filtros
+              <Button onClick={handleClearAllFilters} variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
+                <X className="mr-1 h-4 w-4" /> Limpiar
               </Button>
             )}
           </div>
