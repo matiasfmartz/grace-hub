@@ -48,7 +48,49 @@ export default function ManageSingleGdiView({
     setSelectedAvailableMembers([]);
     setSelectedAssignedMembers([]);
     setAddMemberSearchTerm('');
-  }, [initialGdi]);
+    if (isAdding && initialGdi.guideId) {
+      const guide = allMembers.find(m => m.id === initialGdi.guideId);
+      if (guide) {
+        setEditableGdi(prev => ({ ...prev, name: `GDI de ${guide.firstName} ${guide.lastName}` }));
+      }
+    }
+  }, [initialGdi, isAdding, allMembers]);
+
+  useEffect(() => {
+    if (editableGdi.guideId) {
+      const selectedGuide = allMembers.find(m => m.id === editableGdi.guideId);
+      if (selectedGuide) {
+        const newDefaultName = `GDI de ${selectedGuide.firstName} ${selectedGuide.lastName}`;
+        
+        if (isAdding) {
+          // If adding and the name is empty or was the placeholder for a previously (but not yet saved) selected guide
+          if (!editableGdi.name.trim() || editableGdi.name.startsWith("GDI de ")) {
+            setEditableGdi(prev => ({ ...prev, name: newDefaultName }));
+          }
+        } else { // Editing existing GDI
+          const originalGuide = allMembers.find(m => m.id === initialGdi.guideId);
+          const originalDefaultName = originalGuide ? `GDI de ${originalGuide.firstName} ${originalGuide.lastName}` : "";
+
+          // Update name if it was empty or the default name of the *original* guide
+          if (!editableGdi.name.trim() || editableGdi.name === originalDefaultName) {
+            setEditableGdi(prev => ({ ...prev, name: newDefaultName }));
+          }
+        }
+      }
+    } else { // No guide selected
+      if (isAdding) {
+         // If adding and the name was a default pattern, clear it
+        if (editableGdi.name.startsWith("GDI de ")) {
+           setEditableGdi(prev => ({ ...prev, name: "" }));
+        }
+      }
+      // If editing and no guide is selected, don't clear a custom name.
+      // If the name was a default pattern for the original guide and the guide is deselected,
+      // it might be desirable to clear it or leave it as is. For now, leave it.
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editableGdi.guideId, isAdding, initialGdi.guideId, allMembers]);
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -58,7 +100,7 @@ export default function ManageSingleGdiView({
   const handleGuideChange = (newGuideId: string) => {
     setEditableGdi(prev => {
       const updatedMemberIds = (prev.memberIds || []).filter(id => id !== newGuideId);
-      return { ...prev, guideId: newGuideId, memberIds: updatedMemberIds };
+      return { ...prev, guideId: newGuideId, memberIds: updatedMemberIds, name: prev.name }; // Preserve name for useEffect to handle
     });
   };
 
@@ -127,18 +169,11 @@ export default function ManageSingleGdiView({
 
   const availableMembersForAssignment = useMemo(() => {
     return allMembers.filter(member => {
-      // Rule: Cannot be the guide of the current GDI
       if (member.id === editableGdi.guideId) return false;
-
-      // Rule: Not already a member of the current GDI being edited/added
       if ((editableGdi.memberIds || []).includes(member.id)) return false;
+      const isGuideOfAnyOtherGdi = allGdis.some(g => g.guideId === member.id);
+      if (isGuideOfAnyOtherGdi) return false;
 
-      // Rule: Cannot be a guide of ANY GDI (guides are not listed as assignable members)
-      // This handles the case where a member is a guide of another GDI.
-      const isGuideOfAnyGdi = allGdis.some(g => g.guideId === member.id);
-      if (isGuideOfAnyGdi) return false;
-
-      // Apply search term
       return (
         `${member.firstName} ${member.lastName}`.toLowerCase().includes(addMemberSearchTerm.toLowerCase()) ||
         member.email.toLowerCase().includes(addMemberSearchTerm.toLowerCase())
