@@ -13,21 +13,22 @@ export async function getAllMembers(
   page: number = 1,
   pageSize: number = 10,
   searchTerm?: string,
-  statusFilterParam?: string, // Renamed from statusFilter
+  statusFilterParam?: string,
   roleFilter?: string,
   guideIdFilter?: string
 ): Promise<{ members: Member[], totalMembers: number, totalPages: number }> {
-  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
+  const membersFromFile = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
+  let filteredMembers = [...membersFromFile]; // Start with a copy of all members
 
   // Apply specific filters first
-  if (statusFilterParam) { // Use renamed parameter
-    allMembers = allMembers.filter(member => member.status === statusFilterParam); // Use renamed parameter
+  if (statusFilterParam) {
+    filteredMembers = filteredMembers.filter(member => member.status === statusFilterParam);
   }
   if (roleFilter) {
-    allMembers = allMembers.filter(member => member.roles?.includes(roleFilter as MemberRoleType));
+    filteredMembers = filteredMembers.filter(member => member.roles?.includes(roleFilter as MemberRoleType));
   }
   if (guideIdFilter) {
+    const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
     const gdisLedByThisGuide = allGdis.filter(gdi => gdi.guideId === guideIdFilter);
     if (gdisLedByThisGuide.length > 0) {
         const membersToInclude = new Set<string>();
@@ -35,17 +36,17 @@ export async function getAllMembers(
         gdisLedByThisGuide.forEach(gdi => {
             gdi.memberIds.forEach(memberId => membersToInclude.add(memberId));
         });
-        allMembers = allMembers.filter(member => membersToInclude.has(member.id));
+        filteredMembers = filteredMembers.filter(member => membersToInclude.has(member.id));
     } else {
         // If a specific guide is selected but they don't lead any GDI, result in no members for this filter.
-        allMembers = [];
+        filteredMembers = [];
     }
   }
 
   // Then apply general search term
   if (searchTerm) {
     const lowercasedSearchTerm = searchTerm.toLowerCase();
-    allMembers = allMembers.filter(member =>
+    filteredMembers = filteredMembers.filter(member =>
       `${member.firstName} ${member.lastName}`.toLowerCase().includes(lowercasedSearchTerm) ||
       member.email.toLowerCase().includes(lowercasedSearchTerm) ||
       member.phone.toLowerCase().includes(lowercasedSearchTerm) ||
@@ -58,11 +59,11 @@ export async function getAllMembers(
     );
   }
 
-  const totalMembers = allMembers.length;
+  const totalMembers = filteredMembers.length;
   const totalPages = Math.ceil(totalMembers / pageSize);
   const startIndex = (page - 1) * pageSize;
   const endIndex = startIndex + pageSize;
-  const membersForPage = allMembers.slice(startIndex, endIndex);
+  const membersForPage = filteredMembers.slice(startIndex, endIndex);
   return { members: membersForPage, totalMembers, totalPages };
 }
 

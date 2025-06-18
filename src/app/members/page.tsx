@@ -93,7 +93,7 @@ async function getMembersPageData(
     page: number,
     pageSize: number,
     searchTerm?: string,
-    statusFilterParam?: string, // Renamed from statusFilter
+    statusFilterParam?: string, 
     roleFilter?: string,
     guideIdFilter?: string
 ): Promise<{
@@ -107,7 +107,7 @@ async function getMembersPageData(
   currentPage: number,
   totalPages: number
 }> {
-  const { members, totalMembers, totalPages } = await getAllMembers(page, pageSize, searchTerm, statusFilterParam, roleFilter, guideIdFilter); // Pass renamed param
+  const { members, totalMembers, totalPages } = await getAllMembers(page, pageSize, searchTerm, statusFilterParam, roleFilter, guideIdFilter);
   const [
     allMembersForDropdowns,
     gdis,
@@ -139,10 +139,10 @@ async function getMembersPageData(
 export default async function MembersPage({ searchParams }: MembersPageProps) {
   const currentPage = Number(searchParams?.page) || 1;
   const pageSize = Number(searchParams?.pageSize) || 10;
-  const searchTerm = searchParams?.search || '';
-  const statusFilter = searchParams?.status || ''; // This will be used as statusFilterParam for the service
-  const roleFilter = searchParams?.role || '';
-  const guideIdFilter = searchParams?.guide || '';
+  const searchTerm = (searchParams?.search || '').trim();
+  const statusFilter = (searchParams?.status || '').trim();
+  const roleFilter = (searchParams?.role || '').trim();
+  const guideIdFilter = (searchParams?.guide || '').trim();
 
   const {
     membersForPage,
