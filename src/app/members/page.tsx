@@ -90,7 +90,12 @@ interface MembersPageProps {
 }
 
 async function getMembersPageData(
-  searchParams: MembersPageProps['searchParams']
+  pageParam?: string,
+  pageSizeParam?: string,
+  searchTermParam?: string,
+  statusFilterStringParam?: string,
+  roleFilterStringParam?: string,
+  guideIdFilterStringParam?: string
 ): Promise<{
   membersForPage: Member[],
   allMembersForDropdowns: Member[],
@@ -107,20 +112,19 @@ async function getMembersPageData(
   currentRoleFiltersArray: string[],
   currentGuideIdFiltersArray: string[]
 }> {
-  const page = Number(searchParams?.page) || 1;
-  const pageSize = Number(searchParams?.pageSize) || 10;
-  const searchTerm = (searchParams?.search || '').trim();
-  const statusFilterString = (searchParams?.status || '').trim();
-  const roleFilterString = (searchParams?.role || '').trim();
-  const guideIdFilterString = (searchParams?.guide || '').trim();
+  const page = Number(pageParam) || 1;
+  const pageSize = Number(pageSizeParam) || 10;
+  const searchTerm = (searchTermParam || '').trim();
+  const statusFilterString = (statusFilterStringParam || '').trim();
+  const roleFilterString = (roleFilterStringParam || '').trim();
+  const guideIdFilterString = (guideIdFilterStringParam || '').trim();
 
-  console.log("[MembersPage] getMembersPageData - statusFilterString from URL:", statusFilterString);
   const statusFilters = statusFilterString ? statusFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
-  console.log("[MembersPage] getMembersPageData - parsed statusFilters array:", statusFilters);
   const roleFilters = roleFilterString ? roleFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
   const guideIdFilters = guideIdFilterString ? guideIdFilterString.split(',').map(s => s.trim()).filter(Boolean) : [];
 
   const { members, totalMembers, totalPages } = await getAllMembers(page, pageSize, searchTerm, statusFilters, roleFilters, guideIdFilters);
+  
   const [
     allMembersForDropdowns,
     gdis,
@@ -136,6 +140,7 @@ async function getMembersPageData(
     getAllMeetingSeries(),
     getAllAttendanceRecords()
   ]);
+  
   return {
     membersForPage: members,
     allMembersForDropdowns,
@@ -155,6 +160,13 @@ async function getMembersPageData(
 }
 
 export default async function MembersPage({ searchParams }: MembersPageProps) {
+  const page = searchParams?.page;
+  const pageSizeParam = searchParams?.pageSize;
+  const search = searchParams?.search;
+  const status = searchParams?.status;
+  const role = searchParams?.role;
+  const guide = searchParams?.guide;
+
   const {
     membersForPage,
     allMembersForDropdowns,
@@ -170,7 +182,14 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
     currentStatusFiltersArray,
     currentRoleFiltersArray,
     currentGuideIdFiltersArray,
-  } = await getMembersPageData(searchParams);
+  } = await getMembersPageData(
+    page,
+    pageSizeParam,
+    search,
+    status,
+    role,
+    guide
+  );
 
   const key = `${currentPage}-${pageSize}-${currentSearchTerm}-${currentStatusFiltersArray.join(',')}-${currentRoleFiltersArray.join(',')}-${currentGuideIdFiltersArray.join(',')}`;
 

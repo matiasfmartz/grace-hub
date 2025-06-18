@@ -63,9 +63,6 @@ export async function getAllMembers(
     if (membersToInclude.size > 0) {
         workingFilteredMembers = workingFilteredMembers.filter(member => membersToInclude.has(member.id));
     } else {
-        // If no guides are selected or no members match the guide selection, this effectively filters to an empty list
-        // This behavior might need review if the expectation is different (e.g. show all if no members under selected guides)
-        // For now, it means "show members related to these specific guides". If none, then none.
         workingFilteredMembers = []; 
     }
   }
