@@ -77,11 +77,11 @@ export default function MinistryAreasManager({ ministryAreas, allMembers, active
                   </Button>
                    <Button
                     variant="destructive"
+                    size="icon"
                     onClick={() => handleDeleteClick(area)}
-                    className="w-full"
-                    size="sm"
+                    title={`Eliminar Área ${area.name}`}
                   >
-                    <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </CardFooter>
               </Card>

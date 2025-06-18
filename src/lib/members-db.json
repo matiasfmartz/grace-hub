@@ -13,7 +13,7 @@
     "attendsLifeSchool": true,
     "attendsBibleInstitute": false,
     "fromAnotherChurch": true,
-    "assignedGDIId": "1750232343336-oerdf4o",
+    "assignedGDIId": "gdi2",
     "assignedAreaIds": [
       "1749880199537-cvuyxy3"
     ],
@@ -58,7 +58,7 @@
     "attendsLifeSchool": true,
     "attendsBibleInstitute": true,
     "fromAnotherChurch": false,
-    "assignedGDIId": "1750232343336-oerdf4o",
+    "assignedGDIId": "gdi2",
     "assignedAreaIds": [],
     "baptismDate": "",
     "roles": [
@@ -142,7 +142,10 @@
     "attendsBibleInstitute": false,
     "fromAnotherChurch": true,
     "assignedGDIId": null,
-    "assignedAreaIds": [],
+    "assignedAreaIds": [
+      "1749880199537-cvuyxy3",
+      "ma2"
+    ],
     "roles": [
       "Worker",
       "Leader"

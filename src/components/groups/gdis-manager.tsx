@@ -80,11 +80,11 @@ export default function GdisManager({ gdis, allMembers, activeMembers, deleteGdi
                   </Button>
                   <Button
                     variant="destructive"
+                    size="icon"
                     onClick={() => handleDeleteClick(gdi)}
-                    className="w-full"
-                    size="sm"
+                    title={`Eliminar GDI ${gdi.name}`}
                   >
-                    <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </CardFooter>
               </Card>
