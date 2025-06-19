@@ -1,3 +1,4 @@
+
 # Grace Hub - Gestión Integral para Comunidades Eclesiales
 
 Bienvenido a Grace Hub, una aplicación web diseñada para facilitar la administración y conexión dentro de las comunidades eclesiales. Construida con tecnologías modernas, Grace Hub busca ofrecer una plataforma intuitiva y eficiente para miembros, líderes y administradores.
@@ -21,7 +22,7 @@ Página de bienvenida que ofrece una visión general de la aplicación y accesos
 ### 2. Miembros (Members)
 *   **Directorio de Miembros**: Visualiza, busca y filtra la lista de todos los miembros de la iglesia.
 *   **Agregar Miembros**: Permite añadir nuevos miembros individualmente o mediante una herramienta de carga masiva.
-*   **Detalles del Miembro**: Muestra información completa de cada miembro, incluyendo datos de contacto, fechas importantes (nacimiento, ingreso, bautismo), estado, roles, GDI y áreas de ministerio asignadas.
+*   **Detalles del Miembro**: Muestra información completa de cada miembro, incluyendo datos de contacto, fechas importantes (nacimiento, ingreso, bautismo), estado, roles, GDI y áreas de ministerio asignadas. Incluye una pestaña de "Historial de Asistencia" con filtros por serie y rango de fechas, mostrando un resumen y una tendencia mensual de asistencia del miembro a las reuniones a las que fue convocado.
 *   **Edición de Miembros**: Facilita la actualización de la información de los miembros.
 *   **Gestión de Roles**: Los roles (Asistente General, Obrero, Líder) se calculan y asignan automáticamente basados en la participación en GDIs y Ministerios.
 
@@ -29,27 +30,44 @@ Página de bienvenida que ofrece una visión general de la aplicación y accesos
 Esta sección permite administrar dos tipos principales de agrupaciones:
 *   **Áreas de Ministerio (Ministry Areas)**:
     *   Crea y gestiona áreas de servicio o ministerio (ej. Alabanza, Jóvenes, Misiones).
-    *   Asigna un líder y miembros a cada área.
-    *   Actualiza detalles como nombre, descripción e imagen.
+    *   Desde la página principal de "Grupos", se pueden agregar o eliminar áreas.
+    *   **Página de Administración del Área (`/groups/ministry-areas/[areaId]/admin`)**:
+        *   **Detalles del Área**: Edita el nombre, descripción, líder y miembros del área.
+        *   **Gestión de Reuniones del Área**:
+            *   Define series de reuniones específicas para el área (recurrentes o de única vez).
+            *   Programa instancias adicionales para las series del área.
+            *   Gestiona (edita/elimina) las series e instancias de reunión del área.
+            *   Visualiza la asistencia a las reuniones del área mediante una tabla y un gráfico de progresión.
+            *   Registra la asistencia y toma minutas para las instancias de reunión del área (navegando a la página de gestión de asistencia de la instancia).
 *   **GDIs (Grupos de Integración)**:
     *   Crea y gestiona grupos pequeños de integración y discipulado.
-    *   Asigna un guía y miembros a cada GDI.
-    *   Actualiza el nombre del GDI.
+    *   Desde la página principal de "Grupos", se pueden agregar o eliminar GDIs.
+    *   **Página de Administración del GDI (`/groups/gdis/[gdiId]/admin`)**:
+        *   **Detalles del GDI**: Edita el nombre, guía y miembros del GDI.
+        *   **Gestión de Reuniones del GDI**:
+            *   Define series de reuniones específicas para el GDI (recurrentes o de única vez).
+            *   Programa instancias adicionales para las series del GDI.
+            *   Gestiona (edita/elimina) las series e instancias de reunión del GDI.
+            *   Visualiza la asistencia a las reuniones del GDI mediante una tabla y un gráfico de progresión.
+            *   Registra la asistencia y toma minutas para las instancias de reunión del GDI (navegando a la página de gestión de asistencia de la instancia).
 
 ### 4. Eventos (Events)
-*   **Definición de Series de Reuniones**: Permite crear "tipos" o series de reuniones recurrentes (ej. Servicio Dominical, Estudio Bíblico Semanal, Reunión Mensual de Líderes) o de única vez.
+Esta sección está dedicada a la gestión de **reuniones generales** de la iglesia (no específicas de un GDI o Área Ministerial).
+*   **Definición de Series de Reuniones Generales**: Permite crear "tipos" o series de reuniones recurrentes (ej. Servicio Dominical General, Estudio Bíblico Semanal General) o de única vez.
     *   Configura nombre, descripción, hora, lugar e imagen predeterminados.
     *   Define la frecuencia (Única Vez, Semanal, Mensual) y las reglas de recurrencia.
     *   Especifica los grupos de asistentes objetivo (Asistentes Generales, Obreros, Líderes).
-    *   Las instancias se generan automáticamente para series recurrentes o para la fecha especificada en series de "Única Vez".
-*   **Gestión de Instancias de Reunión**:
+*   **Generación de Instancias**: Las instancias se generan automáticamente para series recurrentes (un buffer de 4 futuras para semanales, 2 para mensuales). Si un usuario elimina manualmente una instancia recurrente, esta no se regenerará automáticamente para esa fecha específica.
+*   **Gestión de Instancias de Reunión General**:
     *   Visualiza todas las instancias de reunión programadas, filtrables por serie y rango de fechas.
     *   Agrega instancias ocasionales a una serie existente.
-    *   Edita o elimina instancias individuales de reunión.
-*   **Registro de Asistencia**:
-    *   Para cada instancia de reunión, permite marcar la asistencia de los miembros esperados.
-    *   Guarda un historial de asistencia.
-*   **Toma de Minutas**: Permite registrar y guardar minutas para cada reunión.
+    *   La edición o eliminación de instancias individuales se realiza a través de la página de gestión de asistencia de dicha instancia.
+*   **Registro de Asistencia y Minutas (para Instancias Generales)**:
+    *   Desde la página de gestión de asistencia de una instancia (`/events/[meetingId]/attendance`):
+        *   Permite marcar la asistencia de los miembros esperados.
+        *   Guarda un historial de asistencia.
+        *   Permite registrar y guardar minutas para la reunión.
+        *   Permite editar o eliminar la instancia.
 
 ### 5. Recursos (Resources)
 Una sección para compartir materiales útiles como artículos, devocionales, anuncios y notas de sermones.
@@ -61,9 +79,9 @@ Proporciona información sobre la misión, visión y valores detrás de Grace Hu
 
 *   **Frontend**: Next.js (con App Router), React, TypeScript.
 *   **UI**: ShadCN UI Components, Tailwind CSS.
-*   **Gestión de Estado (Cliente)**: React Hooks (`useState`, `useEffect`, `useContext`).
+*   **Gestión de Estado (Cliente)**: React Hooks (`useState`, `useEffect`, `useContext`), `useRouter`, `useSearchParams`.
 *   **IA (Opcional/Futuro)**: Genkit (para funcionalidades de IA generativa).
-*   **Persistencia de Datos**: Archivos JSON locales (`members-db.json`, `gdis-db.json`, etc.) para simular una base de datos en este prototipo.
+*   **Persistencia de Datos**: Archivos JSON locales (`members-db.json`, `gdis-db.json`, `ministry-areas-db.json`, `meeting-series-db.json`, `meetings-db.json`, `attendance-db.json`) para simular una base de datos en este prototipo.
 
 ## Cómo Empezar
 
@@ -113,27 +131,40 @@ Proporciona información sobre la misión, visión y valores detrás de Grace Hu
 ## Estructura del Proyecto (Simplificada)
 
 *   `src/app/`: Contiene las rutas y páginas principales de la aplicación (usando Next.js App Router).
+    *   `src/app/members/`: Páginas para el directorio y carga masiva de miembros.
+    *   `src/app/groups/`: Página principal de grupos y subdirectorios para administración específica:
+        *   `src/app/groups/gdis/[gdiId]/admin/`: Página de administración para un GDI específico (detalles y reuniones del GDI).
+            *   `actions.ts`: Server Actions para GDI (detalles, series de reuniones, instancias).
+        *   `src/app/groups/ministry-areas/[areaId]/admin/`: Página de administración para un Área Ministerial específica (detalles y reuniones del Área).
+            *   `actions.ts`: Server Actions para Área Ministerial (detalles, series de reuniones, instancias).
+    *   `src/app/events/`: Página principal para reuniones generales y subdirectorios para gestión de asistencia de instancias.
 *   `src/components/`: Componentes reutilizables de React.
     *   `src/components/ui/`: Componentes de UI de ShadCN.
     *   `src/components/layout/`: Componentes de la estructura principal (Header, Footer).
-    *   Otros subdirectorios para componentes específicos de cada sección (members, groups, events).
+    *   Subdirectorios para componentes específicos: `members`, `groups`, `events`.
 *   `src/lib/`: Lógica de negocio, tipos, utilidades y "bases de datos" JSON.
-    *   `types.ts`: Definiciones de tipos e interfaces TypeScript, y esquemas Zod para validación.
+    *   `types.ts`: Definiciones de tipos e interfaces TypeScript, y esquemas Zod para validación. Incluye `cancelledDates` en `MeetingSeries`.
     *   `*-db.json`: Archivos JSON que actúan como almacenamiento de datos.
     *   `placeholder-data.ts`: Datos iniciales de ejemplo.
     *   `db-utils.ts`: Funciones para leer y escribir en los archivos JSON.
     *   `roleUtils.ts`: Lógica para calcular roles de miembros.
-*   `src/services/`: Funciones de "servicio" que interactúan con los archivos JSON (simulando llamadas a una API o base de datos).
+*   `src/services/`: Funciones de "servicio" que interactúan con los archivos JSON.
+    *   `memberService.ts`: Lógica para miembros.
+    *   `gdiService.ts`: Lógica para GDIs.
+    *   `ministryAreaService.ts`: Lógica para Áreas Ministeriales.
+    *   `meetingService.ts`: Lógica principal para series de reuniones e instancias (usado por Eventos generales y por `groupMeetingService`). Incluye la lógica de `ensureFutureInstances` y el manejo de `cancelledDates`.
+    *   `attendanceService.ts`: Lógica para registros de asistencia.
+    *   `groupMeetingService.ts`: Lógica para gestionar series de reuniones e instancias específicas de GDIs y Áreas Ministeriales, utilizando y adaptando `meetingService`.
 *   `src/ai/`: (Opcional) Configuración y flujos de Genkit para funcionalidades de IA.
 *   `public/`: Archivos estáticos.
 
 ## Próximos Pasos y Mejoras Potenciales
 
-*   Integración con una base de datos real (Firebase Firestore, PostgreSQL, etc.).
+*   Integración con una base de datos real (Firebase Firestore, PostgreSQL, etc.) para una mejor escalabilidad y gestión de datos.
 *   Autenticación y autorización de usuarios.
 *   Notificaciones en tiempo real.
 *   Mejoras en la interfaz de usuario y experiencia de usuario (UX/UI).
-*   Funcionalidades de IA más avanzadas con Genkit.
+*   Funcionalidades de IA más avanzadas con Genkit (ej. sugerencias inteligentes, análisis de participación).
 *   Despliegue en una plataforma de hosting (Firebase App Hosting, Vercel, etc.).
 
 ¡Gracias por explorar Grace Hub!
