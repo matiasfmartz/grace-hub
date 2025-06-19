@@ -38,7 +38,8 @@
     "fromAnotherChurch": true,
     "assignedGDIId": null,
     "assignedAreaIds": [
-      "1749880199537-cvuyxy3"
+      "1749880199537-cvuyxy3",
+      "1750352396551-w9poihx"
     ],
     "roles": [
       "Worker",
@@ -80,8 +81,12 @@
     "attendsBibleInstitute": false,
     "fromAnotherChurch": false,
     "assignedGDIId": null,
-    "assignedAreaIds": [],
-    "roles": []
+    "assignedAreaIds": [
+      "1750352396551-w9poihx"
+    ],
+    "roles": [
+      "Worker"
+    ]
   },
   {
     "id": "5",
@@ -359,5 +364,26 @@
     "assignedAreaIds": [],
     "id": "1750307450818-4k0iov9",
     "roles": []
+  },
+  {
+    "firstName": "juan ",
+    "lastName": "alvarez",
+    "email": "",
+    "phone": "000000000",
+    "baptismDate": "",
+    "attendsLifeSchool": false,
+    "attendsBibleInstitute": false,
+    "fromAnotherChurch": false,
+    "status": "Active",
+    "avatarUrl": "https://placehold.co/100x100",
+    "assignedGDIId": null,
+    "assignedAreaIds": [
+      "1750352396551-w9poihx"
+    ],
+    "roles": [
+      "Worker",
+      "Leader"
+    ],
+    "id": "1750352301052-4qaeja0"
   }
 ]

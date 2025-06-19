@@ -51,7 +51,7 @@ export default function PageSpecificAddMeetingDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="w-full"> 
+        <Button> {/* Removed className="w-full" */}
           <PlusCircle className="mr-2 h-4 w-4" /> Definir Nueva Serie de Reunión
         </Button>
       </DialogTrigger>

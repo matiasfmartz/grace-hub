@@ -115,5 +115,22 @@
     "cancelledDates": [
       "2025-07-23"
     ]
+  },
+  {
+    "id": "series-1750352041937-u4zuh",
+    "name": "ensayo",
+    "description": "",
+    "defaultTime": "10:00",
+    "defaultLocation": "Santuario Principal",
+    "seriesType": "ministryArea",
+    "ownerGroupId": "ma2",
+    "targetAttendeeGroups": [
+      "allMembers"
+    ],
+    "frequency": "Monthly",
+    "cancelledDates": [],
+    "monthlyRuleType": "DayOfWeekOfMonth",
+    "monthlyWeekOrdinal": "Last",
+    "monthlyDayOfWeek": "Friday"
   }
 ]

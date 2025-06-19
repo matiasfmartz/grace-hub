@@ -31,5 +31,15 @@
       "1749877205345-hd6yhu7",
       "7"
     ]
+  },
+  {
+    "name": "COMISION HOMBRES",
+    "description": "",
+    "leaderId": "1750352301052-4qaeja0",
+    "memberIds": [
+      "2",
+      "4"
+    ],
+    "id": "1750352396551-w9poihx"
   }
 ]

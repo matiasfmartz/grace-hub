@@ -306,12 +306,14 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-            <PageSpecificAddMeetingDialog
-              defineMeetingSeriesAction={(data: DefineMeetingSeriesFormValues) => handleAddGdiMeetingSeriesAction(gdi.id, data)}
-              seriesTypeContext="gdi"
-              ownerGroupIdContext={gdi.id}
-              onSeriesDefined={handleSeriesDefined}
-            />
+            <div className="flex justify-end">
+                <PageSpecificAddMeetingDialog
+                defineMeetingSeriesAction={(data: DefineMeetingSeriesFormValues) => handleAddGdiMeetingSeriesAction(gdi.id, data)}
+                seriesTypeContext="gdi"
+                ownerGroupIdContext={gdi.id}
+                onSeriesDefined={handleSeriesDefined}
+                />
+            </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start border-t pt-6">
             <div className="md:col-span-1 space-y-4">
