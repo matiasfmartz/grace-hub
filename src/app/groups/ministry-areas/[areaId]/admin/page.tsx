@@ -1,5 +1,4 @@
 
-
 'use client';
 import { getMinistryAreaById } from '@/services/ministryAreaService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
@@ -10,6 +9,7 @@ import { ArrowLeft, Edit, Settings, PlusSquare, CalendarDays, LayoutGrid, ListFi
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import ManageSingleMinistryAreaView from '@/components/groups/manage-single-ministry-area-view';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { 
   updateMinistryAreaDetailsAction,
   handleAddAreaMeetingSeriesAction,
@@ -30,8 +30,8 @@ import AttendanceLineChart from '@/components/events/AttendanceFrequencySummaryT
 import MeetingTypeAttendanceTable from '@/components/events/meeting-type-attendance-table';
 import { getSeriesByIdForGroup, getGroupMeetingInstances } from '@/services/groupMeetingService';
 import { getAllAttendanceRecords, getResolvedAttendees } from '@/services/attendanceService';
-import { getAllGdis } from '@/services/gdiService'; // Needed for getResolvedAttendees if series are passed without full context
-import { getAllMinistryAreas as getAllMinistryAreasSvc } from '@/services/ministryAreaService'; // For the same reason
+import { getAllGdis } from '@/services/gdiService'; 
+import { getAllMinistryAreas as getAllMinistryAreasSvc } from '@/services/ministryAreaService'; 
 import { parseISO, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -81,17 +81,10 @@ async function getData(
     allMembersData,
     allAttendanceRecordsData,
     groupSeriesData,
-    // These are needed by getResolvedAttendees if it needs to look up GDI/Area details
-    // and the series objects passed to it don't have ownerGroup hydrated.
-    // However, groupSeriesData from getSeriesByIdForGroup should be sufficient.
-    // _allGdisData, 
-    // _allMinistryAreasData 
   ] = await Promise.all([
     getAllMembersNonPaginated(),
     getAllAttendanceRecords(),
     getSeriesByIdForGroup('ministryArea', areaId),
-    // getAllGdis(),
-    // getAllMinistryAreasSvc() 
   ]);
   
   const sortedGroupSeries = groupSeriesData.sort((a, b) => a.name.localeCompare(b.name));
@@ -128,11 +121,7 @@ async function getData(
   const expectedAttendeesMap: Record<string, Set<string>> = {};
 
   for (const meeting of meetingsForChartAndTable) {
-    // Pass allMeetingSeries (which contains all series types, including general ones if needed by resolver)
-    // or more specifically groupSeriesData if resolver can handle that.
-    // For safety, passing allMeetingSeries is more robust if getResolvedAttendees expects global series list.
-    // However, since we are in group context, groupSeriesData should be fine as long as the meeting.seriesId matches one of them.
-    const allSeriesForResolver = await getSeriesByIdForGroup('ministryArea', areaId, undefined); // Fetch all series for this group, and general ones.
+    const allSeriesForResolver = await getSeriesByIdForGroup('ministryArea', areaId, undefined); 
     const resolvedForThisInstance = await getResolvedAttendees(meeting, allMembersData, allSeriesForResolver);
     expectedAttendeesMap[meeting.id] = new Set(resolvedForThisInstance.map(m => m.id));
     resolvedForThisInstance.forEach(member => rowMemberIds.add(member.id));
@@ -164,15 +153,16 @@ async function getData(
 export default function MinistryAreaAdminPage({}: MinistryAreaAdminPageProps) {
   const router = useRouter();
   const paramsFromHook = useNextParams();
-  const searchParamsFromHook = useNextSearchParams();
+  const currentHookSearchParams = useNextSearchParams();
   
   const areaId = paramsFromHook.areaId as string;
 
-  const spActiveSeriesId = searchParamsFromHook.get('activeSeriesId') || undefined;
-  const spStartDate = searchParamsFromHook.get('startDate') || undefined;
-  const spEndDate = searchParamsFromHook.get('endDate') || undefined;
-  const spMPage = searchParamsFromHook.get('mPage') || undefined;
-  const spMPSize = searchParamsFromHook.get('mPSize') || undefined;
+  const spActiveSeriesId = currentHookSearchParams.get('activeSeriesId') || undefined;
+  const spStartDate = currentHookSearchParams.get('startDate') || undefined;
+  const spEndDate = currentHookSearchParams.get('endDate') || undefined;
+  const spMPage = currentHookSearchParams.get('mPage') || undefined;
+  const spMPSize = currentHookSearchParams.get('mPSize') || undefined;
+
 
   const [pageData, setPageData] = useState<MinistryAreaAdminPageData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -209,10 +199,12 @@ export default function MinistryAreaAdminPage({}: MinistryAreaAdminPageProps) {
 
   const handleSeriesDefined = (newSeriesId?: string) => {
     if (newSeriesId) {
-        const params = new URLSearchParams(searchParamsFromHook.toString());
+        const params = new URLSearchParams(currentHookSearchParams.toString());
         params.set('activeSeriesId', newSeriesId);
         params.delete('mPage'); 
         router.push(`/groups/ministry-areas/${areaId}/admin?${params.toString()}`);
+    } else {
+        router.refresh();
     }
   };
 
@@ -431,4 +423,3 @@ export default function MinistryAreaAdminPage({}: MinistryAreaAdminPageProps) {
     </div>
   );
 }
-

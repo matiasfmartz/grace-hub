@@ -1,5 +1,4 @@
 
-
 'use client';
 import { getGdiById, getAllGdis } from '@/services/gdiService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
@@ -10,6 +9,7 @@ import { ArrowLeft, Edit, Settings, PlusSquare, CalendarDays, LayoutGrid, ListFi
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import ManageSingleGdiView from '@/components/groups/manage-single-gdi-view';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { 
   updateGdiDetailsAction,
   handleAddGdiMeetingSeriesAction,
@@ -44,7 +44,7 @@ interface GdiAdminPageData {
   allGdis: GDI[];
   groupMeetingSeries: MeetingSeries[];
   meetingsForChart: Meeting[];
-  meetingsForTable: Meeting[]; // This will be the same as meetingsForChart for groups (no instance pagination)
+  meetingsForTable: Meeting[]; 
   allAttendanceRecords: AttendanceRecord[];
   initialRowMembersForTable: Member[];
   expectedAttendeesMapForTable: Record<string, Set<string>>;
@@ -85,7 +85,7 @@ async function getData(
     getAllMembersNonPaginated(),
     getAllGdis(),
     getAllAttendanceRecords(),
-    getSeriesByIdForGroup('gdi', gdiId) // Fetch only series for this GDI
+    getSeriesByIdForGroup('gdi', gdiId) 
   ]);
 
   const sortedGroupSeries = groupSeriesData.sort((a, b) => a.name.localeCompare(b.name));
@@ -93,26 +93,26 @@ async function getData(
   const actualActiveSeriesId = spActiveSeriesId && sortedGroupSeries.some(s => s.id === spActiveSeriesId)
     ? spActiveSeriesId
     : spActiveSeriesId === 'all' 
-      ? 'all' // Keep 'all' if explicitly selected
+      ? 'all' 
       : sortedGroupSeries.length > 0 
-        ? sortedGroupSeries[0].id // Default to first series if none or invalid selected
-        : undefined; // No series available for this group
+        ? sortedGroupSeries[0].id 
+        : undefined; 
 
   let meetingsForProcessing: Meeting[] = [];
   if (gdiDetails) {
     const result = await getGroupMeetingInstances(
       'gdi',
       gdiId,
-      actualActiveSeriesId === 'all' ? undefined : actualActiveSeriesId, // Pass undefined if 'all' to fetch for all group series
+      actualActiveSeriesId === 'all' ? undefined : actualActiveSeriesId, 
       spStartDate,
       spEndDate,
-      1, // Page 1 for instances (as we get all for chart/table)
-      Infinity // Effectively get all instances matching filters
+      1, 
+      Infinity 
     );
     meetingsForProcessing = result.instances;
   }
   
-  const meetingsForChartAndTable = meetingsForProcessing; // No instance pagination for group meeting table
+  const meetingsForChartAndTable = meetingsForProcessing; 
 
   const memberCurrentPage = Number(spMPage) || 1;
   let memberPageSize = Number(spMPSize) || 10;
@@ -153,15 +153,16 @@ async function getData(
 export default function GdiAdminPage({}: GdiAdminPageProps) {
   const router = useRouter();
   const paramsFromHook = useNextParams();
-  const searchParamsFromHook = useNextSearchParams();
+  const currentHookSearchParams = useNextSearchParams();
 
   const gdiId = paramsFromHook.gdiId as string;
   
-  const spActiveSeriesId = searchParamsFromHook.get('activeSeriesId') || undefined;
-  const spStartDate = searchParamsFromHook.get('startDate') || undefined;
-  const spEndDate = searchParamsFromHook.get('endDate') || undefined;
-  const spMPage = searchParamsFromHook.get('mPage') || undefined;
-  const spMPSize = searchParamsFromHook.get('mPSize') || undefined;
+  const spActiveSeriesId = currentHookSearchParams.get('activeSeriesId') || undefined;
+  const spStartDate = currentHookSearchParams.get('startDate') || undefined;
+  const spEndDate = currentHookSearchParams.get('endDate') || undefined;
+  const spMPage = currentHookSearchParams.get('mPage') || undefined;
+  const spMPSize = currentHookSearchParams.get('mPSize') || undefined;
+
 
   const [pageData, setPageData] = useState<GdiAdminPageData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -198,12 +199,13 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
 
   const handleSeriesDefined = (newSeriesId?: string) => {
     if (newSeriesId) {
-        const params = new URLSearchParams(searchParamsFromHook.toString());
+        const params = new URLSearchParams(currentHookSearchParams.toString());
         params.set('activeSeriesId', newSeriesId);
-        params.delete('mPage'); // Reset member page
+        params.delete('mPage'); 
         router.push(`/groups/gdis/${gdiId}/admin?${params.toString()}`);
+    } else {
+        router.refresh();
     }
-    // No explicit router.refresh() needed here as useEffect depends on searchParams
   };
 
   const createSeriesLink = (seriesIdToLink: string) => {
@@ -211,8 +213,7 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
       params.set('activeSeriesId', seriesIdToLink);
       if (spStartDate) params.set('startDate', spStartDate);
       if (spEndDate) params.set('endDate', spEndDate);
-      if (spMPSize) params.set('mPSize', spMPSize); // Persist member page size
-      // mPage for members resets by default or handled by table's pagination
+      if (spMPSize) params.set('mPSize', spMPSize); 
       return `/groups/gdis/${gdiId}/admin?${params.toString()}`;
   };
 
@@ -230,7 +231,6 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
   }
 
   if (!pageData) {
-    // This case should ideally be handled by loading or error state or notFound
     return <div className="container mx-auto py-8 px-4 text-center">No se pudieron cargar los datos del GDI.</div>;
   }
 
@@ -278,7 +278,6 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
                 updateGdiAction={updateGdiDetailsAction}
                 onSuccess={() => {
                     setIsEditGdiDetailsOpen(false);
-                    // Trigger data re-fetch for current page
                     router.replace(window.location.href, undefined);
                 }}
               />
@@ -297,7 +296,6 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
         </CardHeader>
       </Card>
       
-      {/* Section for Managing Meetings of this GDI */}
       <Card className="mt-8 shadow-lg">
         <CardHeader>
           <CardTitle className="font-headline text-2xl text-primary flex items-center">
@@ -422,4 +420,3 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
     </div>
   );
 }
-
