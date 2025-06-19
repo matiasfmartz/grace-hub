@@ -58,11 +58,11 @@ const availableStatusFilters: { value: Member['status']; label: string }[] = [
 
 
 export default function MissedMeetingsTable({
-  generalMeetingsSorted,
-  allMembers,
-  allAttendanceRecords,
-  allMeetingSeries,
-  allGdis,
+  generalMeetingsSorted = [],
+  allMembers = [],
+  allAttendanceRecords = [],
+  allMeetingSeries = [],
+  allGdis = [],
 }: MissedMeetingsTableProps) {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
@@ -138,7 +138,7 @@ export default function MissedMeetingsTable({
 
           if (!attendedMemberIdsInThisMeeting.has(member.id)) {
             let guideName = "N/A";
-            if (member.assignedGDIId && Array.isArray(allGdis)) { // Guard clause for allGdis
+            if (member.assignedGDIId && Array.isArray(allGdis) && allGdis.length > 0) {
               const gdi = allGdis.find(g => g.id === member.assignedGDIId);
               if (gdi) {
                 const guide = allMembers.find(m => m.id === gdi.guideId);
@@ -164,12 +164,18 @@ export default function MissedMeetingsTable({
       const nameA = `${a.member.firstName} ${a.member.lastName}`;
       const nameB = `${b.member.firstName} ${b.member.lastName}`;
       if (nameA !== nameB) return nameA.localeCompare(nameB);
-      const dateA = parseISO(a.missedMeetingDate); // Assuming missedMeetingDate is in a parsable format
-      const dateB = parseISO(b.missedMeetingDate);
-      if (isValid(dateA) && isValid(dateB)) {
-         return dateB.getTime() - dateA.getTime();
+      // Ensure date strings are valid before attempting to parse for sorting
+      const dateAIsValid = isValid(parseISO(a.missedMeetingDate));
+      const dateBIsValid = isValid(parseISO(b.missedMeetingDate));
+
+      if (dateAIsValid && dateBIsValid) {
+        return parseISO(b.missedMeetingDate).getTime() - parseISO(a.missedMeetingDate).getTime();
+      } else if (dateAIsValid) {
+        return -1; // Valid dates first
+      } else if (dateBIsValid) {
+        return 1;  // Valid dates first
       }
-      return 0;
+      return 0; // Both invalid or equal
     });
   }, [generalMeetingsSorted, allMembers, allAttendanceRecords, allMeetingSeries, allGdis, startDate, endDate, selectedStatuses, selectedRoles]);
 
@@ -318,4 +324,3 @@ export default function MissedMeetingsTable({
     </div>
   );
 }
-

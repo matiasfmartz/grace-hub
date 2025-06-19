@@ -132,5 +132,20 @@
     "monthlyRuleType": "DayOfWeekOfMonth",
     "monthlyWeekOrdinal": "Last",
     "monthlyDayOfWeek": "Friday"
+  },
+  {
+    "id": "series-1750353949734-5uj2p",
+    "name": "jovenes",
+    "description": "",
+    "defaultTime": "10:00",
+    "defaultLocation": "Santuario Principal",
+    "seriesType": "ministryArea",
+    "ownerGroupId": "ma1",
+    "targetAttendeeGroups": [
+      "allMembers"
+    ],
+    "frequency": "OneTime",
+    "oneTimeDate": "2025-06-22",
+    "cancelledDates": []
   }
 ]
