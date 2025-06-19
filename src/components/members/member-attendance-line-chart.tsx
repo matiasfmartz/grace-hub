@@ -89,7 +89,7 @@ export default function MemberAttendanceLineChart({
       if (series.seriesType === 'general') {
         if (series.targetAttendeeGroups.includes('allMembers')) return true;
         return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
-      } else { // For 'gdi' or 'ministryArea' series
+      } else { // Para series de tipo 'gdi' o 'ministryArea'
         return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
       }
     });
@@ -148,7 +148,7 @@ export default function MemberAttendanceLineChart({
       .sort((a, b) => a.monthValue.localeCompare(b.monthValue));
 
     const maxMonthlyConvocations = dataPoints.length > 0 ? Math.max(0, ...dataPoints.map(p => p.convocatedCount)) : 0;
-    const calculatedYAxisDomainMax = maxMonthlyConvocations > 0 ? maxMonthlyConvocations : 5;
+    const calculatedYAxisDomainMax = maxMonthlyConvocations > 0 ? maxMonthlyConvocations : 5; // Ensure a minimum domain if no convocations
 
     return { chartData: dataPoints, yAxisDomainMax: calculatedYAxisDomainMax, relevantSeriesName: currentSeriesName };
 
@@ -186,7 +186,7 @@ export default function MemberAttendanceLineChart({
                 tick={{ fontSize: 9 }}
               />
               <YAxis
-                dataKey="attendedCount"
+                dataKey="convocatedCount" // Changed from attendedCount to convocatedCount
                 domain={[0, yAxisDomainMax]}
                 tickLine={false}
                 axisLine={false}
@@ -217,7 +217,7 @@ export default function MemberAttendanceLineChart({
                 }}
               />
               <Line
-                dataKey="attendedCount"
+                dataKey="attendedCount" // This remains as we are plotting attended count
                 type="linear"
                 stroke="var(--color-attendedCount)"
                 strokeWidth={2}

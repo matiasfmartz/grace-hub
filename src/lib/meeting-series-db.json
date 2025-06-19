@@ -80,5 +80,21 @@
     "weeklyDays": [
       "Saturday"
     ]
+  },
+  {
+    "id": "series-1750296052402-nf8qp",
+    "name": "casa de paz",
+    "description": "",
+    "defaultTime": "20:00",
+    "defaultLocation": "Santuario Principal",
+    "seriesType": "gdi",
+    "ownerGroupId": "gdi2",
+    "targetAttendeeGroups": [
+      "allMembers"
+    ],
+    "frequency": "Monthly",
+    "monthlyRuleType": "DayOfWeekOfMonth",
+    "monthlyWeekOrdinal": "Last",
+    "monthlyDayOfWeek": "Friday"
   }
 ]

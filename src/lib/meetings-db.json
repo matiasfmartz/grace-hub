@@ -320,5 +320,37 @@
       "1749877175613-ls6oqv6"
     ],
     "minute": null
+  },
+  {
+    "id": "instance-1750296052434-r3f4l6s-18",
+    "seriesId": "series-1750296052402-nf8qp",
+    "name": "casa de paz (27 jun)",
+    "date": "2025-06-27",
+    "time": "20:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "attendeeUids": [
+      "1",
+      "2",
+      "3",
+      "1750199260231-8n65jh5"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750296052438-jjpaenr-19",
+    "seriesId": "series-1750296052402-nf8qp",
+    "name": "casa de paz (25 jul)",
+    "date": "2025-07-25",
+    "time": "20:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "attendeeUids": [
+      "1",
+      "2",
+      "3",
+      "1750199260231-8n65jh5"
+    ],
+    "minute": null
   }
 ]
