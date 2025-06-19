@@ -1,52 +1,103 @@
 
 "use client";
 
-import type { Meeting, Member, AttendanceRecord, MeetingSeries } from '@/lib/types';
+import type { Meeting, Member, AttendanceRecord, MeetingSeries, GDI, MemberRoleType } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import Link from 'next/link';
-import { format, parseISO, isValid } from 'date-fns';
+import { format, parseISO, isValid, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useMemo, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { getResolvedAttendees } from '@/services/attendanceService'; // Careful with client-side usage
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Filter, Users, UserCog, CalendarDays, X } from 'lucide-react';
+import { NO_ROLE_FILTER_VALUE, MemberRoleEnum } from '@/lib/types';
 
 interface MissedMeetingsTableProps {
-  generalMeetingsSorted: Meeting[]; // Already sorted, most recent first
+  generalMeetingsSorted: Meeting[];
   allMembers: Member[];
   allAttendanceRecords: AttendanceRecord[];
   allMeetingSeries: MeetingSeries[];
+  allGdis: GDI[];
 }
 
 interface AbsentMemberInfo {
   member: Member;
   missedMeetingName: string;
   missedMeetingDate: string;
+  guideName?: string;
 }
+
+const roleDisplayMap: Record<MemberRoleType, string> = {
+  Leader: "Líder",
+  Worker: "Obrero",
+  GeneralAttendee: "Asistente General",
+};
+
+const statusDisplayMap: Record<Member['status'], string> = {
+  Active: "Activo",
+  Inactive: "Inactivo",
+  New: "Nuevo"
+};
+
+const availableRoleFilters: { value: MemberRoleType | typeof NO_ROLE_FILTER_VALUE; label: string }[] = [
+  ...(Object.keys(MemberRoleEnum.Values) as MemberRoleType[]).map(role => ({
+    value: role,
+    label: roleDisplayMap[role] || role,
+  })),
+  { value: NO_ROLE_FILTER_VALUE, label: "Sin Rol Asignado" }
+];
+
+const availableStatusFilters: { value: Member['status']; label: string }[] = [
+  { value: 'Active', label: 'Activo' },
+  { value: 'Inactive', label: 'Inactivo' },
+  { value: 'New', label: 'Nuevo' },
+];
+
 
 export default function MissedMeetingsTable({
   generalMeetingsSorted,
   allMembers,
   allAttendanceRecords,
   allMeetingSeries,
+  allGdis,
 }: MissedMeetingsTableProps) {
-  const [numberOfMeetingsToShow, setNumberOfMeetingsToShow] = useState(1); // Show 1 by default
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
 
   const absentMembersData = useMemo(() => {
-    const data: AbsentMemberInfo[] = [];
-    if (generalMeetingsSorted.length === 0) return data;
+    let meetingsToConsider = generalMeetingsSorted;
 
-    const meetingsToConsider = generalMeetingsSorted.slice(0, numberOfMeetingsToShow);
+    if (startDate && endDate && startDate <= endDate) {
+      meetingsToConsider = generalMeetingsSorted.filter(meeting => {
+        const meetingDateObj = parseISO(meeting.date);
+        return isValid(meetingDateObj) && isWithinInterval(meetingDateObj, { start: startOfDay(startDate), end: endOfDay(endDate) });
+      });
+    } else if (startDate) {
+        meetingsToConsider = generalMeetingsSorted.filter(meeting => {
+            const meetingDateObj = parseISO(meeting.date);
+            return isValid(meetingDateObj) && meetingDateObj >= startOfDay(startDate);
+        });
+    } else if (endDate) {
+         meetingsToConsider = generalMeetingsSorted.filter(meeting => {
+            const meetingDateObj = parseISO(meeting.date);
+            return isValid(meetingDateObj) && meetingDateObj <= endOfDay(endDate);
+        });
+    }
+
+
+    const data: AbsentMemberInfo[] = [];
+    if (meetingsToConsider.length === 0) return data;
 
     meetingsToConsider.forEach(meeting => {
-      // Simulate getResolvedAttendees client-side for this specific context
-      // This should ideally be done server-side or with caution on client
       let expectedAttendeeIds: string[] = meeting.attendeeUids || [];
       const parentSeries = allMeetingSeries.find(s => s.id === meeting.seriesId);
       if (parentSeries?.seriesType === 'general' && parentSeries.targetAttendeeGroups.includes('allMembers')) {
-          expectedAttendeeIds = allMembers.map(m => m.id);
+        expectedAttendeeIds = allMembers.map(m => m.id);
       }
 
       const attendedMemberIdsInThisMeeting = new Set(
@@ -56,54 +107,163 @@ export default function MissedMeetingsTable({
       );
 
       expectedAttendeeIds.forEach(memberId => {
-        if (!attendedMemberIdsInThisMeeting.has(memberId)) {
-          const member = allMembers.find(m => m.id === memberId);
-          if (member) {
-            // Avoid adding duplicate entries if member missed multiple displayed meetings
+        const member = allMembers.find(m => m.id === memberId);
+        if (member) {
+          // Apply status filter
+          if (selectedStatuses.length > 0 && !selectedStatuses.includes(member.status)) {
+            return;
+          }
+          // Apply role filter
+          const memberRoles = member.roles || [];
+          const hasNoRoleFilter = selectedRoles.includes(NO_ROLE_FILTER_VALUE);
+          const actualRoleFilters = selectedRoles.filter(r => r !== NO_ROLE_FILTER_VALUE);
+
+          let roleMatch = true;
+          if (selectedRoles.length > 0) {
+              const memberHasActualRole = actualRoleFilters.length > 0 && memberRoles.some(role => actualRoleFilters.includes(role));
+              const memberHasNoAssignedRole = memberRoles.length === 0;
+
+              if (hasNoRoleFilter && actualRoleFilters.length > 0) {
+                  roleMatch = memberHasActualRole || memberHasNoAssignedRole;
+              } else if (hasNoRoleFilter) {
+                  roleMatch = memberHasNoAssignedRole;
+              } else if (actualRoleFilters.length > 0) {
+                  roleMatch = memberHasActualRole;
+              } else {
+                  roleMatch = true; // No role filter selected effectively
+              }
+          }
+          if (!roleMatch) return;
+
+
+          if (!attendedMemberIdsInThisMeeting.has(member.id)) {
+            let guideName = "N/A";
+            if (member.assignedGDIId && Array.isArray(allGdis)) { // Guard clause for allGdis
+              const gdi = allGdis.find(g => g.id === member.assignedGDIId);
+              if (gdi) {
+                const guide = allMembers.find(m => m.id === gdi.guideId);
+                guideName = guide ? `${guide.firstName} ${guide.lastName}` : "Guía no encontrado";
+              } else {
+                guideName = "GDI no encontrado";
+              }
+            }
+
             if (!data.some(entry => entry.member.id === member.id && entry.missedMeetingName === meeting.name)) {
-                 data.push({
-                    member,
-                    missedMeetingName: meeting.name,
-                    missedMeetingDate: format(parseISO(meeting.date), 'dd MMM yyyy', { locale: es }),
-                });
+              data.push({
+                member,
+                missedMeetingName: meeting.name,
+                missedMeetingDate: format(parseISO(meeting.date), 'dd MMM yyyy', { locale: es }),
+                guideName,
+              });
             }
           }
         }
       });
     });
-    // Sort by member name then by date
     return data.sort((a, b) => {
       const nameA = `${a.member.firstName} ${a.member.lastName}`;
       const nameB = `${b.member.firstName} ${b.member.lastName}`;
       if (nameA !== nameB) return nameA.localeCompare(nameB);
-      return parseISO(b.missedMeetingDate).getTime() - parseISO(a.missedMeetingDate).getTime();
+      const dateA = parseISO(a.missedMeetingDate); // Assuming missedMeetingDate is in a parsable format
+      const dateB = parseISO(b.missedMeetingDate);
+      if (isValid(dateA) && isValid(dateB)) {
+         return dateB.getTime() - dateA.getTime();
+      }
+      return 0;
     });
-  }, [generalMeetingsSorted, allMembers, allAttendanceRecords, allMeetingSeries, numberOfMeetingsToShow]);
+  }, [generalMeetingsSorted, allMembers, allAttendanceRecords, allMeetingSeries, allGdis, startDate, endDate, selectedStatuses, selectedRoles]);
 
-  const meetingOptions = [
-    { value: 1, label: "Última Reunión General" },
-    { value: 2, label: "Últimas 2 Reuniones Generales" },
-    // { value: 5, label: "Últimas 5 Reuniones Generales" }, // Can be extended
-  ];
+  const toggleFilterItem = (
+    itemValue: string,
+    currentSelectedArray: string[],
+    setter: React.Dispatch<React.SetStateAction<string[]>>
+  ) => {
+    const newArray = currentSelectedArray.includes(itemValue)
+      ? currentSelectedArray.filter(i => i !== itemValue)
+      : [...currentSelectedArray, itemValue];
+    setter(newArray);
+  };
 
+  const hasActiveFilters = startDate || endDate || selectedStatuses.length > 0 || selectedRoles.length > 0;
+
+  const clearAllFilters = () => {
+    setStartDate(undefined);
+    setEndDate(undefined);
+    setSelectedStatuses([]);
+    setSelectedRoles([]);
+  };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center space-x-2">
-        <span className="text-sm text-muted-foreground">Mostrar ausentes de:</span>
-        {meetingOptions.map(opt => (
-          <Button
-            key={opt.value}
-            variant={numberOfMeetingsToShow === opt.value ? "default" : "outline"}
-            size="sm"
-            onClick={() => setNumberOfMeetingsToShow(opt.value)}
-          >
-            {opt.label}
-          </Button>
-        ))}
+      <div className="p-4 border rounded-lg bg-card shadow-sm">
+        <h3 className="text-md font-semibold text-primary flex items-center mb-3">
+          <Filter className="mr-2 h-4 w-4" /> Filtrar Ausencias en Reuniones Generales
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label htmlFor="startDateFilterAbsent" className="text-xs font-medium text-muted-foreground">Fecha Inicio (Reunión)</label>
+            <DatePicker date={startDate} setDate={setStartDate} placeholder="Desde" />
+          </div>
+          <div>
+            <label htmlFor="endDateFilterAbsent" className="text-xs font-medium text-muted-foreground">Fecha Fin (Reunión)</label>
+            <DatePicker date={endDate} setDate={setEndDate} placeholder="Hasta" />
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full justify-start">
+                <Users className="mr-2 h-4 w-4" />
+                {selectedStatuses.length > 0 ? `Estado (${selectedStatuses.length})` : "Estado del Miembro"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuLabel>Filtrar por Estado</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {availableStatusFilters.map(opt => (
+                <DropdownMenuCheckboxItem
+                  key={opt.value}
+                  checked={selectedStatuses.includes(opt.value)}
+                  onCheckedChange={() => toggleFilterItem(opt.value, selectedStatuses, setSelectedStatuses)}
+                >
+                  {opt.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full justify-start">
+                <UserCog className="mr-2 h-4 w-4" />
+                {selectedRoles.length > 0 ? `Rol (${selectedRoles.length})` : "Rol del Miembro"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuLabel>Filtrar por Rol</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {availableRoleFilters.map(opt => (
+                <DropdownMenuCheckboxItem
+                  key={opt.value}
+                  checked={selectedRoles.includes(opt.value)}
+                  onCheckedChange={() => toggleFilterItem(opt.value, selectedRoles, setSelectedRoles)}
+                >
+                  {opt.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        {hasActiveFilters && (
+            <Button onClick={clearAllFilters} variant="link" size="sm" className="mt-2 px-0 text-xs text-destructive hover:text-destructive/80">
+                <X className="mr-1 h-3 w-3" /> Limpiar todos los filtros de ausencias
+            </Button>
+        )}
       </div>
-      {generalMeetingsSorted.length === 0 && <p className="text-muted-foreground">No hay reuniones generales registradas.</p>}
-      {generalMeetingsSorted.length > 0 && absentMembersData.length === 0 && <p className="text-muted-foreground">¡Excelente! Todos los miembros esperados asistieron a las reuniones generales seleccionadas.</p>}
+
+      {generalMeetingsSorted.length === 0 && <p className="text-muted-foreground text-center py-4">No hay reuniones generales registradas.</p>}
+      {generalMeetingsSorted.length > 0 && absentMembersData.length === 0 && (
+        <p className="text-muted-foreground text-center py-4">
+          {hasActiveFilters ? "No hay miembros ausentes que coincidan con los filtros." : "¡Excelente! Todos los miembros esperados asistieron."}
+        </p>
+      )}
       
       {absentMembersData.length > 0 && (
         <ScrollArea className="h-[300px] border rounded-md">
@@ -113,11 +273,13 @@ export default function MissedMeetingsTable({
                 <TableHead>Miembro</TableHead>
                 <TableHead>Reunión Ausente</TableHead>
                 <TableHead>Fecha Reunión</TableHead>
-                <TableHead>Estado</TableHead>
+                <TableHead>Guía GDI</TableHead>
+                <TableHead>Roles</TableHead>
+                <TableHead>Estado Miembro</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {absentMembersData.map(({ member, missedMeetingName, missedMeetingDate }, index) => (
+              {absentMembersData.map(({ member, missedMeetingName, missedMeetingDate, guideName }, index) => (
                 <TableRow key={`${member.id}-${missedMeetingName}-${index}`}>
                   <TableCell>
                     <div className="flex items-center space-x-2">
@@ -130,9 +292,17 @@ export default function MissedMeetingsTable({
                   </TableCell>
                   <TableCell>{missedMeetingName}</TableCell>
                   <TableCell>{missedMeetingDate}</TableCell>
+                  <TableCell>{guideName || "N/A"}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {member.roles && member.roles.length > 0 ? member.roles.map(role => (
+                        <Badge key={role} variant="outline" className="text-xs">{roleDisplayMap[role] || role}</Badge>
+                      )) : <Badge variant="secondary" className="text-xs">Ninguno</Badge>}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Badge variant={member.status === 'Active' ? 'default' : member.status === 'Inactive' ? 'destructive' : 'secondary'}>
-                      {member.status}
+                      {statusDisplayMap[member.status] || member.status}
                     </Badge>
                   </TableCell>
                 </TableRow>
@@ -141,6 +311,11 @@ export default function MissedMeetingsTable({
           </Table>
         </ScrollArea>
       )}
+       <p className="text-xs text-muted-foreground mt-2">
+         Mostrando {absentMembersData.length} miembro(s) ausente(s) según los filtros aplicados.
+         {(!startDate && !endDate && generalMeetingsSorted.length > 0) && ` Se consideran todas las ${generalMeetingsSorted.length} reuniones generales registradas.`}
+      </p>
     </div>
   );
 }
+
