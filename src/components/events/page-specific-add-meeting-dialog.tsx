@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState } from 'react';
@@ -17,16 +18,35 @@ import type { DefineMeetingSeriesFormValues, MeetingSeries, Meeting, MeetingSeri
 
 interface PageSpecificAddMeetingDialogProps {
   defineMeetingSeriesAction: (data: DefineMeetingSeriesFormValues) => Promise<{ success: boolean; message: string; newSeries?: MeetingSeries, newInstances?: Meeting[] }>;
-  seriesTypeContext: MeetingSeriesType; // To specify if it's 'general', 'gdi', or 'ministryArea'
-  ownerGroupIdContext?: string | null; // Only if seriesType is 'gdi' or 'ministryArea'
+  seriesTypeContext: MeetingSeriesType; 
+  ownerGroupIdContext?: string | null; 
+  onSeriesDefined?: (newSeriesId?: string) => void; // Callback to notify parent about new series
 }
 
-export default function PageSpecificAddMeetingDialog({ defineMeetingSeriesAction, seriesTypeContext, ownerGroupIdContext }: PageSpecificAddMeetingDialogProps) {
+export default function PageSpecificAddMeetingDialog({ 
+  defineMeetingSeriesAction, 
+  seriesTypeContext, 
+  ownerGroupIdContext,
+  onSeriesDefined 
+}: PageSpecificAddMeetingDialogProps) {
   const [open, setOpen] = useState(false);
 
-  const handleSuccess = () => {
+  const handleSuccess = (result: { success: boolean; message: string; newSeries?: MeetingSeries, newInstances?: Meeting[] }) => {
     setOpen(false);
+    if (result.success && result.newSeries?.id && onSeriesDefined) {
+        onSeriesDefined(result.newSeries.id);
+    } else if (result.success && onSeriesDefined) {
+        onSeriesDefined(); // Call even if no specific ID, to trigger general refresh if needed
+    }
   };
+
+  const handleSubmitAction = async (data: DefineMeetingSeriesFormValues) => {
+    const result = await defineMeetingSeriesAction(data);
+    if (result.success) {
+        handleSuccess(result);
+    }
+    return result; // Return result for form's internal handling (e.g. toast)
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -37,16 +57,16 @@ export default function PageSpecificAddMeetingDialog({ defineMeetingSeriesAction
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg flex flex-col max-h-[calc(100vh-8rem)] p-0">
         <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
-          <DialogTitle>Definir Nueva Serie de Reunión</DialogTitle>
+          <DialogTitle>Definir Nueva Serie de Reunión {seriesTypeContext !== 'general' ? `para ${seriesTypeContext === 'gdi' ? 'GDI' : 'Área'}` : ''}</DialogTitle>
           <DialogDescription>
-            Complete los detalles para la nueva serie (o tipo) de reunión. 
+            Complete los detalles para la nueva serie. 
             Si la frecuencia es "Única Vez", también se creará la instancia de reunión.
           </DialogDescription>
         </DialogHeader>
         <div className="flex-grow overflow-y-auto p-6">
             <DefineMeetingSeriesForm 
-              defineMeetingSeriesAction={defineMeetingSeriesAction} 
-              onSuccess={handleSuccess}
+              defineMeetingSeriesAction={handleSubmitAction} 
+              onSuccess={() => { /* Error/Success toast is handled by form, dialog close by handleSuccess */ }}
               seriesTypeContext={seriesTypeContext}
               ownerGroupIdContext={ownerGroupIdContext}
             />
@@ -55,3 +75,4 @@ export default function PageSpecificAddMeetingDialog({ defineMeetingSeriesAction
     </Dialog>
   );
 }
+
