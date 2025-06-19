@@ -132,7 +132,7 @@ export const NONE_GDI_OPTION_VALUE = "__NONE__";
 export const AddMemberFormSchema = z.object({
   firstName: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
   lastName: z.string().min(2, { message: "El apellido debe tener al menos 2 caracteres." }),
-  email: z.string().email({ message: "Dirección de email inválida." }),
+  email: z.string().email({ message: "Dirección de email inválida." }).optional().or(z.literal('')),
   phone: z.string().min(7, { message: "El número de teléfono parece demasiado corto." }),
   birthDate: z.date().optional(),
   churchJoinDate: z.date().optional(),
@@ -284,3 +284,4 @@ export interface MinistryAreaMeeting extends MeetingBase {
 export type AnyMeeting = GeneralMeeting | GdiMeeting | MinistryAreaMeeting;
 export type AnyMeetingWriteData = Omit<AnyMeeting, 'id' | 'attendeeUids'> & { attendeeUids?: string[] };
 export type AnyMeetingInstanceUpdateData = Partial<Omit<AnyMeeting, 'id' | 'seriesId' | 'attendeeUids' | 'seriesType' | 'ownerGroupId'>>;
+

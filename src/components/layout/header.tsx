@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 const navItems = [
-  { href: '/', label: 'Home', icon: Home },
-  { href: '/members', label: 'Members', icon: Users },
-  { href: '/groups', label: 'Groups', icon: UsersRound },
-  { href: '/events', label: 'Events', icon: CalendarDays },
-  { href: '/resources', label: 'Resources', icon: BookOpen },
+  { href: '/', label: 'Dashboard', icon: Home },
+  { href: '/members', label: 'Miembros', icon: Users },
+  { href: '/groups', label: 'Grupos', icon: UsersRound },
+  { href: '/events', label: 'Eventos', icon: CalendarDays },
+  { href: '/resources', label: 'Recursos', icon: BookOpen },
 ];
 
 export default function Header() {
