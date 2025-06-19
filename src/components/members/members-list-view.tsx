@@ -210,6 +210,7 @@ export default function MembersListView({
   const handleAddSingleMemberSubmit = async (data: AddMemberFormValues) => {
     const newMemberWriteData: MemberWriteData = {
       ...data,
+      email: data.email ?? "", 
       birthDate: data.birthDate ? data.birthDate.toISOString().split('T')[0] : undefined,
       churchJoinDate: data.churchJoinDate ? data.churchJoinDate.toISOString().split('T')[0] : undefined,
       roles: [],
@@ -345,7 +346,7 @@ export default function MembersListView({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64 max-h-72 overflow-y-auto">
-              <DropdownMenuLabel>Filtrar por Guía de GDI</DropdownMenuLabel>
+              <DropdownMenuLabel>Filtrar por Guía</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {gdiGuides.map(guide => (
                 <DropdownMenuCheckboxItem
@@ -384,14 +385,14 @@ export default function MembersListView({
                 </div>
               </TableHead>
               <TableHead>Teléfono</TableHead>
-              <TableHead>Guía GDI</TableHead>
+              <TableHead>Guía</TableHead>
               <TableHead>Roles</TableHead>
               <TableHead onClick={() => handleSort('status')} className="cursor-pointer">
                 <div className="flex items-center gap-1 hover:text-primary">
                   Estado <SortIcon columnKey="status" />
                 </div>
               </TableHead>
-              <TableHead className="text-center">Acciones</TableHead>
+              <TableHead className="text-center">Info</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -536,3 +537,4 @@ export default function MembersListView({
     </>
   );
 }
+

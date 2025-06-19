@@ -236,7 +236,7 @@ export default function MemberDetailsDialog({
                         <ListChecks className="h-4 w-4" /> Detalles
                     </TabsTrigger>
                     <TabsTrigger value="attendance" className="flex items-center gap-2">
-                        <BarChart3 className="h-4 w-4" /> Historial de Asistencia
+                        <BarChart3 className="h-4 w-4" /> Asistencias
                     </TabsTrigger>
                 </TabsList>
                 <TabsContent value="details" className="p-6">

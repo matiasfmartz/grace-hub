@@ -3,7 +3,7 @@
     "id": "1",
     "firstName": "Alice",
     "lastName": "Johnson",
-    "email": "alice@example.com",
+    "email": "",
     "phone": "555-0101",
     "status": "Inactive",
     "avatarUrl": "https://placehold.co/100x100",
@@ -326,6 +326,38 @@
     "assignedGDIId": null,
     "assignedAreaIds": [],
     "id": "1750297701595-0it329v",
+    "roles": []
+  },
+  {
+    "firstName": "Andres",
+    "lastName": "Perez",
+    "email": "",
+    "phone": "12312321",
+    "baptismDate": "",
+    "attendsLifeSchool": false,
+    "attendsBibleInstitute": false,
+    "fromAnotherChurch": false,
+    "status": "New",
+    "avatarUrl": "https://placehold.co/100x100",
+    "assignedGDIId": null,
+    "assignedAreaIds": [],
+    "roles": [],
+    "id": "1750307417006-k88e4j3"
+  },
+  {
+    "firstName": "juan",
+    "lastName": "martinez",
+    "email": "",
+    "phone": "123123213",
+    "baptismDate": "",
+    "attendsLifeSchool": false,
+    "attendsBibleInstitute": false,
+    "fromAnotherChurch": false,
+    "status": "New",
+    "avatarUrl": "https://placehold.co/100x100",
+    "assignedGDIId": null,
+    "assignedAreaIds": [],
+    "id": "1750307450818-4k0iov9",
     "roles": []
   }
 ]
