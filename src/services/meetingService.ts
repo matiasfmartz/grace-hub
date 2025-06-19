@@ -156,8 +156,6 @@ async function resolveAttendeeUidsForGeneralSeries(
     const attendeeSet = new Set<string>();
 
     if (targetGroups.includes("allMembers")) {
-        // For "allMembers", UIDs are resolved dynamically by getResolvedAttendees at display/attendance time.
-        // So, we return an empty array here, and getResolvedAttendees will fetch all members.
         return []; 
     }
 
@@ -202,10 +200,11 @@ async function resolveAttendeeUidsForGroupSeries(
         return allMembers
             .filter(m => m.id === gdi.guideId || (gdi.memberIds && gdi.memberIds.includes(m.id)))
             .map(m => m.id);
+
     } else if (groupType === 'ministryArea') {
         const area = allMinistryAreas.find(a => a.id === groupId);
         if (!area) return [];
-        return allMembers
+         return allMembers
             .filter(m => m.id === area.leaderId || (area.memberIds && area.memberIds.includes(m.id)))
             .map(m => m.id);
     }
@@ -273,12 +272,18 @@ export async function ensureFutureInstances(seriesId: string): Promise<Meeting[]
         }
 
         for (const date of newOccurrenceDates) {
+            // Check if this date was previously cancelled
+            const formattedDateToCheck = format(date, 'yyyy-MM-dd');
+            if (series.cancelledDates && series.cancelledDates.includes(formattedDateToCheck)) {
+                continue; // Skip generating this instance
+            }
+
             const alreadyExists = existingInstancesForSeries.some(m => isSameDay(parseISO(m.date), date));
             if (!alreadyExists) {
                 const instance = await addMeetingInstanceInternal({
                     seriesId: series.id,
                     name: `${series.name} (${format(date, 'd MMM', { locale: es })})`,
-                    date: format(date, 'yyyy-MM-dd'),
+                    date: formattedDateToCheck,
                     time: series.defaultTime,
                     location: series.defaultLocation,
                     description: series.description,
@@ -310,6 +315,7 @@ export async function addMeetingSeries(
     targetAttendeeGroups: seriesData.targetAttendeeGroups,
     frequency: seriesData.frequency,
     oneTimeDate: seriesData.frequency === "OneTime" ? seriesData.oneTimeDate : undefined,
+    cancelledDates: [], // Initialize cancelledDates
     weeklyDays: seriesData.frequency === "Weekly" ? seriesData.weeklyDays : undefined,
     monthlyRuleType: seriesData.frequency === "Monthly" ? seriesData.monthlyRuleType : undefined,
     monthlyDayOfMonth: seriesData.frequency === "Monthly" && seriesData.monthlyRuleType === "DayOfMonth" ? seriesData.monthlyDayOfMonth : undefined,
@@ -336,6 +342,7 @@ export async function updateMeetingSeries(
   const updatedSeries: MeetingSeries = {
     ...existingSeries,
     ...updates,
+    cancelledDates: updates.cancelledDates ?? existingSeries.cancelledDates ?? [], // Preserve or initialize cancelledDates
     oneTimeDate: updates.frequency === "OneTime" ? (updates.oneTimeDate ?? existingSeries.oneTimeDate) : undefined,
     weeklyDays: updates.frequency === "Weekly" ? (updates.weeklyDays ?? existingSeries.weeklyDays) : undefined,
     monthlyRuleType: updates.frequency === "Monthly" ? (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) : undefined,
@@ -425,7 +432,7 @@ export async function getMeetingsBySeriesId(seriesId: string): Promise<Meeting[]
 }
 
 export async function getMeetingById(id: string): Promise<Meeting | undefined> {
-  const meetings = await getAllMeetings(); // This might implicitly call ensureFutureInstances if getAllMeetings is refactored, or needs its own logic
+  const meetings = await getAllMeetings(); 
   return meetings.find(meeting => meeting.id === id);
 }
 
@@ -520,16 +527,35 @@ export async function updateMeetingMinute(meetingId: string, minute: string | nu
 }
 
 export async function deleteMeetingInstance(instanceId: string): Promise<void> {
+  const instanceToDelete = await getMeetingById(instanceId); // Get instance details before deleting
+  if (!instanceToDelete) {
+    console.warn(`Attempted to delete non-existent meeting instance: ${instanceId}`);
+    return; // Or throw error if preferred
+  }
+
+  let allSeries = await getAllMeetingSeries();
+  const seriesIndex = allSeries.findIndex(s => s.id === instanceToDelete.seriesId);
+
+  if (seriesIndex !== -1) {
+    const series = allSeries[seriesIndex];
+    if (series.frequency !== "OneTime") { // Only track cancellations for recurring series
+      if (!series.cancelledDates) {
+        series.cancelledDates = [];
+      }
+      const formattedDate = format(parseISO(instanceToDelete.date), 'yyyy-MM-dd');
+      if (!series.cancelledDates.includes(formattedDate)) {
+        series.cancelledDates.push(formattedDate);
+        allSeries[seriesIndex] = series;
+        await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, allSeries);
+      }
+    }
+  }
+
   let allMeetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []);
   const meetingsLeft = allMeetings.filter(m => m.id !== instanceId);
-
-  if (allMeetings.length === meetingsLeft.length) {
-    // No meeting was found/deleted, could log this.
-  }
   await writeDbFile<Meeting>(MEETINGS_DB_FILE, meetingsLeft);
 
   let allAttendanceRecords = await readDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, []);
   const attendanceRecordsLeft = allAttendanceRecords.filter(ar => ar.meetingId !== instanceId);
   await writeDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, attendanceRecordsLeft);
 }
-

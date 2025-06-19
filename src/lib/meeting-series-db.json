@@ -96,5 +96,21 @@
     "monthlyRuleType": "DayOfWeekOfMonth",
     "monthlyWeekOrdinal": "Last",
     "monthlyDayOfWeek": "Friday"
+  },
+  {
+    "id": "series-1750297830436-j946y",
+    "name": "reunion de gdi",
+    "description": "",
+    "defaultTime": "19:00",
+    "defaultLocation": "centro de actividades",
+    "seriesType": "gdi",
+    "ownerGroupId": "gdi1",
+    "targetAttendeeGroups": [
+      "allMembers"
+    ],
+    "frequency": "Weekly",
+    "weeklyDays": [
+      "Wednesday"
+    ]
   }
 ]

@@ -77,6 +77,7 @@ export interface MeetingSeries {
   targetAttendeeGroups: MeetingTargetRoleType[]; // For 'general' series. For group series, it's implicitly members of ownerGroupId.
   frequency: MeetingFrequencyType;
   oneTimeDate?: string; // YYYY-MM-DD, only if frequency is "OneTime"
+  cancelledDates?: string[]; // YYYY-MM-DD, dates of recurring instances explicitly cancelled
 
   // Weekly recurrence
   weeklyDays?: DayOfWeekType[];
@@ -176,6 +177,7 @@ export const DefineMeetingSeriesFormSchema = z.object({
   monthlyDayOfMonth: z.coerce.number().min(1).max(31).optional(),
   monthlyWeekOrdinal: WeekOrdinalEnum.optional(),
   monthlyDayOfWeek: DayOfWeekEnum.optional(),
+  cancelledDates: z.array(z.string()).optional(), // Added for completeness, not user-editable
 }).superRefine((data, ctx) => {
   if (data.frequency === "OneTime") {
     if (!data.oneTimeDate) {
@@ -211,8 +213,6 @@ export const DefineMeetingSeriesFormSchema = z.object({
       }
     }
   }
-  // For GDI/MinistryArea series, targetAttendeeGroups will be set programmatically to allMembers (of that group)
-  // For general series, it's user-selectable. This validation might need context or be handled at action level.
   if (data.seriesType === 'general' && (!data.targetAttendeeGroups || data.targetAttendeeGroups.length === 0)) {
      ctx.addIssue({
         code: z.ZodIssueCode.custom,

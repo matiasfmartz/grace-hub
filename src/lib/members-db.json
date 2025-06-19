@@ -295,5 +295,37 @@
     "assignedAreaIds": [],
     "id": "1750199260236-c2fxpbe",
     "roles": []
+  },
+  {
+    "firstName": "Diego ",
+    "lastName": "Gabriele",
+    "email": "diego@diego.com",
+    "phone": "123123123",
+    "baptismDate": "",
+    "attendsLifeSchool": false,
+    "attendsBibleInstitute": false,
+    "fromAnotherChurch": false,
+    "status": "New",
+    "avatarUrl": "https://placehold.co/100x100",
+    "assignedGDIId": null,
+    "assignedAreaIds": [],
+    "id": "1750297701587-oynht15",
+    "roles": []
+  },
+  {
+    "firstName": "Marcos ",
+    "lastName": "gabriele",
+    "email": "marocs@marcos.com",
+    "phone": "1231321312",
+    "baptismDate": "",
+    "attendsLifeSchool": false,
+    "attendsBibleInstitute": false,
+    "fromAnotherChurch": false,
+    "status": "New",
+    "avatarUrl": "https://placehold.co/100x100",
+    "assignedGDIId": null,
+    "assignedAreaIds": [],
+    "id": "1750297701595-0it329v",
+    "roles": []
   }
 ]
