@@ -6,14 +6,14 @@ import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogDescription, D
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, ShieldCheck, BarChart3, ListChecks, LineChart, Filter as FilterIcon } from 'lucide-react'; // Added FilterIcon
+import { Pencil, ShieldCheck, BarChart3, ListChecks, LineChart, Filter as FilterIcon } from 'lucide-react';
 import AddMemberForm from './add-member-form';
 import MemberAttendanceSummary from './member-attendance-chart';
 import MemberAttendanceLineChart from './member-attendance-line-chart';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // For shared filter
-import { DatePicker } from "@/components/ui/date-picker"; // For shared filter
-import { Label } from "@/components/ui/label"; // For shared filter
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Label } from "@/components/ui/label";
 import { useState, useTransition, useMemo, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 
@@ -56,12 +56,10 @@ export default function MemberDetailsDialog({
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("details");
 
-  // Shared filter state for attendance tab
   const [attendanceSelectedSeriesId, setAttendanceSelectedSeriesId] = useState<string>('all');
   const [attendanceStartDate, setAttendanceStartDate] = useState<Date | undefined>(undefined);
   const [attendanceEndDate, setAttendanceEndDate] = useState<Date | undefined>(undefined);
 
-  // Reset filters when dialog opens or member changes
   useEffect(() => {
     if (isOpen) {
       setAttendanceSelectedSeriesId('all');
@@ -112,14 +110,24 @@ export default function MemberDetailsDialog({
 
   const relevantSeriesForAttendanceDropdown = useMemo(() => {
     if (!member) return [];
-    const memberMeetings = allMeetings.filter(meeting => {
-      const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
-      if (!series) return false;
-      if (series.targetAttendeeGroups.includes('allMembers')) return true;
-      return meeting.attendeeUids && meeting.attendeeUids.includes(member.id);
+
+    const relevantSeriesIds = new Set<string>();
+
+    allMeetings.forEach(meeting => {
+      if (meeting.attendeeUids && meeting.attendeeUids.includes(member.id)) {
+        relevantSeriesIds.add(meeting.seriesId);
+      }
     });
-    const uniqueSeriesIds = Array.from(new Set(memberMeetings.map(m => m.seriesId)));
-    return allMeetingSeries.filter(series => uniqueSeriesIds.includes(series.id));
+
+    allMeetingSeries.forEach(series => {
+      if (series.seriesType === 'general' && series.targetAttendeeGroups.includes('allMembers')) {
+        relevantSeriesIds.add(series.id);
+      }
+    });
+
+    return allMeetingSeries
+      .filter(series => relevantSeriesIds.has(series.id))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [allMeetings, allMeetingSeries, member]);
 
 
@@ -281,7 +289,6 @@ export default function MemberDetailsDialog({
                     </div>
                 </TabsContent>
                 <TabsContent value="attendance" className="p-6 space-y-6">
-                    {/* Shared Filter Controls for Attendance Tab */}
                     <div className="bg-muted/50 p-4 rounded-lg shadow-sm">
                       <h3 className="text-md font-semibold mb-3 text-primary flex items-center">
                         <FilterIcon className="mr-2 h-4 w-4" /> Filtrar Historial de Asistencia
@@ -300,6 +307,11 @@ export default function MemberDetailsDialog({
                                   {series.name}
                                 </SelectItem>
                               ))}
+                               {relevantSeriesForAttendanceDropdown.length === 0 && (
+                                <SelectItem value="no-relevant-series" disabled>
+                                  No hay series relevantes
+                                </SelectItem>
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
