@@ -1,4 +1,3 @@
-
 [
   {
     "id": "series-1750198570439-y83k8",
@@ -30,6 +29,40 @@
     "frequency": "Weekly",
     "weeklyDays": [
       "Friday"
+    ]
+  },
+  {
+    "id": "series-1750293039984-6yt9f",
+    "name": "Status",
+    "description": "",
+    "defaultTime": "19:00",
+    "defaultLocation": "Santuario Principal",
+    "seriesType": "ministryArea",
+    "ownerGroupId": "1749880199537-cvuyxy3",
+    "targetAttendeeGroups": [
+      "allMembers"
+    ],
+    "frequency": "Weekly",
+    "weeklyDays": [
+      "Sunday",
+      "Tuesday",
+      "Friday"
+    ]
+  },
+  {
+    "id": "series-1750293142875-k0cvo",
+    "name": "gdi",
+    "description": "",
+    "defaultTime": "18:00",
+    "defaultLocation": "Santuario Principal",
+    "seriesType": "gdi",
+    "ownerGroupId": "gdi2",
+    "targetAttendeeGroups": [
+      "allMembers"
+    ],
+    "frequency": "Weekly",
+    "weeklyDays": [
+      "Thursday"
     ]
   }
 ]

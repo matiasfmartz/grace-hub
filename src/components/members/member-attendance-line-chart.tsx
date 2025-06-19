@@ -85,8 +85,13 @@ export default function MemberAttendanceLineChart({
     let memberExpectedMeetings = allMeetings.filter(meeting => {
       const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
       if (!series) return false;
-      if (series.targetAttendeeGroups.includes('allMembers')) return true;
-      return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
+
+      if (series.seriesType === 'general') {
+        if (series.targetAttendeeGroups.includes('allMembers')) return true;
+        return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
+      } else { // For 'gdi' or 'ministryArea' series
+        return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
+      }
     });
 
     let meetingsToProcess = memberExpectedMeetings;
@@ -237,3 +242,4 @@ export default function MemberAttendanceLineChart({
     </Card>
   );
 }
+
