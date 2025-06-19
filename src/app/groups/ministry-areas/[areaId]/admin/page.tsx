@@ -97,7 +97,7 @@ async function getData(
         ? sortedGroupSeries[0].id
         : undefined;
 
-  let meetingsForProcessing: Meeting[] = [];
+  let meetingsForChartAndTable: Meeting[] = [];
   if (ministryAreaDetails) {
     const result = await getGroupMeetingInstances(
       'ministryArea',
@@ -108,10 +108,8 @@ async function getData(
       1, 
       Infinity 
     );
-    meetingsForProcessing = result.instances;
+    meetingsForChartAndTable = result.instances;
   }
-
-  const meetingsForChartAndTable = meetingsForProcessing;
 
   const memberCurrentPage = Number(spMPage) || 1;
   let memberPageSize = Number(spMPSize) || 10;
@@ -204,7 +202,8 @@ export default function MinistryAreaAdminPage({}: MinistryAreaAdminPageProps) {
         params.delete('mPage'); 
         router.push(`/groups/ministry-areas/${areaId}/admin?${params.toString()}`);
     } else {
-        router.refresh();
+        const params = new URLSearchParams(currentHookSearchParams.toString());
+        router.push(`/groups/ministry-areas/${areaId}/admin?${params.toString()}`);
     }
   };
 
@@ -276,7 +275,8 @@ export default function MinistryAreaAdminPage({}: MinistryAreaAdminPageProps) {
                 updateMinistryAreaAction={updateMinistryAreaDetailsAction}
                 onSuccess={() => {
                     setIsEditAreaDetailsOpen(false);
-                    router.replace(window.location.href);
+                    const params = new URLSearchParams(currentHookSearchParams.toString());
+                    router.push(`/groups/ministry-areas/${areaId}/admin?${params.toString()}`);
                 }}
               />
             </div>
@@ -335,7 +335,7 @@ export default function MinistryAreaAdminPage({}: MinistryAreaAdminPageProps) {
                         {series.name}
                       </SelectItem>
                     ))}
-                     {groupMeetingSeries.length === 0 && <SelectItem value="" disabled>No hay series para esta área</SelectItem>}
+                     {groupMeetingSeries.length === 0 && <SelectItem value="no-area-series-placeholder" disabled>No hay series para esta área</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
@@ -423,3 +423,4 @@ export default function MinistryAreaAdminPage({}: MinistryAreaAdminPageProps) {
     </div>
   );
 }
+

@@ -98,7 +98,7 @@ async function getData(
         ? sortedGroupSeries[0].id 
         : undefined; 
 
-  let meetingsForProcessing: Meeting[] = [];
+  let meetingsForChartAndTable: Meeting[] = [];
   if (gdiDetails) {
     const result = await getGroupMeetingInstances(
       'gdi',
@@ -109,11 +109,9 @@ async function getData(
       1, 
       Infinity 
     );
-    meetingsForProcessing = result.instances;
+    meetingsForChartAndTable = result.instances;
   }
   
-  const meetingsForChartAndTable = meetingsForProcessing; 
-
   const memberCurrentPage = Number(spMPage) || 1;
   let memberPageSize = Number(spMPSize) || 10;
   if (isNaN(memberPageSize) || memberPageSize < 1) memberPageSize = 10;
@@ -204,7 +202,8 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
         params.delete('mPage'); 
         router.push(`/groups/gdis/${gdiId}/admin?${params.toString()}`);
     } else {
-        router.refresh();
+        const params = new URLSearchParams(currentHookSearchParams.toString());
+        router.push(`/groups/gdis/${gdiId}/admin?${params.toString()}`);
     }
   };
 
@@ -278,7 +277,8 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
                 updateGdiAction={updateGdiDetailsAction}
                 onSuccess={() => {
                     setIsEditGdiDetailsOpen(false);
-                    router.replace(window.location.href, undefined);
+                    const params = new URLSearchParams(currentHookSearchParams.toString());
+                    router.push(`/groups/gdis/${gdiId}/admin?${params.toString()}`);
                 }}
               />
             </div>
@@ -332,7 +332,7 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
                         {series.name}
                       </SelectItem>
                     ))}
-                    {groupMeetingSeries.length === 0 && <SelectItem value="" disabled>No hay series para este GDI</SelectItem>}
+                    {groupMeetingSeries.length === 0 && <SelectItem value="no-gdi-series-placeholder" disabled>No hay series para este GDI</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
@@ -420,3 +420,4 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
     </div>
   );
 }
+
