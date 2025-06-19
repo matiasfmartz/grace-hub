@@ -43,10 +43,12 @@ export default function ManageGroupsTabs({
 
   const activeMembers = useMemo(() => allMembers.filter(m => m.status === 'Active'), [allMembers]);
 
-  const handleAddMinistryAreaSubmit = useCallback(async (areaData: Partial<Omit<MinistryArea, 'id'>> & { name: string; leaderId: string; memberIds?: string[] }) => {
+  const handleAddMinistryAreaSubmit = useCallback(async (
+    areaData: Partial<Omit<MinistryArea, 'id'>> & { name: string; leaderId: string; memberIds?: string[] },
+    _unusedUpdatedData?: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description'>>
+  ) => {
     let actionResult: { success: boolean; message: string; newArea?: MinistryArea } = { success: false, message: "Error al iniciar la creación del área." };
     
-    // We use a Promise to bridge startTransition with the async action result
     await new Promise<void>(resolve => {
         startTransition(async () => {
         actionResult = await addMinistryAreaAction(areaData);
@@ -62,7 +64,10 @@ export default function ManageGroupsTabs({
     return actionResult;
   }, [addMinistryAreaAction, toast, setIsAddAreaDialogOpen]);
 
-  const handleAddGdiSubmit = useCallback(async (gdiData: Partial<Omit<GDI, 'id'>> & { name: string; guideId: string; memberIds?: string[] }) => {
+  const handleAddGdiSubmit = useCallback(async (
+    gdiData: Partial<Omit<GDI, 'id'>> & { name: string; guideId: string; memberIds?: string[] },
+    _unusedUpdatedData?: Partial<Pick<GDI, 'name' | 'guideId' | 'memberIds'>>
+  ) => {
     let actionResult: { success: boolean; message: string; newGdi?: GDI } = { success: false, message: "Error al iniciar la creación del GDI." };
 
     await new Promise<void>(resolve => {

@@ -72,7 +72,7 @@ export default function MinistryAreasManager({ ministryAreas, allMembers, active
                 <CardFooter className="flex flex-col sm:flex-row gap-2">
                   <Button asChild variant="outline" className="w-full border-primary text-primary hover:bg-primary/10">
                     <Link href={`/groups/ministry-areas/${area.id}/admin`}>
-                      <Settings className="mr-2 h-4 w-4" /> Admin. Reuniones
+                      <Settings className="mr-2 h-4 w-4" /> Administrar
                     </Link>
                   </Button>
                    <Button
