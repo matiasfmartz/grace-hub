@@ -301,23 +301,24 @@ export default function MinistryAreaAdminPage({}: MinistryAreaAdminPageProps) {
 
       <Card className="mt-8 shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline text-2xl text-primary flex items-center">
-            <CalendarDays className="mr-2 h-5 w-5" /> Reuniones del Área: {ministryArea.name}
-          </CardTitle>
-          <CardDescription>
-            Defina series de reuniones recurrentes, programe instancias y gestione la asistencia para esta área.
-          </CardDescription>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle className="font-headline text-2xl text-primary flex items-center">
+                <CalendarDays className="mr-2 h-5 w-5" /> Reuniones del Área: {ministryArea.name}
+              </CardTitle>
+              <CardDescription>
+                Defina series de reuniones recurrentes, programe instancias y gestione la asistencia para esta área.
+              </CardDescription>
+            </div>
+            <PageSpecificAddMeetingDialog
+              defineMeetingSeriesAction={(data: DefineMeetingSeriesFormValues) => handleAddAreaMeetingSeriesAction(ministryArea.id, data)}
+              seriesTypeContext="ministryArea"
+              ownerGroupIdContext={ministryArea.id}
+              onSeriesDefined={handleSeriesDefined}
+            />
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
-            <div className="flex justify-end">
-                <PageSpecificAddMeetingDialog
-                defineMeetingSeriesAction={(data: DefineMeetingSeriesFormValues) => handleAddAreaMeetingSeriesAction(ministryArea.id, data)}
-                seriesTypeContext="ministryArea"
-                ownerGroupIdContext={ministryArea.id}
-                onSeriesDefined={handleSeriesDefined}
-                />
-            </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start border-t pt-6">
             <div className="md:col-span-1 space-y-4">
               <div>
