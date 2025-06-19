@@ -83,7 +83,7 @@ async function getMembersPageData(
   currentPageParam: number,
   pageSizeParam: number,
   searchTermParam?: string,
-  memberStatusFiltersParam?: string[], // Renamed from statusFiltersParam
+  memberStatusFiltersParam?: string[],
   roleFiltersParam?: string[],
   guideFiltersParam?: string[]
 ) {
@@ -91,7 +91,7 @@ async function getMembersPageData(
     currentPageParam,
     pageSizeParam,
     searchTermParam,
-    memberStatusFiltersParam, // Passed to getAllMembers
+    memberStatusFiltersParam,
     roleFiltersParam,
     guideFiltersParam
   );
@@ -101,10 +101,11 @@ async function getMembersPageData(
   const allMeetingsData = await getAllMeetings();
   const allMeetingSeriesData = await getAllMeetingSeries();
   const allAttendanceRecordsData = await getAllAttendanceRecords();
+  const absoluteTotalMembers = allMembersForDropdowns.length;
 
   return {
     members,
-    totalMembers,
+    totalMembers, // This is the count AFTER filters
     totalPages,
     allMembersForDropdowns,
     allGDIs: allGDIsData,
@@ -112,6 +113,7 @@ async function getMembersPageData(
     allMeetings: allMeetingsData,
     allMeetingSeries: allMeetingSeriesData,
     allAttendanceRecords: allAttendanceRecordsData,
+    absoluteTotalMembers, // New prop: absolute total
   };
 }
 
@@ -120,7 +122,7 @@ interface MembersPageProps {
     page?: string;
     pageSize?: string;
     search?: string;
-    memberStatus?: string; // Renamed from status
+    memberStatus?: string;
     role?: string;
     guide?: string;
   };
@@ -130,11 +132,11 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
   const currentPage = Number(searchParams.page) || 1;
   const pageSize = Number(searchParams.pageSize) || 10;
   const searchTerm = searchParams.search || '';
-  const memberStatusFilterString = searchParams.memberStatus || ''; // Renamed from statusFilterString
+  const memberStatusFilterString = searchParams.memberStatus || '';
   const roleFilterString = searchParams.role || '';
   const guideFilterString = searchParams.guide || '';
   
-  const currentMemberStatusFiltersArray = memberStatusFilterString ? memberStatusFilterString.split(',') : []; // Renamed
+  const currentMemberStatusFiltersArray = memberStatusFilterString ? memberStatusFilterString.split(',') : [];
   const currentRoleFiltersArray = roleFilterString ? roleFilterString.split(',') : [];
   const currentGuideFiltersArray = guideFilterString ? guideFilterString.split(',') : [];
 
@@ -147,17 +149,18 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
     allMinistryAreas,
     allMeetings,
     allMeetingSeries,
-    allAttendanceRecords
+    allAttendanceRecords,
+    absoluteTotalMembers
   } = await getMembersPageData(
     currentPage,
     pageSize,
     searchTerm,
-    currentMemberStatusFiltersArray, // Renamed
+    currentMemberStatusFiltersArray,
     currentRoleFiltersArray,
     currentGuideFiltersArray
   );
 
-  const viewKey = `${currentPage}-${pageSize}-${searchTerm}-${memberStatusFilterString}-${roleFilterString}-${guideFilterString}`; // Updated key
+  const viewKey = `${currentPage}-${pageSize}-${searchTerm}-${memberStatusFilterString}-${roleFilterString}-${guideFilterString}`;
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -182,9 +185,11 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
         totalPages={totalPages}
         pageSize={pageSize}
         currentSearchTerm={searchTerm}
-        currentMemberStatusFilters={currentMemberStatusFiltersArray} // Renamed prop
+        currentMemberStatusFilters={currentMemberStatusFiltersArray}
         currentRoleFilters={currentRoleFiltersArray}
         currentGuideIdFilters={currentGuideFiltersArray}
+        totalMembers={totalMembers}
+        absoluteTotalMembers={absoluteTotalMembers}
       />
     </div>
   );

@@ -37,6 +37,8 @@ interface MembersListViewProps {
   currentMemberStatusFilters?: string[];
   currentRoleFilters?: string[];
   currentGuideIdFilters?: string[];
+  totalMembers: number; // Filtered count
+  absoluteTotalMembers: number; // Absolute total
 }
 
 type SortKey = Exclude<keyof Member, 'email' | 'assignedGDIId' | 'assignedAreaIds' | 'avatarUrl' | 'attendsLifeSchool' | 'attendsBibleInstitute' | 'fromAnotherChurch' | 'baptismDate' | 'roles'> | 'fullName';
@@ -78,7 +80,9 @@ export default function MembersListView({
   currentSearchTerm = '',
   currentMemberStatusFilters = [],
   currentRoleFilters = [],
-  currentGuideIdFilters = []
+  currentGuideIdFilters = [],
+  totalMembers,
+  absoluteTotalMembers,
 }: MembersListViewProps) {
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [searchInput, setSearchInput] = useState(currentSearchTerm);
@@ -465,7 +469,7 @@ export default function MembersListView({
     {totalPages > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0 sm:space-x-2 py-4">
           <div className="text-sm text-muted-foreground">
-            Página {currentPage} de {totalPages}
+            {totalMembers} {totalMembers === 1 ? "miembro encontrado" : "miembros encontrados"} (de {absoluteTotalMembers} en total). Página {currentPage} de {totalPages}
           </div>
           <div className="flex items-center space-x-2">
             <div className="flex items-center space-x-1">
@@ -547,5 +551,3 @@ export default function MembersListView({
     </>
   );
 }
-
-
