@@ -1,6 +1,7 @@
 
 'use server';
 import type { Member, MemberWriteData, GDI, MinistryArea, MemberRoleType } from '@/lib/types';
+import { NO_ROLE_FILTER_VALUE, NO_GDI_FILTER_VALUE } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
 import { placeholderMembers, placeholderGDIs, placeholderMinistryAreas } from '@/lib/placeholder-data';
 import { calculateMemberRoles } from '@/lib/roleUtils';
@@ -24,64 +25,80 @@ export async function getAllMembers(
   page: number = 1,
   pageSize: number = 10,
   searchTerm?: string,
-  memberStatusFiltersParam?: string[], // Renamed from statusFilterParams
+  memberStatusFiltersParam?: string[],
   roleFilterParams?: string[],
   guideIdFilterParams?: string[]
 ): Promise<{ members: Member[], totalMembers: number, totalPages: number }> {
   const allMembersFromFile = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  let workingFilteredMembers = [...allMembersFromFile];
+  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs); // Needed for guide filter logic
 
-  // Apply Status Filter (Multi-select)
-  if (memberStatusFiltersParam && memberStatusFiltersParam.length > 0) { // Renamed
-    workingFilteredMembers = workingFilteredMembers.filter(member =>
-      member.status && memberStatusFiltersParam.includes(member.status) // Renamed
-    );
-  }
+  const workingFilteredMembers = allMembersFromFile.filter(member => {
+    let statusMatch = true;
+    if (memberStatusFiltersParam && memberStatusFiltersParam.length > 0) {
+      statusMatch = member.status && memberStatusFiltersParam.includes(member.status);
+    }
 
-  // Apply Role Filter (Multi-select)
-  if (roleFilterParams && roleFilterParams.length > 0) {
-    workingFilteredMembers = workingFilteredMembers.filter(member =>
-      member.roles && member.roles.some(role => roleFilterParams.includes(role))
-    );
-  }
+    let roleMatch = true;
+    const hasNoRoleFilter = roleFilterParams?.includes(NO_ROLE_FILTER_VALUE);
+    const actualRoleFilters = roleFilterParams?.filter(r => r !== NO_ROLE_FILTER_VALUE) || [];
+    if (roleFilterParams && roleFilterParams.length > 0) {
+      const memberHasActualRole = actualRoleFilters.length > 0 && member.roles && member.roles.some(role => actualRoleFilters.includes(role));
+      const memberHasNoRole = !member.roles || member.roles.length === 0;
 
-  // Apply GDI Guide Filter (Multi-select)
-  if (guideIdFilterParams && guideIdFilterParams.length > 0) {
-    const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
-    const membersToInclude = new Set<string>();
+      if (hasNoRoleFilter && actualRoleFilters.length > 0) {
+        roleMatch = memberHasActualRole || memberHasNoRole;
+      } else if (hasNoRoleFilter) {
+        roleMatch = memberHasNoRole;
+      } else if (actualRoleFilters.length > 0) {
+        roleMatch = memberHasActualRole;
+      }
+    }
+
+    let guideMatch = true;
+    const hasNoGdiFilter = guideIdFilterParams?.includes(NO_GDI_FILTER_VALUE);
+    const actualGuideIdFilters = guideIdFilterParams?.filter(id => id !== NO_GDI_FILTER_VALUE) || [];
+    if (guideIdFilterParams && guideIdFilterParams.length > 0) {
+      const memberHasNoGdi = !member.assignedGDIId;
+      let memberMatchesActualGuide = false;
+
+      if (actualGuideIdFilters.length > 0) {
+        const membersToIncludeFromActualGuides = new Set<string>();
+        actualGuideIdFilters.forEach(guideId => {
+          membersToIncludeFromActualGuides.add(guideId); // Include the guide themselves
+          const gdisLedByThisGuide = allGdis.filter(gdi => gdi.guideId === guideId);
+          gdisLedByThisGuide.forEach(gdi => {
+            if (gdi.memberIds) gdi.memberIds.forEach(memberId => membersToIncludeFromActualGuides.add(memberId));
+          });
+        });
+        memberMatchesActualGuide = membersToIncludeFromActualGuides.has(member.id);
+      }
+
+      if (hasNoGdiFilter && actualGuideIdFilters.length > 0) {
+        guideMatch = memberHasNoGdi || memberMatchesActualGuide;
+      } else if (hasNoGdiFilter) {
+        guideMatch = memberHasNoGdi;
+      } else if (actualGuideIdFilters.length > 0) {
+        guideMatch = memberMatchesActualGuide;
+      }
+    }
     
-    guideIdFilterParams.forEach(guideId => {
-      membersToInclude.add(guideId); 
-      const gdisLedByThisGuide = allGdis.filter(gdi => gdi.guideId === guideId);
-      gdisLedByThisGuide.forEach(gdi => {
-        if (gdi.memberIds) { 
-            gdi.memberIds.forEach(memberId => membersToInclude.add(memberId));
+    let searchTermMatch = true;
+    if (searchTerm) {
+        const lowercasedSearchTerm = searchTerm.toLowerCase().trim();
+        if (lowercasedSearchTerm) {
+          searchTermMatch =
+            `${member.firstName} ${member.lastName}`.toLowerCase().includes(lowercasedSearchTerm) ||
+            member.email.toLowerCase().includes(lowercasedSearchTerm) ||
+            (member.phone && member.phone.toLowerCase().includes(lowercasedSearchTerm)) ||
+            (member.status && member.status.toLowerCase().includes(lowercasedSearchTerm)) ||
+            (member.status && statusDisplayMap[member.status]?.toLowerCase().includes(lowercasedSearchTerm)) ||
+            (member.roles && member.roles.some(role => role.toLowerCase().includes(lowercasedSearchTerm))) ||
+            (member.roles && member.roles.some(role => (roleDisplayMap[role as MemberRoleType] || role).toLowerCase().includes(lowercasedSearchTerm)));
         }
-      });
-    });
-    
-    if (membersToInclude.size > 0) {
-        workingFilteredMembers = workingFilteredMembers.filter(member => membersToInclude.has(member.id));
-    } else {
-        workingFilteredMembers = []; 
     }
-  }
 
-  // Apply Search Term Filter
-  if (searchTerm) {
-    const lowercasedSearchTerm = searchTerm.toLowerCase().trim();
-    if (lowercasedSearchTerm) {
-      workingFilteredMembers = workingFilteredMembers.filter(member =>
-        `${member.firstName} ${member.lastName}`.toLowerCase().includes(lowercasedSearchTerm) ||
-        member.email.toLowerCase().includes(lowercasedSearchTerm) ||
-        (member.phone && member.phone.toLowerCase().includes(lowercasedSearchTerm)) ||
-        (member.status && member.status.toLowerCase().includes(lowercasedSearchTerm)) ||
-        (member.status && statusDisplayMap[member.status]?.toLowerCase().includes(lowercasedSearchTerm)) ||
-        (member.roles && member.roles.some(role => role.toLowerCase().includes(lowercasedSearchTerm))) ||
-        (member.roles && member.roles.some(role => (roleDisplayMap[role] || role).toLowerCase().includes(lowercasedSearchTerm)))
-      );
-    }
-  }
+    return statusMatch && roleMatch && guideMatch && searchTermMatch;
+  });
 
   const totalMembers = workingFilteredMembers.length;
   const totalPages = Math.ceil(totalMembers / pageSize);
@@ -337,3 +354,4 @@ export async function bulkRecalculateAndUpdateRoles(memberIdsToUpdate: string[])
     await writeDbFile<Member>(MEMBERS_DB_FILE, allMembers);
   }
 }
+

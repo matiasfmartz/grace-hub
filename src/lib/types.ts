@@ -127,7 +127,10 @@ export interface Resource {
 // Zod Schemas for Forms
 
 export const MemberStatusSchema = z.enum(['Active', 'Inactive', 'New']);
-export const NONE_GDI_OPTION_VALUE = "__NONE__";
+export const NONE_GDI_OPTION_VALUE = "__NONE__"; // Used in member form for "Ninguno" GDI
+export const NO_ROLE_FILTER_VALUE = "no-role-assigned";
+export const NO_GDI_FILTER_VALUE = "no-gdi-assigned";
+
 
 export const AddMemberFormSchema = z.object({
   firstName: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
@@ -177,7 +180,7 @@ export const DefineMeetingSeriesFormSchema = z.object({
   monthlyDayOfMonth: z.coerce.number().min(1).max(31).optional(),
   monthlyWeekOrdinal: WeekOrdinalEnum.optional(),
   monthlyDayOfWeek: DayOfWeekEnum.optional(),
-  cancelledDates: z.array(z.string()).optional(), // Added for completeness, not user-editable
+  cancelledDates: z.array(z.string()).optional(), 
 }).superRefine((data, ctx) => {
   if (data.frequency === "OneTime") {
     if (!data.oneTimeDate) {
@@ -284,4 +287,5 @@ export interface MinistryAreaMeeting extends MeetingBase {
 export type AnyMeeting = GeneralMeeting | GdiMeeting | MinistryAreaMeeting;
 export type AnyMeetingWriteData = Omit<AnyMeeting, 'id' | 'attendeeUids'> & { attendeeUids?: string[] };
 export type AnyMeetingInstanceUpdateData = Partial<Omit<AnyMeeting, 'id' | 'seriesId' | 'attendeeUids' | 'seriesType' | 'ownerGroupId'>>;
+
 

@@ -3,12 +3,13 @@
 
 import { useState, useMemo, useCallback, useTransition } from 'react';
 import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberWriteData, MemberRoleType, Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
+import { NO_ROLE_FILTER_VALUE, NO_GDI_FILTER_VALUE } from '@/lib/types';
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck, Filter, X, ChevronDown, Users } from 'lucide-react'; // Added Users
+import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck, Filter, X, ChevronDown, Users } from 'lucide-react'; 
 import MemberDetailsDialog from './member-details-dialog';
 import AddMemberForm from './add-member-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -46,8 +47,11 @@ const roleDisplayMap: Record<MemberRoleType, string> = {
   Worker: "Obrero",
   GeneralAttendee: "Asistente General",
 };
-const roleFilterOptions: { value: MemberRoleType; label: string }[] = Object.entries(roleDisplayMap)
-    .map(([value, label]) => ({ value: value as MemberRoleType, label }));
+const roleFilterOptions: { value: MemberRoleType | typeof NO_ROLE_FILTER_VALUE; label: string }[] = [
+    ...Object.entries(roleDisplayMap).map(([value, label]) => ({ value: value as MemberRoleType, label })),
+    { value: NO_ROLE_FILTER_VALUE, label: "Sin Rol Asignado" }
+];
+
 
 const statusDisplayMap: Record<Member['status'], string> = {
   Active: "Activo",
@@ -95,11 +99,15 @@ export default function MembersListView({
   const searchParamsHook = useSearchParams();
 
 
-  const gdiGuides = useMemo(() => {
+  const gdiGuidesForFilter = useMemo(() => {
     const guideIds = new Set(allGDIs.map(gdi => gdi.guideId).filter(Boolean));
-    return allMembersForDropdowns
+    const guides = allMembersForDropdowns
         .filter(member => guideIds.has(member.id))
         .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+    return [
+      { id: NO_GDI_FILTER_VALUE, firstName: "No Asignado a GDI", lastName: "" },
+      ...guides
+    ];
   }, [allGDIs, allMembersForDropdowns]);
 
   const getGdiGuideName = useCallback((member: Member): string => {
@@ -318,7 +326,7 @@ export default function MembersListView({
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary data-[state=open]:text-primary">
                 <ShieldCheck className="mr-2 h-3.5 w-3.5" />
-                <span>{selectedRoles.length > 0 ? `Rol (${selectedRoles.length})` : "Rol"}</span>
+                 <span>{selectedRoles.length > 0 ? `Rol (${selectedRoles.length})` : "Rol"}</span>
                 <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" />
               </Button>
             </DropdownMenuTrigger>
@@ -346,18 +354,20 @@ export default function MembersListView({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64 max-h-72 overflow-y-auto">
-              <DropdownMenuLabel>Filtrar por Guía</DropdownMenuLabel>
+              <DropdownMenuLabel>Filtrar por Guía GDI</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {gdiGuides.map(guide => (
+              {gdiGuidesForFilter.map(guide => (
                 <DropdownMenuCheckboxItem
-                  key={guide.id}
+                  key={guide.id === NO_GDI_FILTER_VALUE ? NO_GDI_FILTER_VALUE : guide.id}
                   checked={selectedGuideIds.includes(guide.id)}
                   onCheckedChange={() => toggleFilterItem(guide.id, selectedGuideIds, setSelectedGuideIds)}
                 >
-                  {guide.firstName} {guide.lastName}
+                  {guide.firstName} {guide.id !== NO_GDI_FILTER_VALUE ? guide.lastName : ''}
                 </DropdownMenuCheckboxItem>
               ))}
-              {gdiGuides.length === 0 && <DropdownMenuItem disabled>No hay guías para mostrar</DropdownMenuItem>}
+              {gdiGuidesForFilter.length === 1 && gdiGuidesForFilter[0].id === NO_GDI_FILTER_VALUE && (
+                 <DropdownMenuItem disabled>No hay guías para mostrar</DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
           
@@ -537,4 +547,5 @@ export default function MembersListView({
     </>
   );
 }
+
 
