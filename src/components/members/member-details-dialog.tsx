@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogDescription, D
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, ShieldCheck, BarChart3, ListChecks, LineChart, Filter as FilterIcon } from 'lucide-react';
+import { Pencil, ShieldCheck, BarChart3, ListChecks, LineChart, Filter as FilterIcon, Printer } from 'lucide-react'; // Added Printer
 import AddMemberForm from './add-member-form';
 import MemberAttendanceSummary from './member-attendance-chart';
 import MemberAttendanceLineChart from './member-attendance-line-chart';
@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
-import { useState, useTransition, useMemo, useEffect } from 'react';
+import React, { useState, useTransition, useMemo, useEffect, useRef } from 'react'; // Added useRef
 import { useToast } from "@/hooks/use-toast";
 
 interface MemberDetailsDialogProps {
@@ -59,6 +59,8 @@ export default function MemberDetailsDialog({
   const [attendanceSelectedSeriesId, setAttendanceSelectedSeriesId] = useState<string>('all');
   const [attendanceStartDate, setAttendanceStartDate] = useState<Date | undefined>(undefined);
   const [attendanceEndDate, setAttendanceEndDate] = useState<Date | undefined>(undefined);
+
+  const dialogContentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -176,12 +178,42 @@ export default function MemberDetailsDialog({
     onClose();
   };
 
+  const handlePrintAttendance = () => {
+    const dialogContentElem = dialogContentRef.current;
+    if (!dialogContentElem) return;
+
+    const originalBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden'; // Prevent body scroll during print
+
+    dialogContentElem.classList.add('is-printing-member-attendance');
+    
+    const afterPrintHandler = () => {
+      dialogContentElem.classList.remove('is-printing-member-attendance');
+      document.body.style.overflow = originalBodyOverflow;
+      window.removeEventListener('afterprint', afterPrintHandler);
+    };
+
+    window.addEventListener('afterprint', afterPrintHandler);
+    window.print();
+
+    // Fallback for browsers that might not fire 'afterprint' reliably when print is cancelled
+    setTimeout(() => {
+      if (dialogContentElem.classList.contains('is-printing-member-attendance')) {
+        afterPrintHandler();
+      }
+    }, 1000);
+  };
+
+
   if (!member) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCloseDialog}>
-      <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="p-6 border-b">
+      <DialogContent 
+        ref={dialogContentRef}
+        className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] flex flex-col p-0"
+      >
+        <DialogHeader className="p-6 border-b no-print">
            <div className="flex items-center space-x-4">
             <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
               <AvatarImage src={member.avatarUrl} alt={`${member.firstName} ${member.lastName}`} data-ai-hint="person portrait" />
@@ -231,7 +263,7 @@ export default function MemberDetailsDialog({
         ) : (
         <div className="flex-grow flex flex-col min-h-0 overflow-y-auto">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col">
-                <TabsList className="mx-6 mt-4 flex-shrink-0">
+                <TabsList className="mx-6 mt-4 flex-shrink-0 no-print">
                     <TabsTrigger value="details" className="flex items-center gap-2">
                         <ListChecks className="h-4 w-4" /> Detalles
                     </TabsTrigger>
@@ -288,84 +320,91 @@ export default function MemberDetailsDialog({
                       </div>
                     </div>
                 </TabsContent>
-                <TabsContent value="attendance" className="p-6 space-y-6">
-                    <div className="bg-muted/50 p-4 rounded-lg shadow-sm">
-                      <h3 className="text-md font-semibold mb-3 text-primary flex items-center">
-                        <FilterIcon className="mr-2 h-4 w-4" /> Filtrar Historial de Asistencia
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <Label htmlFor="attendanceSeriesFilter" className="text-xs font-medium">Serie de Reunión:</Label>
-                          <Select value={attendanceSelectedSeriesId} onValueChange={setAttendanceSelectedSeriesId}>
-                            <SelectTrigger id="attendanceSeriesFilter" className="mt-1 h-9">
-                              <SelectValue placeholder="Seleccionar serie..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">Todas las Series Relevantes</SelectItem>
-                              {relevantSeriesForAttendanceDropdown.map(series => (
-                                <SelectItem key={series.id} value={series.id}>
-                                  {series.name}
-                                </SelectItem>
-                              ))}
-                               {relevantSeriesForAttendanceDropdown.length === 0 && (
-                                <SelectItem value="no-relevant-series" disabled>
-                                  No hay series relevantes
-                                </SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
+                <TabsContent value="attendance" className="p-6 space-y-6" id="attendance-print-section-wrapper">
+                    <div id="attendance-print-section">
+                        <div className="bg-muted/50 p-4 rounded-lg shadow-sm no-print">
+                          <div className="flex flex-col sm:flex-row justify-between items-center mb-3">
+                            <h3 className="text-md font-semibold text-primary flex items-center">
+                                <FilterIcon className="mr-2 h-4 w-4" /> Filtrar Historial de Asistencia
+                            </h3>
+                            <Button onClick={handlePrintAttendance} variant="outline" size="sm">
+                                <Printer className="mr-2 h-4 w-4" /> Imprimir
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <Label htmlFor="attendanceSeriesFilter" className="text-xs font-medium">Serie de Reunión:</Label>
+                              <Select value={attendanceSelectedSeriesId} onValueChange={setAttendanceSelectedSeriesId}>
+                                <SelectTrigger id="attendanceSeriesFilter" className="mt-1 h-9">
+                                  <SelectValue placeholder="Seleccionar serie..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Todas las Series Relevantes</SelectItem>
+                                  {relevantSeriesForAttendanceDropdown.map(series => (
+                                    <SelectItem key={series.id} value={series.id}>
+                                      {series.name}
+                                    </SelectItem>
+                                  ))}
+                                   {relevantSeriesForAttendanceDropdown.length === 0 && (
+                                    <SelectItem value="no-relevant-series" disabled>
+                                      No hay series relevantes
+                                    </SelectItem>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label htmlFor="attendanceStartDateFilter" className="text-xs font-medium">Fecha de Inicio:</Label>
+                              <DatePicker date={attendanceStartDate} setDate={setAttendanceStartDate} placeholder="Desde" />
+                            </div>
+                            <div>
+                              <Label htmlFor="attendanceEndDateFilter" className="text-xs font-medium">Fecha de Fin:</Label>
+                              <DatePicker date={attendanceEndDate} setDate={setAttendanceEndDate} placeholder="Hasta" />
+                            </div>
+                          </div>
+                           {(attendanceStartDate || attendanceEndDate) && (
+                              <Button
+                                onClick={() => {
+                                  setAttendanceStartDate(undefined);
+                                  setAttendanceEndDate(undefined);
+                                }}
+                                variant="link"
+                                size="sm"
+                                className="px-0 text-xs h-auto mt-2 text-primary hover:text-primary/80"
+                              >
+                                <FilterIcon className="mr-1 h-3 w-3"/> Limpiar filtro de fechas
+                              </Button>
+                            )}
                         </div>
-                        <div>
-                          <Label htmlFor="attendanceStartDateFilter" className="text-xs font-medium">Fecha de Inicio:</Label>
-                          <DatePicker date={attendanceStartDate} setDate={setAttendanceStartDate} placeholder="Desde" />
-                        </div>
-                        <div>
-                          <Label htmlFor="attendanceEndDateFilter" className="text-xs font-medium">Fecha de Fin:</Label>
-                          <DatePicker date={attendanceEndDate} setDate={setAttendanceEndDate} placeholder="Hasta" />
-                        </div>
-                      </div>
-                       {(attendanceStartDate || attendanceEndDate) && (
-                          <Button
-                            onClick={() => {
-                              setAttendanceStartDate(undefined);
-                              setAttendanceEndDate(undefined);
-                            }}
-                            variant="link"
-                            size="sm"
-                            className="px-0 text-xs h-auto mt-2 text-primary hover:text-primary/80"
-                          >
-                            <FilterIcon className="mr-1 h-3 w-3"/> Limpiar filtro de fechas
-                          </Button>
-                        )}
-                    </div>
 
-                    <MemberAttendanceLineChart
-                        memberId={member.id}
-                        memberName={`${member.firstName} ${member.lastName}`}
-                        allMeetings={allMeetings}
-                        allMeetingSeries={allMeetingSeries}
-                        allAttendanceRecords={allAttendanceRecords}
-                        selectedSeriesId={attendanceSelectedSeriesId}
-                        startDate={attendanceStartDate}
-                        endDate={attendanceEndDate}
-                    />
-                    <MemberAttendanceSummary
-                        memberId={member.id}
-                        memberName={`${member.firstName} ${member.lastName}`}
-                        allMeetings={allMeetings}
-                        allMeetingSeries={allMeetingSeries}
-                        allAttendanceRecords={allAttendanceRecords}
-                        selectedSeriesId={attendanceSelectedSeriesId}
-                        startDate={attendanceStartDate}
-                        endDate={attendanceEndDate}
-                    />
+                        <MemberAttendanceLineChart
+                            memberId={member.id}
+                            memberName={`${member.firstName} ${member.lastName}`}
+                            allMeetings={allMeetings}
+                            allMeetingSeries={allMeetingSeries}
+                            allAttendanceRecords={allAttendanceRecords}
+                            selectedSeriesId={attendanceSelectedSeriesId}
+                            startDate={attendanceStartDate}
+                            endDate={attendanceEndDate}
+                        />
+                        <MemberAttendanceSummary
+                            memberId={member.id}
+                            memberName={`${member.firstName} ${member.lastName}`}
+                            allMeetings={allMeetings}
+                            allMeetingSeries={allMeetingSeries}
+                            allAttendanceRecords={allAttendanceRecords}
+                            selectedSeriesId={attendanceSelectedSeriesId}
+                            startDate={attendanceStartDate}
+                            endDate={attendanceEndDate}
+                        />
+                    </div>
                 </TabsContent>
             </Tabs>
         </div>
         )}
 
         {!isEditing && (
-          <DialogFooter className="p-6 border-t">
+          <DialogFooter className="p-6 border-t no-print">
             <Button onClick={handleEditToggle} variant="default">
               <Pencil className="mr-2 h-4 w-4" />
               Editar Miembro
@@ -377,3 +416,4 @@ export default function MemberDetailsDialog({
     </Dialog>
   );
 }
+

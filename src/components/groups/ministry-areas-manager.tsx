@@ -56,10 +56,6 @@ export default function MinistryAreasManager({ ministryAreas, allMembers, active
                   {leader && (
                     <>
                       <div>
-                        <h4 className="font-semibold text-sm mb-1 flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" /> Email del Líder:</h4>
-                        <a href={`mailto:${leader.email}`} className="text-primary hover:underline text-sm">{leader.email}</a>
-                      </div>
-                      <div>
                         <h4 className="font-semibold text-sm mb-1 flex items-center"><Phone className="mr-2 h-4 w-4 text-muted-foreground" /> Teléfono del Líder:</h4>
                         <a href={`tel:${leader.phone}`} className="text-primary hover:underline text-sm">{leader.phone}</a>
                       </div>

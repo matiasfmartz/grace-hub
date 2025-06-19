@@ -86,3 +86,107 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  body > *:not([data-radix-dialog-portal]), /* Hide everything except Radix Portals initially */
+  body > [data-radix-dialog-portal] > .radix-dialog-overlay { /* Hide overlays within portals */
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Style the specific dialog content that has the 'is-printing-member-attendance' class */
+  .radix-dialog-content.is-printing-member-attendance {
+    position: fixed !important; /* Use fixed to ensure it's relative to viewport */
+    left: 0 !important;
+    top: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important; /* Show all content */
+    border: none !important;
+    box-shadow: none !important;
+    padding: 20px !important; /* Add some margin for print */
+    margin: 0 !important;
+    display: block !important;
+    background-color: white !important;
+    color: black !important;
+    border-radius: 0 !important; /* Remove rounded corners for print */
+    z-index: 999999 !important; /* Ensure it's on top */
+  }
+  
+  /* Hide children of the printing dialog content that are not part of the print section */
+  .radix-dialog-content.is-printing-member-attendance > *:not(#attendance-print-section-wrapper) {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  
+  /* Ensure the actual print section and its content are visible */
+  #attendance-print-section-wrapper,
+  #attendance-print-section-wrapper #attendance-print-section {
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+  }
+
+  /* Ensure all children of the print section are visible and styled for print */
+  #attendance-print-section-wrapper #attendance-print-section * {
+    visibility: visible !important;
+    color: black !important; /* Ensure text color */
+    background-color: transparent !important; /* Remove unwanted backgrounds */
+  }
+
+  /* Specific styling for charts within the print section */
+  .radix-dialog-content.is-printing-member-attendance .recharts-wrapper text {
+    fill: black !important;
+  }
+  .radix-dialog-content.is-printing-member-attendance .recharts-surface path,
+  .radix-dialog-content.is-printing-member-attendance .recharts-surface line,
+  .radix-dialog-content.is-printing-member-attendance .recharts-surface circle {
+     stroke: black !important; /* Ensure lines and dots are visible */
+     fill: black !important; /* For dots or area fills if any */
+  }
+   .radix-dialog-content.is-printing-member-attendance .recharts-cartesian-axis-tick-value {
+      fill: black !important;
+   }
+
+
+  /* Hide elements explicitly marked with .no-print */
+  .no-print {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Remove shadows from cards within the print section for cleaner look */
+  #attendance-print-section .card, 
+  #attendance-print-section [class*="shadow"] {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important; /* Optionally add a light border for definition */
+  }
+
+  /* Ensure table lines are visible */
+  #attendance-print-section table,
+  #attendance-print-section th,
+  #attendance-print-section td {
+    border: 1px solid #ddd !important;
+  }
+  #attendance-print-section th {
+    background-color: #f2f2f2 !important; /* Light gray for table headers */
+  }
+
+  /* Page breaks */
+  @page {
+    size: auto; /* auto is default, but A4 or letter can be set */
+    margin: 0.5in; /* Adjust margins as needed */
+  }
+  /* Avoid breaking charts or tables across pages if possible */
+  #attendance-print-section .card {
+    page-break-inside: avoid;
+  }
+  #attendance-print-section table {
+     page-break-inside: auto; /* Allow tables to break if large */
+  }
+   #attendance-print-section tr {
+     page-break-inside: avoid; /* Try to keep table rows together */
+   }
+}

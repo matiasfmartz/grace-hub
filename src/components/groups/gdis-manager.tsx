@@ -55,10 +55,6 @@ export default function GdisManager({ gdis, allMembers, activeMembers, deleteGdi
                   {guide && (
                      <>
                       <div>
-                        <h4 className="font-semibold text-sm mb-1 flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" /> Email del Guía:</h4>
-                        <a href={`mailto:${guide.email}`} className="text-primary hover:underline text-sm">{guide.email}</a>
-                      </div>
-                      <div>
                         <h4 className="font-semibold text-sm mb-1 flex items-center"><Phone className="mr-2 h-4 w-4 text-muted-foreground" /> Teléfono del Guía:</h4>
                         <a href={`tel:${guide.phone}`} className="text-primary hover:underline text-sm">{guide.phone}</a>
                       </div>
@@ -75,7 +71,7 @@ export default function GdisManager({ gdis, allMembers, activeMembers, deleteGdi
                     className="w-full border-primary text-primary hover:bg-primary/10"
                   >
                     <Link href={`/groups/gdis/${gdi.id}/admin`}> 
-                      <Settings className="mr-2 h-4 w-4" /> Admin. Reuniones 
+                      <Settings className="mr-2 h-4 w-4" /> Administrar
                     </Link>
                   </Button>
                   <Button
