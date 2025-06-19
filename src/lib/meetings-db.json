@@ -394,19 +394,5 @@
       "7"
     ],
     "minute": null
-  },
-  {
-    "id": "instance-1750297974652-mrh1ym2-23",
-    "seriesId": "series-1750297830436-j946y",
-    "name": "reunion de gdi (23 jul)",
-    "date": "2025-07-23",
-    "time": "19:00",
-    "location": "centro de actividades",
-    "description": "",
-    "attendeeUids": [
-      "6",
-      "7"
-    ],
-    "minute": null
   }
 ]

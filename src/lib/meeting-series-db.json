@@ -111,6 +111,9 @@
     "frequency": "Weekly",
     "weeklyDays": [
       "Wednesday"
+    ],
+    "cancelledDates": [
+      "2025-07-23"
     ]
   }
 ]
