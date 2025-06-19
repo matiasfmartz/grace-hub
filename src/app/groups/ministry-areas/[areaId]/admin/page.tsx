@@ -246,51 +246,54 @@ export default function MinistryAreaAdminPage({}: MinistryAreaAdminPageProps) {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="mb-6 flex justify-between items-center">
+      <div className="mb-6 flex justify-start items-center"> {/* Removed justify-between */}
         <Button asChild variant="outline">
           <Link href="/groups">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver a Grupos
           </Link>
         </Button>
-        <Dialog open={isEditAreaDetailsOpen} onOpenChange={setIsEditAreaDetailsOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline">
-              <Edit className="mr-2 h-4 w-4" />
-              Editar Detalles del Área
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
-            <DialogHeader className="p-6 pb-4 border-b">
-              <DialogTitle>Editar Detalles: {ministryArea.name}</DialogTitle>
-              <DialogDescription>
-                Modifique los detalles del Área Ministerial. Los cambios se guardarán al hacer clic en "Guardar Cambios".
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex-grow overflow-y-auto p-1 sm:p-6">
-              <ManageSingleMinistryAreaView
-                ministryArea={ministryArea}
-                allMembers={allMembers}
-                activeMembers={activeMembers}
-                updateMinistryAreaAction={updateMinistryAreaDetailsAction}
-                onSuccess={() => {
-                    setIsEditAreaDetailsOpen(false);
-                    const params = new URLSearchParams(currentHookSearchParams.toString());
-                    router.push(`/groups/ministry-areas/${areaId}/admin?${params.toString()}`);
-                }}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Edit Area Dialog trigger moved to CardHeader below */}
       </div>
        <Card className="mb-8 shadow-lg">
-        <CardHeader>
-          <CardTitle className="font-headline text-3xl text-primary">
-            Administrar Área: {ministryArea.name}
-          </CardTitle>
-          <CardDescription>
-            Líder: {allMembers.find(m => m.id === ministryArea.leaderId)?.firstName} {allMembers.find(m => m.id === ministryArea.leaderId)?.lastName}
-          </CardDescription>
+        <CardHeader className="flex flex-row justify-between items-start">
+          <div>
+            <CardTitle className="font-headline text-3xl text-primary">
+              Administrar Área: {ministryArea.name}
+            </CardTitle>
+            <CardDescription>
+              Líder: {allMembers.find(m => m.id === ministryArea.leaderId)?.firstName} {allMembers.find(m => m.id === ministryArea.leaderId)?.lastName}
+            </CardDescription>
+          </div>
+          <Dialog open={isEditAreaDetailsOpen} onOpenChange={setIsEditAreaDetailsOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Edit className="mr-2 h-4 w-4" />
+                Editar Detalles
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
+              <DialogHeader className="p-6 pb-4 border-b">
+                <DialogTitle>Editar Detalles: {ministryArea.name}</DialogTitle>
+                <DialogDescription>
+                  Modifique los detalles del Área Ministerial. Los cambios se guardarán al hacer clic en "Guardar Cambios".
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex-grow overflow-y-auto p-1 sm:p-6">
+                <ManageSingleMinistryAreaView
+                  ministryArea={ministryArea}
+                  allMembers={allMembers}
+                  activeMembers={activeMembers}
+                  updateMinistryAreaAction={updateMinistryAreaDetailsAction}
+                  onSuccess={() => {
+                      setIsEditAreaDetailsOpen(false);
+                      const params = new URLSearchParams(currentHookSearchParams.toString());
+                      router.push(`/groups/ministry-areas/${areaId}/admin?${params.toString()}`);
+                  }}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
         </CardHeader>
          {ministryArea.description && 
             <CardContent>
