@@ -248,5 +248,77 @@
       "1750199260231-8n65jh5"
     ],
     "minute": null
+  },
+  {
+    "id": "instance-1750294347130-lul5c1u-14",
+    "seriesId": "series-1750294347090-8wxzw",
+    "name": "Reunion de obreros (21 jun)",
+    "date": "2025-06-21",
+    "time": "20:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "attendeeUids": [
+      "7",
+      "2",
+      "5",
+      "1749880160940-30020fm",
+      "8",
+      "1749877175613-ls6oqv6"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750294347143-dsp8soz-15",
+    "seriesId": "series-1750294347090-8wxzw",
+    "name": "Reunion de obreros (28 jun)",
+    "date": "2025-06-28",
+    "time": "20:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "attendeeUids": [
+      "7",
+      "2",
+      "5",
+      "1749880160940-30020fm",
+      "8",
+      "1749877175613-ls6oqv6"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750294347156-42ceyac-16",
+    "seriesId": "series-1750294347090-8wxzw",
+    "name": "Reunion de obreros (5 jul)",
+    "date": "2025-07-05",
+    "time": "20:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "attendeeUids": [
+      "7",
+      "2",
+      "5",
+      "1749880160940-30020fm",
+      "8",
+      "1749877175613-ls6oqv6"
+    ],
+    "minute": null
+  },
+  {
+    "id": "instance-1750294347162-vv0t5w2-17",
+    "seriesId": "series-1750294347090-8wxzw",
+    "name": "Reunion de obreros (12 jul)",
+    "date": "2025-07-12",
+    "time": "20:00",
+    "location": "Santuario Principal",
+    "description": "",
+    "attendeeUids": [
+      "7",
+      "2",
+      "5",
+      "1749880160940-30020fm",
+      "8",
+      "1749877175613-ls6oqv6"
+    ],
+    "minute": null
   }
 ]

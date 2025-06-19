@@ -64,5 +64,21 @@
     "weeklyDays": [
       "Thursday"
     ]
+  },
+  {
+    "id": "series-1750294347090-8wxzw",
+    "name": "Reunion de obreros",
+    "description": "",
+    "defaultTime": "20:00",
+    "defaultLocation": "Santuario Principal",
+    "seriesType": "general",
+    "ownerGroupId": null,
+    "targetAttendeeGroups": [
+      "workers"
+    ],
+    "frequency": "Weekly",
+    "weeklyDays": [
+      "Saturday"
+    ]
   }
 ]

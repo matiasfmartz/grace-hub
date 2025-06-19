@@ -2,7 +2,7 @@
 'use server';
 import type { Meeting, MeetingWriteData, MeetingSeries, MeetingSeriesWriteData, Member, GDI, MinistryArea, MeetingTargetRoleType, AttendanceRecord, DayOfWeekType, MonthlyRuleType, WeekOrdinalType, MeetingFrequencyType, MeetingInstanceUpdateData } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
-import { format, parseISO, addWeeks, setDay, addMonths, setDate, getDate, getDaysInMonth, lastDayOfMonth, startOfDay, isSameDay, nextDay, previousDay, getDay, isValid as isValidDateFn, isWithinInterval } from 'date-fns';
+import { format, parseISO, addWeeks, setDay, addMonths, setDate, getDate, getDaysInMonth, lastDayOfMonth, startOfDay, isSameDay, nextDay, previousDay, getDay, isValid as isValidDateFn, isWithinInterval, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 
@@ -156,7 +156,9 @@ async function resolveAttendeeUidsForGeneralSeries(
     const attendeeSet = new Set<string>();
 
     if (targetGroups.includes("allMembers")) {
-        return []; // For "allMembers", UIDs are resolved dynamically at display/attendance time
+        // For "allMembers", UIDs are resolved dynamically by getResolvedAttendees at display/attendance time.
+        // So, we return an empty array here, and getResolvedAttendees will fetch all members.
+        return []; 
     }
 
     for (const role of targetGroups) {
@@ -210,6 +212,86 @@ async function resolveAttendeeUidsForGroupSeries(
     return [];
 }
 
+export async function ensureFutureInstances(seriesId: string): Promise<Meeting[]> {
+    const series = await getMeetingSeriesById(seriesId);
+    if (!series || series.frequency === "OneTime") {
+        return []; 
+    }
+
+    const allMeetingsFromFile = await readDbFile<Meeting>(MEETINGS_DB_FILE, []);
+    const existingInstancesForSeries = allMeetingsFromFile.filter(m => m.seriesId === seriesId)
+                                                .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+
+    const today = startOfDay(new Date());
+    const futureInstances = existingInstancesForSeries.filter(m => parseISO(m.date) >= today);
+
+    let instancesToGenerateCount = 0;
+    if (series.frequency === "Weekly") {
+        instancesToGenerateCount = 4 - futureInstances.length;
+    } else if (series.frequency === "Monthly") {
+        instancesToGenerateCount = 2 - futureInstances.length;
+    }
+
+    if (instancesToGenerateCount <= 0) {
+        return []; 
+    }
+
+    let startDateForNewGen = today;
+    if (futureInstances.length > 0) {
+        startDateForNewGen = addDays(parseISO(futureInstances[futureInstances.length - 1].date), 1);
+    } else if (existingInstancesForSeries.length > 0) {
+        const lastExistingDate = parseISO(existingInstancesForSeries[existingInstancesForSeries.length - 1].date);
+        if (lastExistingDate < today) {
+            startDateForNewGen = today;
+        } else { 
+            startDateForNewGen = addDays(lastExistingDate, 1);
+        }
+    }
+    
+    let newOccurrenceDates: Date[] = [];
+    if (series.frequency === "Weekly") {
+        newOccurrenceDates = getNextWeeklyOccurrences(series, startDateForNewGen, instancesToGenerateCount);
+    } else if (series.frequency === "Monthly") {
+        newOccurrenceDates = getNextMonthlyOccurrences(series, startDateForNewGen, instancesToGenerateCount);
+    }
+
+    const newlyGeneratedInstances: Meeting[] = [];
+    if (newOccurrenceDates.length > 0) {
+        const allMembersForResolve = await readDbFile<Member>(MEMBERS_DB_FILE, []);
+        const allGdisForResolve = await readDbFile<GDI>(GDIS_DB_FILE, []);
+        const allMinistryAreasForResolve = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
+
+        let resolvedUids: string[];
+         if (series.seriesType === 'general') {
+            resolvedUids = await resolveAttendeeUidsForGeneralSeries(series.targetAttendeeGroups, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
+        } else if (series.seriesType === 'gdi' && series.ownerGroupId) {
+            resolvedUids = await resolveAttendeeUidsForGroupSeries('gdi', series.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
+        } else if (series.seriesType === 'ministryArea' && series.ownerGroupId) {
+            resolvedUids = await resolveAttendeeUidsForGroupSeries('ministryArea', series.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
+        } else {
+            resolvedUids = [];
+        }
+
+        for (const date of newOccurrenceDates) {
+            const alreadyExists = existingInstancesForSeries.some(m => isSameDay(parseISO(m.date), date));
+            if (!alreadyExists) {
+                const instance = await addMeetingInstanceInternal({
+                    seriesId: series.id,
+                    name: `${series.name} (${format(date, 'd MMM', { locale: es })})`,
+                    date: format(date, 'yyyy-MM-dd'),
+                    time: series.defaultTime,
+                    location: series.defaultLocation,
+                    description: series.description,
+                    attendeeUids: resolvedUids,
+                    minute: null,
+                });
+                newlyGeneratedInstances.push(instance);
+            }
+        }
+    }
+    return newlyGeneratedInstances;
+}
+
 
 export async function addMeetingSeries(
   seriesData: MeetingSeriesWriteData,
@@ -236,89 +318,8 @@ export async function addMeetingSeries(
   };
 
   await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, [...seriesList, newSeries]);
-
-  let newInstances: Meeting[] = [];
-  
-  const allMembersForResolve = await readDbFile<Member>(MEMBERS_DB_FILE, []);
-  const allGdisForResolve = await readDbFile<GDI>(GDIS_DB_FILE, []);
-  const allMinistryAreasForResolve = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
-  
-  let resolvedUids: string[];
-  if (newSeries.seriesType === 'general') {
-    resolvedUids = await resolveAttendeeUidsForGeneralSeries(
-        newSeries.targetAttendeeGroups,
-        allMembersForResolve,
-        allGdisForResolve,
-        allMinistryAreasForResolve
-    );
-  } else if (newSeries.seriesType === 'gdi' && newSeries.ownerGroupId) {
-      resolvedUids = await resolveAttendeeUidsForGroupSeries('gdi', newSeries.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
-  } else if (newSeries.seriesType === 'ministryArea' && newSeries.ownerGroupId) {
-      resolvedUids = await resolveAttendeeUidsForGroupSeries('ministryArea', newSeries.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
-  } else {
-      resolvedUids = []; // Should not happen if types are correct
-  }
-
-
-  const today = startOfDay(new Date());
-  const allExistingMeetingsForSeries = await getMeetingsBySeriesId(newSeries.id); 
-
-  if (newSeries.frequency === "OneTime" && newSeries.oneTimeDate) {
-    const oneTimeDateObj = parseISO(newSeries.oneTimeDate);
-     if (isValidDateFn(oneTimeDateObj)) {
-        const alreadyExists = allExistingMeetingsForSeries.some(m => isSameDay(parseISO(m.date), oneTimeDateObj));
-        if (!alreadyExists) {
-            const instance = await addMeetingInstanceInternal({
-                seriesId: newSeries.id,
-                name: `${newSeries.name} (${format(oneTimeDateObj, 'd MMM', { locale: es })})`,
-                date: newSeries.oneTimeDate,
-                time: newSeries.defaultTime,
-                location: newSeries.defaultLocation,
-                description: newSeries.description,
-                attendeeUids: resolvedUids, 
-                minute: null,
-            });
-            newInstances.push(instance);
-        }
-    }
-  } else if (newSeries.frequency === "Weekly") {
-    const occurrenceDates = getNextWeeklyOccurrences(newSeries, today, 4); 
-    for (const date of occurrenceDates) {
-        const alreadyExists = allExistingMeetingsForSeries.some(m => isSameDay(parseISO(m.date), date));
-        if (!alreadyExists) {
-            const instance = await addMeetingInstanceInternal({
-                seriesId: newSeries.id,
-                name: `${newSeries.name} (${format(date, 'd MMM', { locale: es })})`,
-                date: format(date, 'yyyy-MM-dd'),
-                time: newSeries.defaultTime,
-                location: newSeries.defaultLocation,
-                description: newSeries.description,
-                attendeeUids: resolvedUids,
-                minute: null,
-            });
-            newInstances.push(instance);
-        }
-    }
-  } else if (newSeries.frequency === "Monthly") {
-    const occurrenceDates = getNextMonthlyOccurrences(newSeries, today, 2); 
-     for (const date of occurrenceDates) {
-        const alreadyExists = allExistingMeetingsForSeries.some(m => isSameDay(parseISO(m.date), date));
-        if (!alreadyExists) {
-            const instance = await addMeetingInstanceInternal({
-                seriesId: newSeries.id,
-                name: `${newSeries.name} (${format(date, 'd MMM', { locale: es })})`,
-                date: format(date, 'yyyy-MM-dd'),
-                time: newSeries.defaultTime,
-                location: newSeries.defaultLocation,
-                description: newSeries.description,
-                attendeeUids: resolvedUids,
-                minute: null,
-            });
-            newInstances.push(instance);
-        }
-    }
-  }
-  return {series: newSeries, newInstances: newInstances.length > 0 ? newInstances : undefined };
+  const generatedInstances = await ensureFutureInstances(newSeries.id);
+  return {series: newSeries, newInstances: generatedInstances.length > 0 ? generatedInstances : undefined };
 }
 
 export async function updateMeetingSeries(
@@ -345,88 +346,7 @@ export async function updateMeetingSeries(
   
   seriesList[seriesIndex] = updatedSeries;
   await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, seriesList);
-
-  let newlyGeneratedInstances: Meeting[] = [];
-  
-  const allMembersForResolve = await readDbFile<Member>(MEMBERS_DB_FILE, []);
-  const allGdisForResolve = await readDbFile<GDI>(GDIS_DB_FILE, []);
-  const allMinistryAreasForResolve = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
-
-  let resolvedUids: string[];
-  if (updatedSeries.seriesType === 'general') {
-    resolvedUids = await resolveAttendeeUidsForGeneralSeries(
-        updatedSeries.targetAttendeeGroups,
-        allMembersForResolve,
-        allGdisForResolve,
-        allMinistryAreasForResolve
-    );
-  } else if (updatedSeries.seriesType === 'gdi' && updatedSeries.ownerGroupId) {
-      resolvedUids = await resolveAttendeeUidsForGroupSeries('gdi', updatedSeries.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
-  } else if (updatedSeries.seriesType === 'ministryArea' && updatedSeries.ownerGroupId) {
-      resolvedUids = await resolveAttendeeUidsForGroupSeries('ministryArea', updatedSeries.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
-  } else {
-      resolvedUids = [];
-  }
-
-  const today = startOfDay(new Date());
-  const allExistingMeetingsForSeries = await getMeetingsBySeriesId(updatedSeries.id);
-
-  if (updatedSeries.frequency === "OneTime" && updatedSeries.oneTimeDate) {
-    const oneTimeDateObj = parseISO(updatedSeries.oneTimeDate);
-    if (isValidDateFn(oneTimeDateObj)) {
-        const alreadyExists = allExistingMeetingsForSeries.some(m => isSameDay(parseISO(m.date), oneTimeDateObj));
-        if (!alreadyExists) {
-            const instance = await addMeetingInstanceInternal({
-                seriesId: updatedSeries.id,
-                name: `${updatedSeries.name} (${format(oneTimeDateObj, 'd MMM', { locale: es })})`,
-                date: updatedSeries.oneTimeDate, 
-                time: updatedSeries.defaultTime,
-                location: updatedSeries.defaultLocation,
-                description: updatedSeries.description,
-                attendeeUids: resolvedUids,
-                minute: null,
-            });
-            newlyGeneratedInstances.push(instance);
-        }
-    }
-  } else if (updatedSeries.frequency === "Weekly") {
-    const occurrenceDates = getNextWeeklyOccurrences(updatedSeries, today, 4);
-    for (const date of occurrenceDates) {
-        const alreadyExists = allExistingMeetingsForSeries.some(m => isSameDay(parseISO(m.date), date));
-        if (!alreadyExists) {
-            const instance = await addMeetingInstanceInternal({
-                seriesId: updatedSeries.id,
-                name: `${updatedSeries.name} (${format(date, 'd MMM', { locale: es })})`,
-                date: format(date, 'yyyy-MM-dd'),
-                time: updatedSeries.defaultTime,
-                location: updatedSeries.defaultLocation,
-                description: updatedSeries.description,
-                attendeeUids: resolvedUids,
-                minute: null,
-            });
-            newlyGeneratedInstances.push(instance);
-        }
-    }
-  } else if (updatedSeries.frequency === "Monthly") {
-    const occurrenceDates = getNextMonthlyOccurrences(updatedSeries, today, 2);
-    for (const date of occurrenceDates) {
-        const alreadyExists = allExistingMeetingsForSeries.some(m => isSameDay(parseISO(m.date), date));
-        if (!alreadyExists) {
-            const instance = await addMeetingInstanceInternal({
-                seriesId: updatedSeries.id,
-                name: `${updatedSeries.name} (${format(date, 'd MMM', { locale: es })})`,
-                date: format(date, 'yyyy-MM-dd'),
-                time: updatedSeries.defaultTime,
-                location: updatedSeries.defaultLocation,
-                description: updatedSeries.description,
-                attendeeUids: resolvedUids,
-                minute: null,
-            });
-            newlyGeneratedInstances.push(instance);
-        }
-    }
-  }
-
+  const newlyGeneratedInstances = await ensureFutureInstances(updatedSeries.id);
   return { updatedSeries, newlyGeneratedInstances: newlyGeneratedInstances.length > 0 ? newlyGeneratedInstances : undefined };
 }
 
@@ -462,6 +382,10 @@ export async function getFilteredMeetingInstances(
   page: number = 1,
   pageSize: number = 10
 ): Promise<{ instances: Meeting[]; totalCount: number; totalPages: number }> {
+  if (seriesId) {
+    await ensureFutureInstances(seriesId);
+  }
+  
   let allMeetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []);
   
   let filtered = allMeetings.filter(meeting => meeting.seriesId === seriesId);
@@ -494,13 +418,14 @@ export async function getFilteredMeetingInstances(
 
 
 export async function getMeetingsBySeriesId(seriesId: string): Promise<Meeting[]> {
-  const allMeetings = await getAllMeetings();
+  await ensureFutureInstances(seriesId);
+  const allMeetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []); // Reread after potential generation
   return allMeetings.filter(meeting => meeting.seriesId === seriesId)
                     .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
 }
 
 export async function getMeetingById(id: string): Promise<Meeting | undefined> {
-  const meetings = await getAllMeetings();
+  const meetings = await getAllMeetings(); // This might implicitly call ensureFutureInstances if getAllMeetings is refactored, or needs its own logic
   return meetings.find(meeting => meeting.id === id);
 }
 
@@ -530,12 +455,7 @@ export async function addMeetingInstance(
 
   let resolvedUids: string[];
   if (series.seriesType === 'general') {
-    resolvedUids = await resolveAttendeeUidsForGeneralSeries(
-        series.targetAttendeeGroups,
-        allMembersForResolve,
-        allGdisForResolve,
-        allMinistryAreasForResolve
-    );
+    resolvedUids = await resolveAttendeeUidsForGeneralSeries(series.targetAttendeeGroups, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
   } else if (series.seriesType === 'gdi' && series.ownerGroupId) {
       resolvedUids = await resolveAttendeeUidsForGroupSeries('gdi', series.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
   } else if (series.seriesType === 'ministryArea' && series.ownerGroupId) {
@@ -612,3 +532,4 @@ export async function deleteMeetingInstance(instanceId: string): Promise<void> {
   const attendanceRecordsLeft = allAttendanceRecords.filter(ar => ar.meetingId !== instanceId);
   await writeDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, attendanceRecordsLeft);
 }
+

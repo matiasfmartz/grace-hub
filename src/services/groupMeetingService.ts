@@ -28,6 +28,7 @@ import {
   deleteMeetingInstance as deleteCoreMeetingInstance,
   updateMeetingMinute as updateCoreMeetingMinute,
   getMeetingsBySeriesId as getCoreMeetingsBySeriesId,
+  ensureFutureInstances, // Import the new function
 } from './meetingService'; 
 import { getAllMembersNonPaginated } from './memberService';
 import { getAllGdis } from './gdiService';
@@ -152,19 +153,38 @@ export async function deleteMeetingSeriesForGroup(
 export async function getGroupMeetingInstances(
     groupType: 'gdi' | 'ministryArea',
     groupId: string,
-    seriesId?: string,
+    filterSeriesId?: string, // Renamed from seriesId to filterSeriesId for clarity
     startDate?: string,
     endDate?: string,
     page: number = 1,
-    pageSize: number = 10
+    pageSize: number = 10 // Default pageSize if not displaying all
 ): Promise<{ instances: Meeting[]; totalCount: number; totalPages: number }> {
-    const allMeetings = await getAllCoreMeetings();
     
-    let relevantMeetings = allMeetings.filter(async meeting => {
-        const parentSeries = meeting.seriesId ? (await getCoreMeetingSeriesById(meeting.seriesId)) : null;
-        if (!parentSeries) return false;
-        return parentSeries.seriesType === groupType && parentSeries.ownerGroupId === groupId &&
-               (!seriesId || parentSeries.id === seriesId);
+    const groupSeriesList = await getSeriesByIdForGroup(groupType, groupId);
+
+    if (filterSeriesId && filterSeriesId !== 'all') {
+        // Ensure only the specified series for the group is processed
+        const specificSeries = groupSeriesList.find(s => s.id === filterSeriesId);
+        if (specificSeries) {
+            await ensureFutureInstances(specificSeries.id);
+        }
+    } else if (filterSeriesId === 'all' || !filterSeriesId) {
+        // Process all series belonging to this group
+        for (const series of groupSeriesList) {
+            await ensureFutureInstances(series.id);
+        }
+    }
+    
+    const allMeetings = await getAllCoreMeetings(); // Reread after potential generation
+    
+    let relevantMeetings = allMeetings.filter(meeting => {
+        const parentSeries = groupSeriesList.find(s => s.id === meeting.seriesId);
+        if (!parentSeries) return false; // Must belong to one of the group's series
+        
+        if (filterSeriesId && filterSeriesId !== 'all') {
+            return parentSeries.id === filterSeriesId;
+        }
+        return true; // If filterSeriesId is 'all' or undefined, include all instances from group's series
     });
 
     if (startDate) {
@@ -185,6 +205,11 @@ export async function getGroupMeetingInstances(
     relevantMeetings.sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
     
     const totalCount = relevantMeetings.length;
+
+    if (pageSize === Infinity) { // Request to get all instances
+        return { instances: relevantMeetings, totalCount, totalPages: 1 };
+    }
+
     const totalPages = Math.ceil(totalCount / pageSize);
     const startIndex = (page - 1) * pageSize;
     const paginatedInstances = relevantMeetings.slice(startIndex, startIndex + pageSize);
@@ -229,8 +254,6 @@ export async function addMeetingInstanceForGroup(
     throw new Error(`Serie no encontrada o no pertenece a este grupo (${groupType} ID: ${groupId}).`);
   }
 
-  // UIDs for group meetings are resolved by coreMeetingService using its updated resolveAttendeeUids
-  // which now considers seriesType and ownerGroupId.
   const meetingData: Pick<Meeting, 'name' | 'date' | 'time' | 'location' | 'description'> = {
     name: instanceDetails.name,
     date: format(instanceDetails.date, 'yyyy-MM-dd'),
@@ -239,7 +262,7 @@ export async function addMeetingInstanceForGroup(
     description: instanceDetails.description,
   };
 
-  return addCoreMeetingInstance(seriesId, meetingData); // addCoreMeetingInstance will resolve UIDs
+  return addCoreMeetingInstance(seriesId, meetingData); 
 }
 
 export async function updateMeetingInstanceForGroup(
@@ -294,3 +317,4 @@ export async function updateMeetingInstanceMinuteForGroup(
     }
     return updateCoreMeetingMinute(instanceId, minute);
 }
+
