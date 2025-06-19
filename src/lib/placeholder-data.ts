@@ -1,5 +1,5 @@
 
-import type { MinistryArea, Member, GDI, Meeting, Resource, AttendanceRecord, MeetingSeries } from './types'; // Updated import
+import type { MinistryArea, Member, GDI, Meeting, AttendanceRecord, MeetingSeries } from './types'; // Updated import, Resource removed
 
 export const placeholderMembers: Member[] = [
   { 
@@ -256,38 +256,4 @@ export const placeholderAttendanceRecords: AttendanceRecord[] = [
   { id: 'att2', meetingId: 'm2', memberId: '2', attended: false, notes: "Called in sick" },
 ];
 
-
-export const placeholderResources: Resource[] = [
-  { 
-    id: 'r1', 
-    title: 'Understanding Grace', 
-    type: 'Article', 
-    snippet: 'An in-depth look at the concept of grace in Christian theology.',
-    imageUrl: 'https://placehold.co/600x400',
-    link: '#'
-  },
-  { 
-    id: 'r2', 
-    title: 'Daily Devotional: Strength for Today', 
-    type: 'Devotional', 
-    snippet: 'A short devotional to inspire and encourage you daily.',
-    imageUrl: 'https://placehold.co/600x400',
-    link: '#'
-  },
-  { 
-    id: 'r3', 
-    title: 'Upcoming Mission Trip Announcement', 
-    type: 'Announcement', 
-    snippet: 'Information about our upcoming mission trip and how to get involved.',
-    imageUrl: 'https://placehold.co/600x400',
-    link: '#'
-  },
-   { 
-    id: 'r4', 
-    title: 'Sermon Notes: The Beatitudes', 
-    type: 'Sermon Notes', 
-    snippet: 'Key points and scriptures from last Sunday\'s sermon on the Beatitudes.',
-    imageUrl: 'https://placehold.co/600x400',
-    link: '#'
-  },
-];
+// placeholderResources removed

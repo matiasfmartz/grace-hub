@@ -9,20 +9,24 @@ Grace Hub tiene como objetivo principal centralizar y simplificar las diversas a
 
 *   Una comunicación más fluida entre los miembros.
 *   Una organización eficiente de grupos, ministerios y eventos.
-*   Un acceso fácil a recursos y materiales relevantes.
 *   Un seguimiento detallado de la participación y el crecimiento de la comunidad.
 
 ## Características Principales
 
 La aplicación se organiza en varias secciones clave:
 
-### 1. Inicio (Home)
-Página de bienvenida que ofrece una visión general de la aplicación y accesos directos a las secciones más importantes.
+### 1. Dashboard (Inicio)
+Página principal que ofrece una visión general de la actividad y participación de la iglesia a través de diversos gráficos y tablas:
+*   Gráfico de línea de las asistencias generales del último mes.
+*   Gráfico de línea de asistencia a GDIs.
+*   Gráfico de barras de asistencias vs. inasistencias del último mes.
+*   Gráfico de pastel de distribución de roles de miembros (Líderes, Obreros, Otros).
+*   Tabla de miembros ausentes en reuniones generales recientes.
 
 ### 2. Miembros (Members)
-*   **Directorio de Miembros**: Visualiza, busca y filtra la lista de todos los miembros de la iglesia.
-*   **Agregar Miembros**: Permite añadir nuevos miembros individualmente o mediante una herramienta de carga masiva.
-*   **Detalles del Miembro**: Muestra información completa de cada miembro, incluyendo datos de contacto, fechas importantes (nacimiento, ingreso, bautismo), estado, roles, GDI y áreas de ministerio asignadas. Incluye una pestaña de "Historial de Asistencia" con filtros por serie y rango de fechas, mostrando un resumen y una tendencia mensual de asistencia del miembro a las reuniones a las que fue convocado.
+*   **Directorio de Miembros**: Visualiza, busca y filtra la lista de todos los miembros de la iglesia. Permite filtrar por estado, rol (incluyendo "Sin Rol Asignado") y guía de GDI (incluyendo "No Asignado a GDI"). Muestra el total de miembros filtrados y el total absoluto de miembros.
+*   **Agregar Miembros**: Permite añadir nuevos miembros individualmente o mediante una herramienta de carga masiva. El campo email es opcional.
+*   **Detalles del Miembro**: Muestra información completa de cada miembro, incluyendo datos de contacto, fechas importantes (nacimiento, ingreso, bautismo), estado, roles, GDI y áreas de ministerio asignadas. Incluye una pestaña de "Historial de Asistencia" con filtros por serie y rango de fechas, mostrando un resumen y una tendencia mensual de asistencia del miembro a las reuniones a las que fue convocado. Permite imprimir el historial de asistencia.
 *   **Edición de Miembros**: Facilita la actualización de la información de los miembros.
 *   **Gestión de Roles**: Los roles (Asistente General, Obrero, Líder) se calculan y asignan automáticamente basados en la participación en GDIs y Ministerios.
 
@@ -57,7 +61,7 @@ Esta sección está dedicada a la gestión de **reuniones generales** de la igle
     *   Configura nombre, descripción, hora, lugar e imagen predeterminados.
     *   Define la frecuencia (Única Vez, Semanal, Mensual) y las reglas de recurrencia.
     *   Especifica los grupos de asistentes objetivo (Asistentes Generales, Obreros, Líderes).
-*   **Generación de Instancias**: Las instancias se generan automáticamente para series recurrentes (un buffer de 4 futuras para semanales, 2 para mensuales). Si un usuario elimina manualmente una instancia recurrente, esta no se regenerará automáticamente para esa fecha específica.
+*   **Generación de Instancias (Justo a Tiempo)**: Las instancias se generan automáticamente para series recurrentes (un buffer de 4 futuras para semanales, 2 para mensuales) cuando se accede a la información de la serie. Si un usuario elimina manualmente una instancia recurrente, esta *no* se regenerará automáticamente para esa fecha específica (se registra como "cancelada" para la serie).
 *   **Gestión de Instancias de Reunión General**:
     *   Visualiza todas las instancias de reunión programadas, filtrables por serie y rango de fechas.
     *   Agrega instancias ocasionales a una serie existente.
@@ -69,10 +73,7 @@ Esta sección está dedicada a la gestión de **reuniones generales** de la igle
         *   Permite registrar y guardar minutas para la reunión.
         *   Permite editar o eliminar la instancia.
 
-### 5. Recursos (Resources)
-Una sección para compartir materiales útiles como artículos, devocionales, anuncios y notas de sermones.
-
-### 6. Acerca de (About)
+### 5. Acerca de (About)
 Proporciona información sobre la misión, visión y valores detrás de Grace Hub.
 
 ## Tecnologías Utilizadas
@@ -141,7 +142,7 @@ Proporciona información sobre la misión, visión y valores detrás de Grace Hu
 *   `src/components/`: Componentes reutilizables de React.
     *   `src/components/ui/`: Componentes de UI de ShadCN.
     *   `src/components/layout/`: Componentes de la estructura principal (Header, Footer).
-    *   Subdirectorios para componentes específicos: `members`, `groups`, `events`.
+    *   Subdirectorios para componentes específicos: `members`, `groups`, `events`, `dashboard`.
 *   `src/lib/`: Lógica de negocio, tipos, utilidades y "bases de datos" JSON.
     *   `types.ts`: Definiciones de tipos e interfaces TypeScript, y esquemas Zod para validación. Incluye `cancelledDates` en `MeetingSeries`.
     *   `*-db.json`: Archivos JSON que actúan como almacenamiento de datos.

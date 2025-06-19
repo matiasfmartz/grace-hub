@@ -114,15 +114,7 @@ export interface AttendanceRecord {
 }
 export type AttendanceRecordWriteData = Omit<AttendanceRecord, 'id'>;
 
-
-export interface Resource {
-  id: string;
-  title: string;
-  type: 'Article' | 'Devotional' | 'Announcement' | 'Sermon Notes';
-  snippet: string;
-  imageUrl?: string;
-  link?: string;
-}
+// Resource type removed
 
 // Zod Schemas for Forms
 
@@ -287,5 +279,3 @@ export interface MinistryAreaMeeting extends MeetingBase {
 export type AnyMeeting = GeneralMeeting | GdiMeeting | MinistryAreaMeeting;
 export type AnyMeetingWriteData = Omit<AnyMeeting, 'id' | 'attendeeUids'> & { attendeeUids?: string[] };
 export type AnyMeetingInstanceUpdateData = Partial<Omit<AnyMeeting, 'id' | 'seriesId' | 'attendeeUids' | 'seriesType' | 'ownerGroupId'>>;
-
-
