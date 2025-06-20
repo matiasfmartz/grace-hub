@@ -111,7 +111,7 @@ export default function TitheProgressionChart({
               />
               <YAxis
                 dataKey="tithersCount"
-                domain={[0, 'dataMax']}
+                domain={[0, filteredMembers.length]}
                 allowDecimals={false}
                 tickLine={false}
                 axisLine={false}
