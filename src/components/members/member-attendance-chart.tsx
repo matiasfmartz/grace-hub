@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 // Removed Select, Label, DatePicker, Button, FilterIcon imports
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { CalendarRange, Users, CheckCircle2, XCircle, ListChecks, UserX, HelpCircle, Clock, PieChart } from 'lucide-react';
+import { CalendarRange, Users, CheckCircle2, XCircle, ListChecks, UserX, HelpCircle, Clock, PieChart, AlertCircle } from 'lucide-react';
 import { format, parseISO, isValid, isWithinInterval, startOfDay, endOfDay, isPast, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -72,8 +72,10 @@ export default function MemberAttendanceSummary({
 
       if (series.seriesType === 'general') {
         if (series.targetAttendeeGroups.includes('allMembers')) return true;
+        // For specific role-based general meetings, attendeeUids should be pre-resolved
         return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
       } else { // For 'gdi' or 'ministryArea' series
+        // AttendeeUids should be pre-resolved for group meetings
         return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
       }
     });
@@ -126,10 +128,10 @@ export default function MemberAttendanceSummary({
         } else {
           currentStatus = 'pending_past';
         }
-      } else {
-        if (attendanceRecord) {
+      } else { // Today or future
+        if (attendanceRecord) { // If there's a record for today/future, use it
             currentStatus = attendanceRecord.attended ? 'attended' : 'absent';
-        } else {
+        } else { // No record yet for today/future, so it's pending
             currentStatus = 'pending_future';
         }
       }
@@ -146,6 +148,7 @@ export default function MemberAttendanceSummary({
     const totalConvocations = detailedInfo.length;
     const totalAttendances = detailedInfo.filter(info => info.status === 'attended').length;
     const totalReportedAbsences = detailedInfo.filter(info => info.status === 'absent').length;
+    const totalUnreportedPastAttendances = detailedInfo.filter(info => info.status === 'pending_past').length;
 
     const reportedMeetingsCount = totalAttendances + totalReportedAbsences;
     const reportedAbsenceRate = reportedMeetingsCount > 0 ? (totalReportedAbsences / reportedMeetingsCount) * 100 : 0;
@@ -156,6 +159,7 @@ export default function MemberAttendanceSummary({
       totalConvocations,
       totalAttendances,
       totalReportedAbsences,
+      totalUnreportedPastAttendances,
       reportedAbsenceRate,
       relevantSeriesName: currentSeriesName,
     };
@@ -218,7 +222,7 @@ export default function MemberAttendanceSummary({
         {/* Removed Filter UI elements */}
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
           <Card className="bg-primary/5">
             <CardHeader className="pb-2">
               <CardDescription className="text-xs font-medium flex items-center"><CalendarRange className="mr-2 h-4 w-4 text-primary" />Convocatorias (Filtradas)</CardDescription>
@@ -241,6 +245,12 @@ export default function MemberAttendanceSummary({
             <CardHeader className="pb-2">
               <CardDescription className="text-xs font-medium flex items-center"><PieChart className="mr-2 h-4 w-4 text-yellow-700" />Tasa Inasistencia (Reportadas)</CardDescription>
               <CardTitle className="text-3xl text-yellow-700">{processedMeetingData.reportedAbsenceRate.toFixed(0)}%</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card className="bg-orange-500/5">
+            <CardHeader className="pb-2">
+              <CardDescription className="text-xs font-medium flex items-center"><HelpCircle className="mr-2 h-4 w-4 text-orange-600" />No Reportadas (Pasadas)</CardDescription>
+              <CardTitle className="text-3xl text-orange-700">{processedMeetingData.totalUnreportedPastAttendances}</CardTitle>
             </CardHeader>
           </Card>
         </div>
