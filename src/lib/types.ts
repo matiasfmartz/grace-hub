@@ -114,14 +114,13 @@ export interface AttendanceRecord {
 }
 export type AttendanceRecordWriteData = Omit<AttendanceRecord, 'id'>;
 
-// Resource type removed
-
 // Zod Schemas for Forms
 
 export const MemberStatusSchema = z.enum(['Active', 'Inactive', 'New']);
 export const NONE_GDI_OPTION_VALUE = "__NONE__"; // Used in member form for "Ninguno" GDI
 export const NO_ROLE_FILTER_VALUE = "no-role-assigned";
 export const NO_GDI_FILTER_VALUE = "no-gdi-assigned";
+export const NO_AREA_FILTER_VALUE = "no-area-assigned";
 
 
 export const AddMemberFormSchema = z.object({
@@ -172,7 +171,7 @@ export const DefineMeetingSeriesFormSchema = z.object({
   monthlyDayOfMonth: z.coerce.number().min(1).max(31).optional(),
   monthlyWeekOrdinal: WeekOrdinalEnum.optional(),
   monthlyDayOfWeek: DayOfWeekEnum.optional(),
-  cancelledDates: z.array(z.string()).optional(), 
+  cancelledDates: z.array(z.string()).optional(),
 }).superRefine((data, ctx) => {
   if (data.frequency === "OneTime") {
     if (!data.oneTimeDate) {

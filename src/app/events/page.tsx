@@ -1,8 +1,9 @@
 
 'use server';
-import type { Meeting, DefineMeetingSeriesFormValues, MeetingSeries, Member, GDI, MinistryArea, AttendanceRecord, AddOccasionalMeetingFormValues } from '@/lib/types';
+import type { Meeting, DefineMeetingSeriesFormValues, MeetingSeries, Member, GDI, MinistryArea, AttendanceRecord, AddOccasionalMeetingFormValues, MemberRoleType } from '@/lib/types';
+import { NO_ROLE_FILTER_VALUE, NO_GDI_FILTER_VALUE, NO_AREA_FILTER_VALUE } from '@/lib/types';
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Filter, Settings, PlusSquare, LayoutGrid, ListFilter } from 'lucide-react';
+import { CalendarDays, Filter, Settings, PlusSquare, LayoutGrid, ListFilter, ShieldCheck, Users as UsersIcon, Activity, X } from 'lucide-react';
 import { revalidatePath } from 'next/cache';
 import { format, parseISO, isValid, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -12,7 +13,7 @@ import {
     updateMeetingSeries,
     deleteMeetingSeries,
     addMeetingInstance,
-    getFilteredMeetingInstances 
+    getFilteredMeetingInstances
 } from '@/services/meetingService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
 import PageSpecificAddMeetingDialog from '@/components/events/page-specific-add-meeting-dialog';
@@ -20,13 +21,15 @@ import ManageMeetingSeriesDialog from '@/components/events/manage-meeting-series
 import AddOccasionalMeetingDialog from '@/components/events/add-occasional-meeting-dialog';
 import { getAllGdis } from '@/services/gdiService';
 import { getAllMinistryAreas } from '@/services/ministryAreaService';
-import { getAllAttendanceRecords, getResolvedAttendees } from '@/services/attendanceService'; 
+import { getAllAttendanceRecords, getResolvedAttendees } from '@/services/attendanceService';
 import MeetingTypeAttendanceTable from '@/components/events/meeting-type-attendance-table';
-import AttendanceLineChart from '@/components/events/AttendanceFrequencySummaryTable'; 
+import AttendanceLineChart from '@/components/events/AttendanceFrequencySummaryTable';
 import DateRangeFilter from '@/components/events/date-range-filter';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { MemberRoleEnum } from '@/lib/types';
 
 export async function defineMeetingSeriesAction(
   newSeriesData: DefineMeetingSeriesFormValues
@@ -34,10 +37,10 @@ export async function defineMeetingSeriesAction(
   try {
     const dataForService: DefineMeetingSeriesFormValues = {
       ...newSeriesData,
-      seriesType: 'general', 
-      ownerGroupId: null,    
+      seriesType: 'general',
+      ownerGroupId: null,
       oneTimeDate: newSeriesData.oneTimeDate instanceof Date && isValid(newSeriesData.oneTimeDate)
-        ? newSeriesData.oneTimeDate 
+        ? newSeriesData.oneTimeDate
         : undefined,
     };
     if (newSeriesData.oneTimeDate instanceof Date && isValid(newSeriesData.oneTimeDate)) {
@@ -45,7 +48,7 @@ export async function defineMeetingSeriesAction(
     }
 
 
-    const result = await addMeetingSeries(dataForService as any); 
+    const result = await addMeetingSeries(dataForService as any);
 
     revalidatePath('/events');
     let message = `Serie de reuniones "${result.series.name}" agregada exitosamente.`;
@@ -79,8 +82,8 @@ export async function updateMeetingSeriesAction(
         defaultLocation: updatedData.defaultLocation,
         targetAttendeeGroups: updatedData.targetAttendeeGroups,
         frequency: updatedData.frequency,
-        seriesType: 'general' as const, 
-        ownerGroupId: null, 
+        seriesType: 'general' as const,
+        ownerGroupId: null,
         oneTimeDate: updatedData.oneTimeDate instanceof Date && isValid(updatedData.oneTimeDate) ? format(updatedData.oneTimeDate, 'yyyy-MM-dd') : undefined,
         weeklyDays: updatedData.weeklyDays,
         monthlyRuleType: updatedData.monthlyRuleType,
@@ -136,7 +139,7 @@ export async function addOccasionalMeetingAction(
 
 interface EventsPageData {
   allSeries: MeetingSeries[];
-  meetingsForPage: Meeting[]; 
+  meetingsForPage: Meeting[];
   totalMeetingInstances: number;
   meetingInstancesTotalPages: number;
   meetingInstancesCurrentPage: number;
@@ -144,13 +147,18 @@ interface EventsPageData {
   allGdis: GDI[];
   allMinistryAreas: MinistryArea[];
   allAttendanceRecords: AttendanceRecord[];
-  initialRowMembers: Member[]; 
-  expectedAttendeesMap: Record<string, Set<string>>; 
+  initialRowMembers: Member[];
+  expectedAttendeesMap: Record<string, Set<string>>;
   memberCurrentPage: number;
   memberPageSize: number;
   appliedStartDate?: string;
   appliedEndDate?: string;
   selectedSeriesId?: string;
+  // Filters for table members
+  tableMemberRoleFilters: string[];
+  tableMemberStatusFilters: Member['status'][];
+  tableMemberGdiFilters: string[];
+  tableMemberAreaFilters: string[];
 }
 
 interface EventsPageProps {
@@ -158,21 +166,30 @@ interface EventsPageProps {
     series?: string;
     startDate?: string;
     endDate?: string;
-    page?: string; 
-    pageSize?: string; 
-    mPage?: string; 
-    mPSize?: string; 
+    page?: string;
+    pageSize?: string;
+    mPage?: string;
+    mPSize?: string;
+    // New search params for table filters
+    tmr?: string; // table member roles
+    tms?: string; // table member status
+    tmg?: string; // table member gdi
+    tma?: string; // table member area
   };
 }
 
 async function getEventsPageData(
     selectedSeriesIdParam?: string,
-    startDateParam?: string, 
+    startDateParam?: string,
     endDateParam?: string,
     meetingPageParam?: string,
     meetingPageSizeParam?: string,
     memberPageParam?: string,
-    memberPageSizeParam?: string
+    memberPageSizeParam?: string,
+    tableMemberRolesParam?: string,
+    tableMemberStatusParam?: string,
+    tableMemberGdiParam?: string,
+    tableMemberAreaParam?: string
 ): Promise<EventsPageData> {
   const meetingCurrentPage = Number(meetingPageParam) || 1;
   let meetingPageSize = Number(meetingPageSizeParam) || 10;
@@ -181,7 +198,7 @@ async function getEventsPageData(
   const memberCurrentPage = Number(memberPageParam) || 1;
   let memberPageSize = Number(memberPageSizeParam) || 10;
   if (isNaN(memberPageSize) || memberPageSize < 1) memberPageSize = 10;
-  
+
   const [
     allSeriesData,
     allMembersData,
@@ -236,7 +253,7 @@ async function getEventsPageData(
     .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
 
   return {
-    allSeries: seriesPresentInFilter, 
+    allSeries: seriesPresentInFilter,
     meetingsForPage,
     totalMeetingInstances,
     meetingInstancesTotalPages,
@@ -252,13 +269,38 @@ async function getEventsPageData(
     appliedStartDate: startDateParam,
     appliedEndDate: endDateParam,
     selectedSeriesId: actualSelectedSeriesId,
+    tableMemberRoleFilters: tableMemberRolesParam ? tableMemberRolesParam.split(',') : [],
+    tableMemberStatusFilters: tableMemberStatusParam ? tableMemberStatusParam.split(',') as Member['status'][] : [],
+    tableMemberGdiFilters: tableMemberGdiParam ? tableMemberGdiParam.split(',') : [],
+    tableMemberAreaFilters: tableMemberAreaParam ? tableMemberAreaParam.split(',') : [],
   };
 }
+
+const roleDisplayMap: Record<MemberRoleType, string> = {
+  Leader: "Líder",
+  Worker: "Obrero",
+  GeneralAttendee: "Asistente General",
+};
+const roleFilterOptions: { value: MemberRoleType | typeof NO_ROLE_FILTER_VALUE; label: string }[] = [
+    ...(Object.keys(MemberRoleEnum.Values) as MemberRoleType[]).map(role => ({
+        value: role,
+        label: roleDisplayMap[role] || role,
+    })),
+    { value: NO_ROLE_FILTER_VALUE, label: "Sin Rol Asignado" }
+];
+
+const statusDisplayMap: Record<Member['status'], string> = {
+  Active: "Activo",
+  Inactive: "Inactivo",
+  New: "Nuevo"
+};
+const statusFilterOptions: { value: Member['status']; label: string }[] = Object.entries(statusDisplayMap)
+    .map(([value, label]) => ({ value: value as Member['status'], label }));
 
 
 export default async function EventsPage({ searchParams }: EventsPageProps) {
   const {
-    allSeries, 
+    allSeries,
     meetingsForPage,
     totalMeetingInstances,
     meetingInstancesTotalPages,
@@ -274,14 +316,22 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     appliedStartDate,
     appliedEndDate,
     selectedSeriesId,
+    tableMemberRoleFilters,
+    tableMemberStatusFilters,
+    tableMemberGdiFilters,
+    tableMemberAreaFilters,
   } = await getEventsPageData(
-      searchParams?.series, 
-      searchParams?.startDate, 
+      searchParams?.series,
+      searchParams?.startDate,
       searchParams?.endDate,
       searchParams?.page,
       searchParams?.pageSize,
       searchParams?.mPage,
-      searchParams?.mPSize
+      searchParams?.mPSize,
+      searchParams?.tmr,
+      searchParams?.tms,
+      searchParams?.tmg,
+      searchParams?.tma
   );
 
   const selectedSeriesObject = selectedSeriesId ? allSeries.find(s => s.id === selectedSeriesId) : undefined;
@@ -295,7 +345,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     }
     return `/events?${params.toString()}`;
   };
-  
+
   const createSeriesLink = (seriesIdToLink: string) => {
       const params = new URLSearchParams();
       params.set('series', seriesIdToLink);
@@ -303,8 +353,45 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       if (appliedEndDate) params.set('endDate', appliedEndDate);
       if (searchParams?.pageSize) params.set('pageSize', searchParams.pageSize);
       if (searchParams?.mPSize) params.set('mPSize', searchParams.mPSize);
+      // Preserve table member filters
+      if (searchParams?.tmr) params.set('tmr', searchParams.tmr);
+      if (searchParams?.tms) params.set('tms', searchParams.tms);
+      if (searchParams?.tmg) params.set('tmg', searchParams.tmg);
+      if (searchParams?.tma) params.set('tma', searchParams.tma);
       return `/events?${params.toString()}`;
   }
+
+  // Functions to update table filters via URL
+  const updateTableFiltersURL = (newFilters: {
+    tmr?: string[];
+    tms?: string[];
+    tmg?: string[];
+    tma?: string[];
+  }) => {
+    const params = new URLSearchParams(searchParams);
+    newFilters.tmr ? params.set('tmr', newFilters.tmr.join(',')) : params.delete('tmr');
+    newFilters.tms ? params.set('tms', newFilters.tms.join(',')) : params.delete('tms');
+    newFilters.tmg ? params.set('tmg', newFilters.tmg.join(',')) : params.delete('tmg');
+    newFilters.tma ? params.set('tma', newFilters.tma.join(',')) : params.delete('tma');
+    params.set('mPage', '1'); // Reset member page
+    return `/events?${params.toString()}`;
+  };
+
+  const gdiFilterOptions = [
+    { value: NO_GDI_FILTER_VALUE, label: "Miembros Sin GDI Asignado" },
+    ...allGdis.map(gdi => ({
+        value: gdi.id,
+        label: `${gdi.name} (Guía: ${allMembers.find(m => m.id === gdi.guideId)?.firstName || ''} ${allMembers.find(m => m.id === gdi.guideId)?.lastName || 'N/A'})`
+    }))
+  ];
+
+  const areaFilterOptions = [
+    { value: NO_AREA_FILTER_VALUE, label: "Miembros Sin Área Asignada" },
+    ...allMinistryAreas.map(area => ({
+        value: area.id,
+        label: `${area.name} (Líder: ${allMembers.find(m => m.id === area.leaderId)?.firstName || ''} ${allMembers.find(m => m.id === area.leaderId)?.lastName || 'N/A'})`
+    }))
+  ];
 
 
   return (
@@ -318,7 +405,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
         <aside className="md:w-72 lg:w-80 flex-shrink-0 space-y-6">
           <PageSpecificAddMeetingDialog
             defineMeetingSeriesAction={defineMeetingSeriesAction}
-            seriesTypeContext="general" // Explicitly set context
+            seriesTypeContext="general"
           />
           <div className="p-4 border rounded-lg shadow-sm bg-card">
             <h2 className="text-lg font-semibold mb-3 flex items-center">
@@ -353,7 +440,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           <div className="p-4 border rounded-lg shadow-sm bg-card">
             <h2 className="text-lg font-semibold mb-3 flex items-center">
               <ListFilter className="mr-2 h-5 w-5 text-primary" />
-              Filtrar Instancias
+              Filtrar Instancias (Columnas)
             </h2>
             <DateRangeFilter
               initialStartDate={appliedStartDate}
@@ -393,19 +480,120 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
               {meetingsForPage.length > 0 && (
                 <AttendanceLineChart
-                  meetingsForSeries={meetingsForPage} 
+                  meetingsForSeries={meetingsForPage}
                   allAttendanceRecords={allAttendanceRecords}
                   seriesName={selectedSeriesObject.name}
                   filterStartDate={appliedStartDate}
                   filterEndDate={appliedEndDate}
                 />
               )}
-              
+
               {totalMeetingInstances > 0 ? (
+                <>
+                <div className="my-4 p-3 border rounded-lg bg-card shadow-sm">
+                  <h3 className="text-md font-semibold mb-2 flex items-center"><ListFilter className="mr-2 h-4 w-4 text-primary" />Filtrar Miembros en Tabla (Filas):</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="justify-start text-xs w-full">
+                                <ShieldCheck className="mr-1.5 h-3.5 w-3.5" /> Rol ({tableMemberRoleFilters.length > 0 ? tableMemberRoleFilters.length : 'Todos'})
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                            {roleFilterOptions.map(opt => (
+                                <DropdownMenuCheckboxItem
+                                    key={opt.value}
+                                    checked={tableMemberRoleFilters.includes(opt.value)}
+                                    onCheckedChange={(checked) => {
+                                        const newRoles = checked
+                                            ? [...tableMemberRoleFilters, opt.value]
+                                            : tableMemberRoleFilters.filter(r => r !== opt.value);
+                                        router.push(updateTableFiltersURL({ tmr: newRoles }));
+                                    }}
+                                >{opt.label}</DropdownMenuCheckboxItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                             <Button variant="outline" size="sm" className="justify-start text-xs w-full">
+                                <Activity className="mr-1.5 h-3.5 w-3.5" /> Estado ({tableMemberStatusFilters.length > 0 ? tableMemberStatusFilters.length : 'Todos'})
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                            {statusFilterOptions.map(opt => (
+                                <DropdownMenuCheckboxItem
+                                    key={opt.value}
+                                    checked={tableMemberStatusFilters.includes(opt.value)}
+                                    onCheckedChange={(checked) => {
+                                        const newStatuses = checked
+                                            ? [...tableMemberStatusFilters, opt.value]
+                                            : tableMemberStatusFilters.filter(s => s !== opt.value);
+                                        router.push(updateTableFiltersURL({ tms: newStatuses as string[] }));
+                                    }}
+                                >{opt.label}</DropdownMenuCheckboxItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="justify-start text-xs w-full">
+                                <UsersIcon className="mr-1.5 h-3.5 w-3.5" /> GDI ({tableMemberGdiFilters.length > 0 ? tableMemberGdiFilters.length : 'Todos'})
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="max-h-60 overflow-y-auto">
+                           {gdiFilterOptions.map(opt => (
+                                <DropdownMenuCheckboxItem
+                                    key={opt.value}
+                                    checked={tableMemberGdiFilters.includes(opt.value)}
+                                     onCheckedChange={(checked) => {
+                                        const newGdis = checked
+                                            ? [...tableMemberGdiFilters, opt.value]
+                                            : tableMemberGdiFilters.filter(g => g !== opt.value);
+                                        router.push(updateTableFiltersURL({ tmg: newGdis }));
+                                    }}
+                                >{opt.label}</DropdownMenuCheckboxItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                           <Button variant="outline" size="sm" className="justify-start text-xs w-full">
+                                <Activity className="mr-1.5 h-3.5 w-3.5" /> Área ({tableMemberAreaFilters.length > 0 ? tableMemberAreaFilters.length : 'Todas'})
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="max-h-60 overflow-y-auto">
+                            {areaFilterOptions.map(opt => (
+                                <DropdownMenuCheckboxItem
+                                    key={opt.value}
+                                    checked={tableMemberAreaFilters.includes(opt.value)}
+                                    onCheckedChange={(checked) => {
+                                        const newAreas = checked
+                                            ? [...tableMemberAreaFilters, opt.value]
+                                            : tableMemberAreaFilters.filter(a => a !== opt.value);
+                                        router.push(updateTableFiltersURL({ tma: newAreas }));
+                                    }}
+                                >{opt.label}</DropdownMenuCheckboxItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                   {(tableMemberRoleFilters.length > 0 || tableMemberStatusFilters.length > 0 || tableMemberGdiFilters.length > 0 || tableMemberAreaFilters.length > 0) && (
+                    <Button
+                        variant="link"
+                        size="sm"
+                        className="mt-2 px-0 h-auto text-xs text-destructive hover:text-destructive/80"
+                        onClick={() => router.push(updateTableFiltersURL({ tmr:[], tms:[], tmg:[], tma:[] }))}
+                    >
+                        <X className="mr-1 h-3 w-3" /> Limpiar filtros de miembros
+                    </Button>
+                  )}
+                </div>
+
                 <MeetingTypeAttendanceTable
-                  displayedInstances={meetingsForPage} 
-                  allMeetingSeries={allSeries} 
-                  initialRowMembers={initialRowMembers} 
+                  displayedInstances={meetingsForPage}
+                  allMeetingSeries={allSeries}
+                  initialRowMembers={initialRowMembers}
                   expectedAttendeesMap={expectedAttendeesMap}
                   allAttendanceRecords={allAttendanceRecords}
                   seriesName={selectedSeriesObject.name}
@@ -413,7 +601,15 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                   filterEndDate={appliedEndDate}
                   memberCurrentPage={memberCurrentPage}
                   memberPageSize={memberPageSize}
+                  memberRoleFilters={tableMemberRoleFilters}
+                  memberStatusFilters={tableMemberStatusFilters}
+                  memberGdiFilters={tableMemberGdiFilters}
+                  memberAreaFilters={tableMemberAreaFilters}
+                  allMembers={allMembers}
+                  allGdis={allGdis}
+                  allAreas={allMinistryAreas}
                 />
+                </>
               ) : (
                 <div className="text-center py-10">
                   <CalendarDays className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -461,7 +657,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
              <div className="text-center py-10 flex flex-col items-center justify-center">
               <CalendarDays className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
               <h2 className="text-2xl font-semibold text-muted-foreground">
-                {allSeries.length > 0 ? "Seleccione una Serie" : 
+                {allSeries.length > 0 ? "Seleccione una Serie" :
                   (appliedStartDate && appliedEndDate ? "No hay reuniones para el rango seleccionado" : "No hay Series de Reuniones Generales Definidas")
                 }
               </h2>
