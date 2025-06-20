@@ -1,12 +1,11 @@
 
 "use client";
 
-import React, { useMemo } from 'react'; // Removed useState
+import React, { useMemo } from 'react';
 import type { Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-// Removed Select, Label, DatePicker, Button, FilterIcon imports
-import { LineChart as LineChartIcon, CalendarRange } from 'lucide-react'; // Added CalendarRange
-import { format, parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
+import { LineChart as LineChartIcon, CalendarRange } from 'lucide-react';
+import { format, parseISO, isValid, startOfDay, endOfDay, isPast, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   Line,
@@ -30,21 +29,22 @@ interface MemberAttendanceLineChartProps {
   allMeetings: Meeting[];
   allMeetingSeries: MeetingSeries[];
   allAttendanceRecords: AttendanceRecord[];
-  selectedSeriesId: string; // Prop from parent
-  startDate?: Date;        // Prop from parent
-  endDate?: Date;          // Prop from parent
+  selectedSeriesId: string;
+  startDate?: Date;
+  endDate?: Date;
 }
 
 interface MonthlyChartDataPoint {
-  monthValue: string;
-  monthDisplay: string;
+  monthValue: string; // YYYY-MM
+  monthDisplay: string; // Formatted for X-axis (e.g., "jun 2025")
   attendedCount: number;
   convocatedCount: number;
+  attendancePercentage: number; // New: (attendedCount / convocatedCount) * 100
 }
 
 const chartConfig = {
-  attendedCount: {
-    label: "Asistencias/Mes",
+  attendancePercentage: { // Changed from attendedCount
+    label: "Asistencia (%)",
     color: "hsl(var(--primary))",
   },
 } satisfies ChartConfig;
@@ -62,11 +62,10 @@ const formatDateRangeTextForChart = (seriesName?: string, startDate?: Date, endD
   let seriesText = seriesName ? `para la serie "${seriesName}"` : "para todas las series relevantes";
   if (seriesName === "Todas las Series Relevantes") seriesText = "para todas las series relevantes";
 
-
   if (dateText) {
-    return `Asistencias por mes ${seriesText}, ${dateText}.`;
+    return `Porcentaje de asistencia mensual ${seriesText}, ${dateText}.`;
   }
-  return `Asistencias por mes ${seriesText}. La escala Y representa convocatorias.`;
+  return `Porcentaje de asistencia mensual ${seriesText}.`;
 };
 
 
@@ -76,12 +75,12 @@ export default function MemberAttendanceLineChart({
   allMeetings,
   allMeetingSeries,
   allAttendanceRecords,
-  selectedSeriesId, // Use prop
-  startDate,         // Use prop
-  endDate,           // Use prop
+  selectedSeriesId,
+  startDate,
+  endDate,
 }: MemberAttendanceLineChartProps) {
 
-  const { chartData, yAxisDomainMax, relevantSeriesName } = useMemo(() => {
+  const { chartData, relevantSeriesName } = useMemo(() => {
     let memberExpectedMeetings = allMeetings.filter(meeting => {
       const series = allMeetingSeries.find(s => s.id === meeting.seriesId);
       if (!series) return false;
@@ -89,7 +88,7 @@ export default function MemberAttendanceLineChart({
       if (series.seriesType === 'general') {
         if (series.targetAttendeeGroups.includes('allMembers')) return true;
         return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
-      } else { // Para series de tipo 'gdi' o 'ministryArea'
+      } else {
         return meeting.attendeeUids && meeting.attendeeUids.includes(memberId);
       }
     });
@@ -102,7 +101,6 @@ export default function MemberAttendanceLineChart({
       const foundSeries = allMeetingSeries.find(s => s.id === selectedSeriesId);
       if (foundSeries) currentSeriesName = foundSeries.name;
     }
-
 
     if (startDate || endDate) {
         meetingsToProcess = meetingsToProcess.filter(meeting => {
@@ -139,18 +137,19 @@ export default function MemberAttendanceLineChart({
     });
 
     const dataPoints: MonthlyChartDataPoint[] = Object.entries(monthlyAggregationMap)
-      .map(([yearMonth, counts]) => ({
-        monthValue: yearMonth,
-        monthDisplay: format(parseISO(`${yearMonth}-01`), 'MMM yyyy', { locale: es }),
-        attendedCount: counts.attended,
-        convocatedCount: counts.convocated,
-      }))
+      .map(([yearMonth, counts]) => {
+        const attendancePercentage = counts.convocated > 0 ? (counts.attended / counts.convocated) * 100 : 0;
+        return {
+          monthValue: yearMonth,
+          monthDisplay: format(parseISO(`${yearMonth}-01`), 'MMM yyyy', { locale: es }),
+          attendedCount: counts.attended,
+          convocatedCount: counts.convocated,
+          attendancePercentage: attendancePercentage,
+        };
+      })
       .sort((a, b) => a.monthValue.localeCompare(b.monthValue));
 
-    const maxMonthlyConvocations = dataPoints.length > 0 ? Math.max(0, ...dataPoints.map(p => p.convocatedCount)) : 0;
-    const calculatedYAxisDomainMax = maxMonthlyConvocations > 0 ? maxMonthlyConvocations : 5; // Ensure a minimum domain if no convocations
-
-    return { chartData: dataPoints, yAxisDomainMax: calculatedYAxisDomainMax, relevantSeriesName: currentSeriesName };
+    return { chartData: dataPoints, relevantSeriesName: currentSeriesName };
 
   }, [memberId, allMeetings, allMeetingSeries, allAttendanceRecords, selectedSeriesId, startDate, endDate]);
 
@@ -162,17 +161,16 @@ export default function MemberAttendanceLineChart({
       <CardHeader>
         <CardTitle className="font-headline text-lg text-primary flex items-center">
           <LineChartIcon className="mr-2 h-5 w-5" />
-          Tendencia Mensual de Asistencia
+          Tendencia Mensual de Asistencia (%)
         </CardTitle>
         <CardDescription className="text-xs text-muted-foreground pt-1 flex items-center">
            <CalendarRange className="mr-1.5 h-3.5 w-3.5 text-primary/80" /> {chartDescriptionText}
         </CardDescription>
-        {/* Removed Filter UI elements */}
       </CardHeader>
       <CardContent>
         {chartData.length > 0 ? (
           <ChartContainer config={chartConfig} className="h-[250px] w-full">
-            <RechartsLineChart data={chartData} margin={{ top: 5, right: 20, left: -15, bottom: 50 }}>
+            <RechartsLineChart data={chartData} margin={{ top: 5, right: 20, left: -5, bottom: 50 }}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
               <XAxis
                 dataKey="monthDisplay"
@@ -182,18 +180,19 @@ export default function MemberAttendanceLineChart({
                 angle={-40}
                 textAnchor="end"
                 height={70}
-                interval={0}
+                interval="preserveStartEnd" 
                 tick={{ fontSize: 9 }}
               />
               <YAxis
-                dataKey="convocatedCount" // Changed from attendedCount to convocatedCount
-                domain={[0, yAxisDomainMax]}
+                dataKey="attendancePercentage"
+                domain={[0, 100]}
                 tickLine={false}
                 axisLine={false}
                 tickMargin={5}
                 allowDecimals={false}
+                tickFormatter={(value) => `${value}%`}
                 tick={{ fontSize: 10 }}
-                label={{ value: 'Convocatorias (Instancias)', angle: -90, position: 'insideLeft', offset: 5, style: {fontSize: '10px', fill: 'hsl(var(--muted-foreground))'} }}
+                label={{ value: 'Asistencia (%)', angle: -90, position: 'insideLeft', offset: 10, style: {fontSize: '10px', fill: 'hsl(var(--muted-foreground))'} }}
               />
               <Tooltip
                 cursor={true}
@@ -202,11 +201,11 @@ export default function MemberAttendanceLineChart({
                     const data = payload[0].payload as MonthlyChartDataPoint;
                     return (
                       <ChartTooltipContent
-                        className="w-[200px]"
+                        className="w-[220px]"
                         label={data.monthDisplay}
                         payload={[{
-                            name: "Asistencias / Convocatorias",
-                            value: `${data.attendedCount} de ${data.convocatedCount} inst.`,
+                            name: "Asistencia",
+                            value: `${data.attendancePercentage.toFixed(0)}% (${data.attendedCount}/${data.convocatedCount} inst.)`,
                             color: "hsl(var(--primary))"
                         }]}
                         indicator="line"
@@ -217,19 +216,19 @@ export default function MemberAttendanceLineChart({
                 }}
               />
               <Line
-                dataKey="attendedCount" // This remains as we are plotting attended count
+                dataKey="attendancePercentage"
                 type="linear"
-                stroke="var(--color-attendedCount)"
+                stroke="var(--color-attendancePercentage)"
                 strokeWidth={2}
                 dot={{
-                  fill: "var(--color-attendedCount)",
+                  fill: "var(--color-attendancePercentage)",
                   r: 3,
                 }}
                 activeDot={{
                   r: 5,
                 }}
-                name="Asistencias por Mes"
-                connectNulls={true}
+                name="Porcentaje de Asistencia"
+                connectNulls={true} 
               />
             </RechartsLineChart>
           </ChartContainer>
