@@ -3,7 +3,7 @@
 
 import type { Meeting, AttendanceRecord } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { format, parseISO, isValid, startOfMonth, endOfMonth, startOfDay, endOfDay as dateFnsEndOfDay } from 'date-fns';
+import { format, parseISO, isValid, startOfDay, endOfDay as dateFnsEndOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   LineChart as RechartsLineChart,
@@ -20,35 +20,53 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import React, { useMemo, useState } from 'react'; // Added React and useState
-import { DatePicker } from '@/components/ui/date-picker'; // Added DatePicker
-import { UsersRound, CalendarRange } from 'lucide-react'; // Added CalendarRange
+import React, { useMemo, useState } from 'react';
+import { DatePicker } from '@/components/ui/date-picker';
+import { UsersRound, CalendarRange, LineChart as LineChartIcon } from 'lucide-react';
 
 interface GdiOverallAttendanceChartProps {
   gdiMeetings: Meeting[];
   allAttendanceRecords: AttendanceRecord[];
 }
 
-interface MonthlyGdiAttendanceDataPoint {
-  monthValue: string; // YYYY-MM
-  monthDisplay: string; // Formatted for X-axis (e.g., "Ene 2023")
+interface GdiMeetingAttendanceDataPoint {
+  meetingDisplay: string; // Formatted string for X-axis
+  meetingDateISO: string; // Store the ISO date for sorting
+  meetingName: string;    // Store the full meeting name for tooltip
   attendedCount: number;
-  totalMeetings: number;
 }
 
 const chartConfig = {
   attendedCount: {
-    label: "Asistentes a GDIs",
+    label: "Asistentes por Reunión de GDI",
     color: "hsl(var(--accent))", // Using accent color for GDI chart
   },
 } satisfies ChartConfig;
+
+const formatMeetingDisplayForXAxis = (dateString: string, timeString: string, name: string, isDuplicateDate: boolean): string => {
+  try {
+    const parsedDate = parseISO(dateString);
+    if (!isValid(parsedDate)) {
+        return isDuplicateDate ? `${name.substring(0,10)}... (${dateString} ${timeString})` : `${name.substring(0,10)}... (${dateString})`;
+    }
+    const datePart = format(parsedDate, "d MMM", { locale: es });
+    if (isDuplicateDate) {
+      return `${datePart} ${timeString.substring(0,5)}`; // e.g., "20 Jun 19:00"
+    }
+    return datePart; // e.g., "20 Jun"
+  } catch (error) {
+    // Fallback if formatting fails
+    return isDuplicateDate ? `${name.substring(0,10)}... (${dateString} ${timeString})` : `${name.substring(0,10)}... (${dateString})`;
+  }
+};
+
 
 export default function GdiOverallAttendanceChart({
   gdiMeetings,
   allAttendanceRecords,
 }: GdiOverallAttendanceChartProps) {
-  const [startDate, setStartDate] = useState<Date | undefined>(() => startOfMonth(new Date()));
-  const [endDate, setEndDate] = useState<Date | undefined>(() => endOfMonth(new Date()));
+  const [startDate, setStartDate] = useState<Date | undefined>(() => startOfDay(new Date()));
+  const [endDate, setEndDate] = useState<Date | undefined>(() => dateFnsEndOfDay(new Date()));
 
   const meetingsForPeriod = useMemo(() => {
     if (!gdiMeetings) return [];
@@ -68,51 +86,51 @@ export default function GdiOverallAttendanceChart({
       return [];
     }
 
-    const monthlyAggregation: Record<string, { attended: number; meetings: number }> = {};
-
+    const dateCounts = new Map<string, number>();
     meetingsForPeriod.forEach(meeting => {
-      const meetingDateObj = parseISO(meeting.date);
-      if (!isValid(meetingDateObj)) return;
-      const yearMonth = format(startOfMonth(meetingDateObj), 'yyyy-MM');
+        dateCounts.set(meeting.date, (dateCounts.get(meeting.date) || 0) + 1);
+    });
+    
+    const sortedMeetings = [...meetingsForPeriod].sort((a,b) => {
+        const dateA = parseISO(a.date).getTime();
+        const dateB = parseISO(b.date).getTime();
+        if (dateA !== dateB) return dateA - dateB;
+        // If dates are same, sort by time
+        return (a.time || "00:00").localeCompare(b.time || "00:00");
+    });
 
-      if (!monthlyAggregation[yearMonth]) {
-        monthlyAggregation[yearMonth] = { attended: 0, meetings: 0 };
-      }
-      monthlyAggregation[yearMonth].meetings += 1;
 
+    return sortedMeetings.map(meeting => {
       const attendanceForThisMeeting = allAttendanceRecords.filter(
         r => r.meetingId === meeting.id && r.attended
       ).length;
-      monthlyAggregation[yearMonth].attended += attendanceForThisMeeting;
+      const isDuplicateDate = (dateCounts.get(meeting.date) || 0) > 1;
+      return {
+        meetingDisplay: formatMeetingDisplayForXAxis(meeting.date, meeting.time, meeting.name, isDuplicateDate),
+        meetingDateISO: meeting.date,
+        meetingName: meeting.name,
+        attendedCount: attendanceForThisMeeting,
+      };
     });
-
-    return Object.entries(monthlyAggregation)
-      .map(([yearMonth, counts]) => ({
-        monthValue: yearMonth,
-        monthDisplay: format(parseISO(`${yearMonth}-01`), 'MMM yyyy', { locale: es }),
-        attendedCount: counts.attended,
-        totalMeetings: counts.meetings,
-      }))
-      .sort((a, b) => a.monthValue.localeCompare(b.monthValue));
   }, [meetingsForPeriod, allAttendanceRecords]);
 
   const cardDescription = useMemo(() => {
     if (startDate && endDate) {
-      return `Tendencia de asistencia a GDIs del ${format(startDate, "dd MMM yyyy", { locale: es })} al ${format(endDate, "dd MMM yyyy", { locale: es })}.`;
+      return `Tendencia de asistencia por reunión de GDI del ${format(startDate, "dd MMM yyyy", { locale: es })} al ${format(endDate, "dd MMM yyyy", { locale: es })}.`;
     } else if (startDate) {
-      return `Tendencia de asistencia a GDIs desde el ${format(startDate, "dd MMM yyyy", { locale: es })}.`;
+      return `Tendencia de asistencia por reunión de GDI desde el ${format(startDate, "dd MMM yyyy", { locale: es })}.`;
     } else if (endDate) {
-      return `Tendencia de asistencia a GDIs hasta el ${format(endDate, "dd MMM yyyy", { locale: es })}.`;
+      return `Tendencia de asistencia por reunión de GDI hasta el ${format(endDate, "dd MMM yyyy", { locale: es })}.`;
     }
-    return "Tendencia general de asistencia a reuniones de GDI.";
+    return "Tendencia general de asistencia por cada reunión de GDI.";
   }, [startDate, endDate]);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center">
-          <UsersRound className="mr-2 h-5 w-5 text-primary" />
-          Asistencia a GDIs (Tendencia Mensual)
+          <LineChartIcon className="mr-2 h-5 w-5 text-primary" />
+          Tendencia de Asistencia a GDIs
         </CardTitle>
          <CardDescription className="flex items-center text-xs pt-1">
             <CalendarRange className="mr-1.5 h-3.5 w-3.5 text-primary/70"/>
@@ -134,18 +152,18 @@ export default function GdiOverallAttendanceChart({
       <CardContent className="px-4 pb-4 pt-0">
         {chartData.length > 0 ? (
           <ChartContainer config={chartConfig} className="h-[300px] w-full">
-            <RechartsLineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 50 }}>
+            <RechartsLineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 65 }}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
               <XAxis
-                dataKey="monthDisplay"
+                dataKey="meetingDisplay"
                 tickLine={false}
                 axisLine={false}
                 tickMargin={10}
-                angle={-40}
+                angle={-45}
                 textAnchor="end"
-                height={70}
-                interval="preserveStartEnd"
-                tick={{ fontSize: 10 }}
+                height={80} // Increased height for angled labels
+                interval={0} // Show all labels if possible, Recharts might still skip some if too crowded
+                tick={{ fontSize: 9 }}
               />
               <YAxis
                 allowDecimals={false}
@@ -153,20 +171,20 @@ export default function GdiOverallAttendanceChart({
                 axisLine={false}
                 tickMargin={5}
                 tick={{ fontSize: 10 }}
-                label={{ value: 'Total Asistentes/Mes', angle: -90, position: 'insideLeft', offset: 10, style: {fontSize: '10px', fill: 'hsl(var(--muted-foreground))'} }}
+                label={{ value: 'Asistentes por Reunión', angle: -90, position: 'insideLeft', offset: 10, style: {fontSize: '10px', fill: 'hsl(var(--muted-foreground))'} }}
               />
               <Tooltip
                 cursor={true}
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
-                    const data = payload[0].payload as MonthlyGdiAttendanceDataPoint;
+                    const data = payload[0].payload as GdiMeetingAttendanceDataPoint;
                     return (
                       <ChartTooltipContent
-                        className="w-[200px]"
-                        label={data.monthDisplay}
+                        className="w-[220px]"
+                        label={`${data.meetingName} (${format(parseISO(data.meetingDateISO), "d MMM yy", {locale: es})})`}
                         payload={[{
-                            name: "Total Asistentes en GDIs",
-                            value: `${data.attendedCount} (en ${data.totalMeetings} reun.)`,
+                            name: "Asistentes",
+                            value: `${data.attendedCount}`,
                             color: "hsl(var(--accent))"
                         }]}
                         indicator="line"
@@ -188,7 +206,8 @@ export default function GdiOverallAttendanceChart({
                 activeDot={{
                   r: 5,
                 }}
-                name="Asistentes a GDIs"
+                name="Asistentes"
+                connectNulls={true} // Connect line even if some data points are missing
               />
             </RechartsLineChart>
           </ChartContainer>
@@ -201,3 +220,6 @@ export default function GdiOverallAttendanceChart({
     </Card>
   );
 }
+
+
+    

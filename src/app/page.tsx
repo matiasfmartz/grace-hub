@@ -110,7 +110,12 @@ export default async function DashboardPage() {
           allAttendanceRecords={allAttendanceData}
         />
 
-        <Card>
+<GdiOverallAttendanceChart
+              gdiMeetings={gdiMeetings}
+              allAttendanceRecords={allAttendanceData}
+            />
+
+        {/* <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
               <UsersRound className="mr-2 h-5 w-5 text-primary" />
@@ -124,7 +129,7 @@ export default async function DashboardPage() {
               allAttendanceRecords={allAttendanceData}
             />
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       <Card className="col-span-1 md:col-span-2 lg:col-span-3">
