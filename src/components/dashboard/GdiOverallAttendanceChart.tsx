@@ -203,7 +203,7 @@ export default function GdiOverallAttendanceChart({
               />
               <Line
                 dataKey="attendedCount"
-                type="monotone"
+                type="linear"
                 stroke="var(--color-attendedCount)"
                 strokeWidth={2}
                 dot={{

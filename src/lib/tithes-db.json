@@ -4,5 +4,11 @@
     "memberId": "1",
     "year": 2025,
     "month": 3
+  },
+  {
+    "id": "1-2025-6",
+    "memberId": "1",
+    "year": 2025,
+    "month": 6
   }
 ]

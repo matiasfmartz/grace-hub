@@ -176,7 +176,7 @@ export default function OverallMonthlyAttendanceChart({
               />
               <Line
                 dataKey="attendedCount"
-                type="monotone"
+                type="linear"
                 stroke="var(--color-attendedCount)"
                 strokeWidth={2}
                 dot={{
