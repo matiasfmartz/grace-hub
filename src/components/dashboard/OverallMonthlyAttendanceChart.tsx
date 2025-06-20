@@ -3,7 +3,7 @@
 
 import type { Meeting, AttendanceRecord } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { format, parseISO, isValid, eachDayOfInterval, startOfDay, startOfMonth, endOfMonth } from 'date-fns';
+import { format, parseISO, isValid, eachDayOfInterval, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   LineChart as RechartsLineChart,
@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/chart";
 import React, { useMemo, useState } from 'react';
 import { DatePicker } from '@/components/ui/date-picker';
-// import { Button } from '@/components/ui/button'; // Apply button removed for live update
 import { CalendarRange, TrendingUp } from 'lucide-react';
 
 interface OverallAttendanceChartProps {
@@ -58,9 +57,7 @@ export default function OverallMonthlyAttendanceChart({
       if (!isValid(meetingDateObj)) return false;
 
       const isAfterOrOnStartDate = startDate ? meetingDateObj >= startOfDay(startDate) : true;
-      // For end date, we should include the entire day, so compare with end of selected day or start of next day.
-      // For simplicity with startOfDay, we check if meetingDateObj is less than or equal to endDate.
-      const isBeforeOrOnEndDate = endDate ? meetingDateObj <= startOfDay(endDate) : true;
+      const isBeforeOrOnEndDate = endDate ? meetingDateObj <= endOfDay(endDate) : true; // Corrected to include the whole end day
       
       return isAfterOrOnStartDate && isBeforeOrOnEndDate;
     });
@@ -68,50 +65,44 @@ export default function OverallMonthlyAttendanceChart({
 
 
   const chartData = useMemo(() => {
-    if (!meetingsForPeriod || meetingsForPeriod.length === 0) {
-      return [];
+    let effectiveStartDate = startDate;
+    let effectiveEndDate = endDate;
+
+    // If filters are not set, or invalid, derive range from meetingsForPeriod
+    if (!effectiveStartDate || !effectiveEndDate || effectiveStartDate > effectiveEndDate) {
+      const validMeetingsInCurrentPeriod = meetingsForPeriod.filter(m => isValid(parseISO(m.date)));
+      if (validMeetingsInCurrentPeriod.length === 0) return [];
+
+      effectiveStartDate = parseISO(validMeetingsInCurrentPeriod.reduce((earliest, m) => (parseISO(m.date) < parseISO(earliest.date) ? m : earliest), validMeetingsInCurrentPeriod[0]).date);
+      effectiveEndDate = parseISO(validMeetingsInCurrentPeriod.reduce((latest, m) => (parseISO(m.date) > parseISO(latest.date) ? m : latest), validMeetingsInCurrentPeriod[0]).date);
+      
+      if (!isValid(effectiveStartDate) || !isValid(effectiveEndDate) || effectiveStartDate > effectiveEndDate) return [];
     }
+    
+    const dateInterval = eachDayOfInterval({
+      start: startOfDay(effectiveStartDate),
+      end: startOfDay(effectiveEndDate), 
+    });
 
-    // Determine the actual range from the filtered meetings
-    const validMeetingsInPeriod = meetingsForPeriod.filter(m => isValid(parseISO(m.date)));
-    if (validMeetingsInPeriod.length === 0) return [];
+    const data: DailyAttendanceDataPoint[] = dateInterval.map(day => {
+      const formattedDay = format(day, 'yyyy-MM-dd');
+      const meetingsOnThisDay = meetingsForPeriod.filter(m => m.date === formattedDay);
+      let dailyAttendedCount = 0;
 
-    const firstMeetingDate = parseISO(validMeetingsInPeriod.reduce((earliest, m) =>
-      parseISO(m.date) < parseISO(earliest.date) ? m : earliest
-    ).date);
-    const lastMeetingDate = parseISO(validMeetingsInPeriod.reduce((latest, m) =>
-      parseISO(m.date) > parseISO(latest.date) ? m : latest
-    ).date);
-
-    let data: DailyAttendanceDataPoint[] = [];
-
-    if (isValid(firstMeetingDate) && isValid(lastMeetingDate) && firstMeetingDate <= lastMeetingDate) {
-      const dateInterval = eachDayOfInterval({
-        start: startOfDay(firstMeetingDate),
-        end: startOfDay(lastMeetingDate),
+      meetingsOnThisDay.forEach(meeting => {
+        dailyAttendedCount += allAttendanceRecords.filter(
+          r => r.meetingId === meeting.id && r.attended
+        ).length;
       });
 
-      data = dateInterval.map(day => {
-        const formattedDay = format(day, 'yyyy-MM-dd');
-        // Filter from meetingsForPeriod, not allMeetings
-        const meetingsOnThisDay = meetingsForPeriod.filter(m => m.date === formattedDay);
-        let dailyAttendedCount = 0;
-
-        meetingsOnThisDay.forEach(meeting => {
-          dailyAttendedCount += allAttendanceRecords.filter(
-            r => r.meetingId === meeting.id && r.attended
-          ).length;
-        });
-
-        return {
-          date: formattedDay,
-          displayDate: format(day, 'd MMM', { locale: es }), // Short format for X-axis
-          attendedCount: dailyAttendedCount,
-        };
-      });
-    }
+      return {
+        date: formattedDay,
+        displayDate: format(day, 'd MMM', { locale: es }),
+        attendedCount: dailyAttendedCount,
+      };
+    });
     return data;
-  }, [meetingsForPeriod, allAttendanceRecords]);
+  }, [meetingsForPeriod, allAttendanceRecords, startDate, endDate]);
 
   const cardDescription = useMemo(() => {
     if (startDate && endDate) {
