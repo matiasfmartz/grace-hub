@@ -7,7 +7,8 @@ import Image from 'next/image';
 
 import OverallMonthlyAttendanceChart from '@/components/dashboard/OverallMonthlyAttendanceChart';
 import GdiOverallAttendanceChart from '@/components/dashboard/GdiOverallAttendanceChart';
-import AttendanceBreakdownChart from '@/components/dashboard/AttendanceBreakdownChart';
+// import AttendanceBreakdownChart from '@/components/dashboard/AttendanceBreakdownChart'; // Replaced by MonthlyAttendanceBreakdownCard
+import MonthlyAttendanceBreakdownCard from '@/components/dashboard/MonthlyAttendanceBreakdownCard';
 import MemberRoleDistributionChart from '@/components/dashboard/MemberRoleDistributionChart';
 import MissedMeetingsTable from '@/components/dashboard/MissedMeetingsTable';
 
@@ -25,7 +26,6 @@ import { subMonths, startOfMonth, endOfMonth, formatISO, parseISO, isWithinInter
 
 async function getDashboardData() {
   const now = new Date();
-  // Define "last month" consistently
   const lastMonthStart = startOfMonth(subMonths(now, 1));
   const lastMonthEnd = endOfMonth(subMonths(now, 1));
 
@@ -43,45 +43,38 @@ async function getDashboardData() {
     getAllGdis(),
   ]);
 
-  // 1. Data for OverallMonthlyAttendanceChart
-  const meetingsLastMonth = allMeetingsData.filter(m => {
+  const meetingsLastMonthForOverallChart = allMeetingsData.filter(m => {
     const meetingDate = parseISO(m.date);
     return isValid(meetingDate) && isWithinInterval(meetingDate, { start: lastMonthStart, end: lastMonthEnd });
   });
 
-  // 2. Data for GdiOverallAttendanceChart
   const gdiSeriesIds = new Set(allSeriesData.filter(s => s.seriesType === 'gdi').map(s => s.id));
   const gdiMeetings = allMeetingsData.filter(m => gdiSeriesIds.has(m.seriesId));
 
-  // 3. Data for AttendanceBreakdownChart (uses meetingsLastMonth)
-  // The component will need allMembersData to determine expected vs. actual attendees
-
-  // 4. Data for MemberRoleDistributionChart (uses allMembersData)
-
-  // 5. Data for MissedMeetingsTable
   const generalSeries = allSeriesData.filter(s => s.seriesType === 'general');
   const generalSeriesIds = new Set(generalSeries.map(s => s.id));
 
-  // Get all general meetings and sort them by date to find the most recent ones
   const generalMeetingsSorted = allMeetingsData
     .filter(m => generalSeriesIds.has(m.seriesId))
-    .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()); // Most recent first
+    .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
 
   return {
-    meetingsLastMonth,
+    allMeetingsData, // Pass all meetings for the new monthly breakdown card
+    meetingsLastMonthForOverallChart, // Keep this for the specific "OverallMonthlyAttendanceChart"
     allAttendanceData,
     allMembersData,
     gdiMeetings,
     generalMeetingsSorted,
-    allSeriesData, // Pass all series data for context if needed by child components
-    allGdisData,    // Pass all GDI data for context if needed
+    allSeriesData,
+    allGdisData,
   };
 }
 
 
 export default async function DashboardPage() {
   const {
-    meetingsLastMonth,
+    allMeetingsData,
+    meetingsLastMonthForOverallChart,
     allAttendanceData,
     allMembersData,
     gdiMeetings,
@@ -102,7 +95,6 @@ export default async function DashboardPage() {
       </section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Member Role Distribution Chart */}
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -116,28 +108,16 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Attendance Breakdown Chart */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <BarChart3 className="mr-2 h-5 w-5 text-primary" />
-              Asistencia vs. Inasistencia (Último Mes)
-            </CardTitle>
-            <CardDescription>Resumen de asistencia a todas las reuniones del mes pasado.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <AttendanceBreakdownChart
-              meetingsLastMonth={meetingsLastMonth}
-              allAttendanceRecords={allAttendanceData}
-              allMembers={allMembersData}
-              allMeetingSeries={allSeriesData}
-            />
-          </CardContent>
-        </Card>
+        {/* Replace AttendanceBreakdownChart with MonthlyAttendanceBreakdownCard */}
+        <MonthlyAttendanceBreakdownCard
+            allMeetings={allMeetingsData}
+            allAttendanceRecords={allAttendanceData}
+            allMembers={allMembersData}
+            allMeetingSeries={allSeriesData}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Overall Monthly Attendance Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -148,13 +128,12 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             <OverallMonthlyAttendanceChart
-              meetingsLastMonth={meetingsLastMonth}
+              meetingsLastMonth={meetingsLastMonthForOverallChart}
               allAttendanceRecords={allAttendanceData}
             />
           </CardContent>
         </Card>
 
-        {/* GDI Overall Attendance Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -172,7 +151,6 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* Missed Meetings Table */}
       <Card className="col-span-1 md:col-span-2 lg:col-span-3">
         <CardHeader>
           <CardTitle className="flex items-center">
@@ -181,7 +159,6 @@ export default async function DashboardPage() {
           </CardTitle>
           <CardDescription>
             Identifica miembros que faltaron a las últimas reuniones generales.
-            (Filtro avanzado por rango de fechas para ausencias regulares será añadido próximamente).
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -189,7 +166,8 @@ export default async function DashboardPage() {
             generalMeetingsSorted={generalMeetingsSorted}
             allMembers={allMembersData}
             allAttendanceRecords={allAttendanceData}
-            allMeetingSeries={allSeriesData} // Passed for context, e.g. resolving attendees
+            allMeetingSeries={allSeriesData}
+            allGdis={allGdisData}
           />
         </CardContent>
       </Card>
