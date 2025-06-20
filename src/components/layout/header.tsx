@@ -1,6 +1,6 @@
 
 import Link from 'next/link';
-import { Home, Users, UsersRound, CalendarDays, Menu } from 'lucide-react'; // Removed BookOpen
+import { Home, Users, UsersRound, CalendarDays, Menu, HandCoins } from 'lucide-react';
 import { GraceHubLogo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -10,7 +10,7 @@ const navItems = [
   { href: '/members', label: 'Miembros', icon: Users },
   { href: '/groups', label: 'Grupos', icon: UsersRound },
   { href: '/events', label: 'Eventos', icon: CalendarDays },
-  // { href: '/resources', label: 'Recursos', icon: BookOpen }, // Removed Resources link
+  { href: '/tithes', label: 'Diezmos', icon: HandCoins },
 ];
 
 export default function Header() {
