@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from 'react';
@@ -184,7 +185,7 @@ export default function ManageSingleGdiView({
   const guideOptions = useMemo(() => {
       return activeMembers.map(member => ({
           value: member.id,
-          label: `${member.firstName} ${member.lastName} (${member.email})${allGdis.some(g => g.guideId === member.id && (isAdding || g.id !== initialGdi.id)) ? " (Guía de otro GDI)" : ""}`,
+          label: `${member.firstName} ${member.lastName}${allGdis.some(g => g.guideId === member.id && (isAdding || g.id !== initialGdi.id)) ? " (Guía de otro GDI)" : ""}`,
           disabled: allGdis.some(g => g.guideId === member.id && (isAdding || g.id !== initialGdi.id))
       }));
   }, [activeMembers, allGdis, isAdding, initialGdi.id]);

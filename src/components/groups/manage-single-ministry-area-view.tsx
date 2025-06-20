@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from 'react';
@@ -145,7 +146,7 @@ export default function ManageSingleMinistryAreaView({
   const leaderOptions = useMemo(() => {
     return activeMembers.map(member => ({
         value: member.id,
-        label: `${member.firstName} ${member.lastName} (${member.email})`
+        label: `${member.firstName} ${member.lastName}`
     }));
   }, [activeMembers]);
 
