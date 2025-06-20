@@ -114,6 +114,15 @@ export interface AttendanceRecord {
 }
 export type AttendanceRecordWriteData = Omit<AttendanceRecord, 'id'>;
 
+export interface TitheRecord {
+  id: string;
+  memberId: string;
+  year: number; // e.g., 2024
+  month: number; // 1-12
+}
+
+export type TitheRecordWriteData = Omit<TitheRecord, 'id'>;
+
 // Zod Schemas for Forms
 
 export const MemberStatusSchema = z.enum(['Active', 'Inactive', 'New']);
