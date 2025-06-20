@@ -6,11 +6,11 @@ import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, Cart
 import { useMemo } from 'react';
 
 interface AttendanceBreakdownChartProps {
-  meetingsForPeriod: Meeting[]; // Changed from meetingsLastMonth
+  meetingsForPeriod: Meeting[];
   allAttendanceRecords: AttendanceRecord[];
   allMembers: Member[];
   allMeetingSeries: MeetingSeries[];
-  selectedPeriodLabel?: string; // Optional: to display in description
+  selectedPeriodLabel?: string;
 }
 
 interface BreakdownDataPoint {
@@ -21,7 +21,7 @@ interface BreakdownDataPoint {
 }
 
 export default function AttendanceBreakdownChart({
-  meetingsForPeriod = [], // Default to empty array
+  meetingsForPeriod = [],
   allAttendanceRecords = [],
   allMembers = [],
   allMeetingSeries = [],
@@ -41,7 +41,6 @@ export default function AttendanceBreakdownChart({
         } else if (meeting.attendeeUids && meeting.attendeeUids.length > 0) {
             expectedUidsForThisMeeting = meeting.attendeeUids;
         }
-        // If not general 'allMembers' and no specific UIDs, expected is 0 for this meeting by default
         totalExpected += expectedUidsForThisMeeting.length;
     });
     
@@ -61,26 +60,18 @@ export default function AttendanceBreakdownChart({
     return data;
 
   }, [meetingsForPeriod, allAttendanceRecords, allMembers, allMeetingSeries, selectedPeriodLabel]);
-
-  if (meetingsForPeriod.length === 0 && chartData[0]?.Asistentes === 0 && chartData[0]?.Ausentes === 0 && chartData[0]?.Pendientes === 0) {
-    return (
-      <div className="flex items-center justify-center h-60">
-        <p className="text-muted-foreground text-center">No hay datos de asistencia para el período seleccionado ({selectedPeriodLabel || 'actual'}).</p>
-      </div>
-    );
-  }
   
   return (
     <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-        <XAxis type="number" allowDecimals={false} />
-        <YAxis type="category" dataKey="name" tick={{fontSize: 12}} width={80} interval={0} />
+      <BarChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis type="category" dataKey="name" tick={{fontSize: 12}} interval={0} />
+        <YAxis type="number" allowDecimals={false} />
         <Tooltip />
         <Legend wrapperStyle={{fontSize: "12px"}}/>
-        <Bar dataKey="Asistentes" stackId="a" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={35} />
+        <Bar dataKey="Asistentes" stackId="a" fill="hsl(var(--primary))" barSize={35} />
         <Bar dataKey="Ausentes" stackId="a" fill="hsl(var(--destructive))" barSize={35} />
-        <Bar dataKey="Pendientes" stackId="a" fill="hsl(var(--muted-foreground))" radius={[0, 0, 4, 4]} barSize={35} />
+        <Bar dataKey="Pendientes" stackId="a" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} barSize={35} />
       </BarChart>
     </ResponsiveContainer>
   );
