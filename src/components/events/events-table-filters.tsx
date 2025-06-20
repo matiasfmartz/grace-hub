@@ -4,9 +4,11 @@
 import React from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { ShieldCheck, Activity, Users as UsersIcon, X } from 'lucide-react';
-import type { Member } from '@/lib/types'; // For Member['status'] type
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { ShieldCheck, Activity, Users as UsersIcon, X, Check } from 'lucide-react';
+import type { Member } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 interface FilterOption {
   value: string;
@@ -53,31 +55,31 @@ export default function EventsTableFilters({
     return `${pathname}?${params.toString()}`;
   };
 
-  const handleRoleFilterChange = (checked: boolean, roleValue: string) => {
-    const newRoles = checked
-      ? [...currentRoleFilters, roleValue]
-      : currentRoleFilters.filter(r => r !== roleValue);
+  const handleRoleFilterChange = (roleValue: string) => {
+    const newRoles = currentRoleFilters.includes(roleValue)
+      ? currentRoleFilters.filter(r => r !== roleValue)
+      : [...currentRoleFilters, roleValue];
     router.push(updateTableFiltersURL({ tmr: newRoles, tms: currentStatusFilters, tmg: currentGdiFilters, tma: currentAreaFilters }));
   };
 
-  const handleStatusFilterChange = (checked: boolean, statusValue: string) => {
-    const newStatuses = checked
-      ? [...currentStatusFilters, statusValue as Member['status']]
-      : currentStatusFilters.filter(s => s !== statusValue);
+  const handleStatusFilterChange = (statusValue: string) => {
+    const newStatuses = currentStatusFilters.includes(statusValue as Member['status'])
+      ? currentStatusFilters.filter(s => s !== statusValue)
+      : [...currentStatusFilters, statusValue as Member['status']];
     router.push(updateTableFiltersURL({ tmr: currentRoleFilters, tms: newStatuses, tmg: currentGdiFilters, tma: currentAreaFilters }));
   };
 
-  const handleGdiFilterChange = (checked: boolean, gdiValue: string) => {
-    const newGdis = checked
-      ? [...currentGdiFilters, gdiValue]
-      : currentGdiFilters.filter(g => g !== gdiValue);
+  const handleGdiFilterChange = (gdiValue: string) => {
+    const newGdis = currentGdiFilters.includes(gdiValue)
+      ? currentGdiFilters.filter(g => g !== gdiValue)
+      : [...currentGdiFilters, gdiValue];
     router.push(updateTableFiltersURL({ tmr: currentRoleFilters, tms: currentStatusFilters, tmg: newGdis, tma: currentAreaFilters }));
   };
 
-  const handleAreaFilterChange = (checked: boolean, areaValue: string) => {
-    const newAreas = checked
-      ? [...currentAreaFilters, areaValue]
-      : currentAreaFilters.filter(a => a !== areaValue);
+  const handleAreaFilterChange = (areaValue: string) => {
+    const newAreas = currentAreaFilters.includes(areaValue)
+      ? currentAreaFilters.filter(a => a !== areaValue)
+      : [...currentAreaFilters, areaValue];
     router.push(updateTableFiltersURL({ tmr: currentRoleFilters, tms: currentStatusFilters, tmg: currentGdiFilters, tma: newAreas }));
   };
   
@@ -96,70 +98,149 @@ export default function EventsTableFilters({
               <ShieldCheck className="mr-1.5 h-3.5 w-3.5" /> Rol ({currentRoleFilters.length > 0 ? currentRoleFilters.length : 'Todos'})
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuLabel>Filtrar por Rol</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {roleFilterOptions.map(opt => (
-              <DropdownMenuCheckboxItem
-                key={opt.value}
-                checked={currentRoleFilters.includes(opt.value)}
-                onCheckedChange={(checked) => handleRoleFilterChange(Boolean(checked), opt.value)}
-              >{opt.label}</DropdownMenuCheckboxItem>
-            ))}
+          <DropdownMenuContent align="start" className="w-56 p-0">
+            <Command>
+              <CommandInput placeholder="Buscar rol..." className="h-9 border-0 shadow-none focus-visible:ring-0" />
+              <CommandList>
+                <CommandEmpty>No se encontró el rol.</CommandEmpty>
+                <DropdownMenuLabel className="px-2 pt-2 text-xs">Filtrar por Rol</DropdownMenuLabel>
+                <DropdownMenuSeparator className="mx-1 my-1" />
+                <CommandGroup>
+                  {roleFilterOptions.map(opt => (
+                    <CommandItem
+                      key={opt.value}
+                      value={opt.label}
+                      onSelect={() => handleRoleFilterChange(opt.value)}
+                      className="text-xs cursor-pointer"
+                    >
+                      <div className="flex items-center w-full">
+                        <Check
+                          className={cn(
+                            "mr-2 h-3.5 w-3.5",
+                            currentRoleFilters.includes(opt.value) ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <span>{opt.label}</span>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
           </DropdownMenuContent>
         </DropdownMenu>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="justify-start text-xs w-full">
               <Activity className="mr-1.5 h-3.5 w-3.5" /> Estado ({currentStatusFilters.length > 0 ? currentStatusFilters.length : 'Todos'})
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuLabel>Filtrar por Estado</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {statusFilterOptions.map(opt => (
-              <DropdownMenuCheckboxItem
-                key={opt.value}
-                checked={currentStatusFilters.includes(opt.value as Member['status'])}
-                onCheckedChange={(checked) => handleStatusFilterChange(Boolean(checked), opt.value)}
-              >{opt.label}</DropdownMenuCheckboxItem>
-            ))}
+          <DropdownMenuContent align="start" className="w-56 p-0">
+            <Command>
+              <CommandInput placeholder="Buscar estado..." className="h-9 border-0 shadow-none focus-visible:ring-0" />
+              <CommandList>
+                <CommandEmpty>No se encontró el estado.</CommandEmpty>
+                <DropdownMenuLabel className="px-2 pt-2 text-xs">Filtrar por Estado</DropdownMenuLabel>
+                <DropdownMenuSeparator className="mx-1 my-1" />
+                <CommandGroup>
+                  {statusFilterOptions.map(opt => (
+                    <CommandItem
+                      key={opt.value}
+                      value={opt.label}
+                      onSelect={() => handleStatusFilterChange(opt.value)}
+                      className="text-xs cursor-pointer"
+                    >
+                      <div className="flex items-center w-full">
+                        <Check
+                          className={cn(
+                            "mr-2 h-3.5 w-3.5",
+                            currentStatusFilters.includes(opt.value as Member['status']) ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <span>{opt.label}</span>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
           </DropdownMenuContent>
         </DropdownMenu>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="justify-start text-xs w-full">
               <UsersIcon className="mr-1.5 h-3.5 w-3.5" /> GDI ({currentGdiFilters.length > 0 ? currentGdiFilters.length : 'Todos'})
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="max-h-60 overflow-y-auto">
-            <DropdownMenuLabel>Filtrar por GDI</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {gdiFilterOptions.map(opt => (
-              <DropdownMenuCheckboxItem
-                key={opt.value}
-                checked={currentGdiFilters.includes(opt.value)}
-                onCheckedChange={(checked) => handleGdiFilterChange(Boolean(checked), opt.value)}
-              >{opt.label}</DropdownMenuCheckboxItem>
-            ))}
+          <DropdownMenuContent align="start" className="w-64 p-0">
+             <Command>
+              <CommandInput placeholder="Buscar GDI..." className="h-9 border-0 shadow-none focus-visible:ring-0" />
+              <CommandList>
+                <CommandEmpty>No se encontró el GDI.</CommandEmpty>
+                <DropdownMenuLabel className="px-2 pt-2 text-xs">Filtrar por GDI</DropdownMenuLabel>
+                <DropdownMenuSeparator className="mx-1 my-1" />
+                <CommandGroup>
+                  {gdiFilterOptions.map(opt => (
+                    <CommandItem
+                      key={opt.value}
+                      value={opt.label}
+                      onSelect={() => handleGdiFilterChange(opt.value)}
+                      className="text-xs cursor-pointer"
+                    >
+                       <div className="flex items-center w-full">
+                        <Check
+                          className={cn(
+                            "mr-2 h-3.5 w-3.5",
+                            currentGdiFilters.includes(opt.value) ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <span className="truncate">{opt.label}</span>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
           </DropdownMenuContent>
         </DropdownMenu>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="justify-start text-xs w-full">
               <Activity className="mr-1.5 h-3.5 w-3.5" /> Área ({currentAreaFilters.length > 0 ? currentAreaFilters.length : 'Todas'})
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="max-h-60 overflow-y-auto">
-            <DropdownMenuLabel>Filtrar por Área Ministerial</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {areaFilterOptions.map(opt => (
-              <DropdownMenuCheckboxItem
-                key={opt.value}
-                checked={currentAreaFilters.includes(opt.value)}
-                onCheckedChange={(checked) => handleAreaFilterChange(Boolean(checked), opt.value)}
-              >{opt.label}</DropdownMenuCheckboxItem>
-            ))}
+          <DropdownMenuContent align="start" className="w-64 p-0">
+            <Command>
+              <CommandInput placeholder="Buscar Área..." className="h-9 border-0 shadow-none focus-visible:ring-0" />
+              <CommandList>
+                <CommandEmpty>No se encontró el Área.</CommandEmpty>
+                <DropdownMenuLabel className="px-2 pt-2 text-xs">Filtrar por Área Ministerial</DropdownMenuLabel>
+                <DropdownMenuSeparator className="mx-1 my-1" />
+                <CommandGroup>
+                  {areaFilterOptions.map(opt => (
+                    <CommandItem
+                      key={opt.value}
+                      value={opt.label}
+                      onSelect={() => handleAreaFilterChange(opt.value)}
+                      className="text-xs cursor-pointer"
+                    >
+                      <div className="flex items-center w-full">
+                        <Check
+                          className={cn(
+                            "mr-2 h-3.5 w-3.5",
+                            currentAreaFilters.includes(opt.value) ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <span className="truncate">{opt.label}</span>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
