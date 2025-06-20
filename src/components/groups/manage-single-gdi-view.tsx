@@ -6,7 +6,7 @@ import type { GDI, Member } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Combobox } from '@/components/ui/combobox'; // Changed from Select
+import { Combobox } from '@/components/ui/combobox';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -26,6 +26,12 @@ interface ManageSingleGdiViewProps {
   onSuccess?: () => void;
   isAdding?: boolean;
 }
+
+const statusDisplayMap: Record<Member['status'], string> = {
+  Active: "Activo",
+  Inactive: "Inactivo",
+  New: "Nuevo"
+};
 
 export default function ManageSingleGdiView({
   gdi: initialGdi,
@@ -170,7 +176,7 @@ export default function ManageSingleGdiView({
 
       return (
         `${member.firstName} ${member.lastName}`.toLowerCase().includes(addMemberSearchTerm.toLowerCase()) ||
-        member.email.toLowerCase().includes(addMemberSearchTerm.toLowerCase())
+        (member.email && member.email.toLowerCase().includes(addMemberSearchTerm.toLowerCase()))
       );
     });
   }, [allMembers, editableGdi.guideId, editableGdi.memberIds, addMemberSearchTerm, allGdis]);
@@ -244,7 +250,7 @@ export default function ManageSingleGdiView({
                                   onCheckedChange={(checked) => handleAvailableMemberSelection(member.id, Boolean(checked))}
                               />
                               <Label htmlFor={`add-member-${member.id}`} className="font-normal text-sm cursor-pointer flex-grow">
-                                  {member.firstName} {member.lastName} ({member.status})
+                                  {member.firstName} {member.lastName} ({statusDisplayMap[member.status] || member.status})
                                   {otherGdi && 
                                     <span className="text-muted-foreground text-xs"> (En GDI: {otherGdi.name})</span>
                                   }
@@ -270,7 +276,7 @@ export default function ManageSingleGdiView({
               <div className="p-4 border rounded-lg shadow-sm bg-card">
                   <h3 className="text-lg font-semibold mb-3 flex items-center"><Users className="mr-2 h-5 w-5 text-muted-foreground" />Miembros Actualmente Asignados</h3>
                    <p className="text-sm text-muted-foreground mb-1">
-                      Guía: {guideDetails ? `${guideDetails.firstName} ${guideDetails.lastName}` : 'Ninguno seleccionado'}
+                      Guía: {guideDetails ? `${guideDetails.firstName} ${guideDetails.lastName} (${statusDisplayMap[guideDetails.status] || guideDetails.status})` : 'Ninguno seleccionado'}
                   </p>
                   <p className="text-sm text-muted-foreground mb-3">
                       Total de miembros (excluyendo guía): {currentlyAssignedDisplayMembers.length}
@@ -285,7 +291,7 @@ export default function ManageSingleGdiView({
                                   onCheckedChange={(checked) => handleAssignedMemberSelection(member.id, Boolean(checked))}
                               />
                               <Label htmlFor={`remove-member-${member.id}`} className="font-normal text-sm cursor-pointer flex-grow">
-                                  {member.firstName} {member.lastName} ({member.status})
+                                  {member.firstName} {member.lastName} ({statusDisplayMap[member.status] || member.status})
                               </Label>
                           </div>
                       ))}

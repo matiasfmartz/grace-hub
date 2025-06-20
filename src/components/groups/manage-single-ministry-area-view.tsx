@@ -11,9 +11,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Users, UserCheck, UserPlus, UserMinus, Badge } from 'lucide-react';
+import { Loader2, Save, Users, UserCheck, UserPlus, UserMinus, Badge as LucideBadge } from 'lucide-react'; // Renamed Badge to LucideBadge
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DialogClose } from '@/components/ui/dialog';
+import { Badge } from "@/components/ui/badge"; // Import ShadCN Badge
 
 interface ManageSingleMinistryAreaViewProps {
   ministryArea: MinistryArea;
@@ -26,6 +27,12 @@ interface ManageSingleMinistryAreaViewProps {
   onSuccess?: () => void;
   isAdding?: boolean;
 }
+
+const statusDisplayMap: Record<Member['status'], string> = {
+  Active: "Activo",
+  Inactive: "Inactivo",
+  New: "Nuevo"
+};
 
 export default function ManageSingleMinistryAreaView({
   ministryArea: initialMinistryArea,
@@ -135,7 +142,7 @@ export default function ManageSingleMinistryAreaView({
       member.id !== editableArea.leaderId &&
       !(editableArea.memberIds || []).includes(member.id) &&
       (`${member.firstName} ${member.lastName}`.toLowerCase().includes(addMemberSearchTerm.toLowerCase()) ||
-       member.email.toLowerCase().includes(addMemberSearchTerm.toLowerCase()))
+       (member.email && member.email.toLowerCase().includes(addMemberSearchTerm.toLowerCase())))
     );
   }, [activeMembers, editableArea.leaderId, editableArea.memberIds, addMemberSearchTerm]);
 
@@ -182,7 +189,7 @@ export default function ManageSingleMinistryAreaView({
                       </div>
                       <div>
                           <Label htmlFor="description">Descripción</Label>
-                          <Textarea id="description" name="description" value={editableArea.description} onChange={handleInputChange} rows={3} disabled={isPending} className="mt-1" />
+                          <Textarea id="description" name="description" value={editableArea.description || ""} onChange={handleInputChange} rows={3} disabled={isPending} className="mt-1" />
                       </div>
                   </div>
               </div>
@@ -209,7 +216,7 @@ export default function ManageSingleMinistryAreaView({
                               onCheckedChange={(checked) => handleAvailableMemberSelection(member.id, Boolean(checked))}
                           />
                           <Label htmlFor={`add-member-${member.id}`} className="font-normal text-sm cursor-pointer flex-grow">
-                              {member.firstName} {member.lastName} ({member.status})
+                              {member.firstName} {member.lastName} ({statusDisplayMap[member.status] || member.status})
                           </Label>
                       </div>
                       )) : (
@@ -238,7 +245,7 @@ export default function ManageSingleMinistryAreaView({
                   <ScrollArea className="h-48 w-full rounded-md border p-2">
                       {leaderDetails && (
                            <div className="flex items-center justify-between p-2 rounded-md bg-primary/10">
-                              <span className="font-medium text-sm text-primary">{leaderDetails.firstName} {leaderDetails.lastName} ({leaderDetails.status})</span>
+                              <span className="font-medium text-sm text-primary">{leaderDetails.firstName} {leaderDetails.lastName} ({statusDisplayMap[leaderDetails.status] || leaderDetails.status})</span>
                               <Badge variant="default" className="text-xs">Líder</Badge>
                           </div>
                       )}
@@ -252,7 +259,7 @@ export default function ManageSingleMinistryAreaView({
                                       onCheckedChange={(checked) => handleAssignedMemberSelection(member.id, Boolean(checked))}
                                   />
                                   <Label htmlFor={`remove-member-${member.id}`} className="font-normal text-sm cursor-pointer flex-grow">
-                                      {member.firstName} {member.lastName} ({member.status})
+                                      {member.firstName} {member.lastName} ({statusDisplayMap[member.status] || member.status})
                                   </Label>
                               </div>
                           )
