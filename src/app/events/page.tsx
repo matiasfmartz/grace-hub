@@ -28,8 +28,8 @@ import DateRangeFilter from '@/components/events/date-range-filter';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { MemberRoleEnum } from '@/lib/types';
+import EventsTableFilters from '@/components/events/events-table-filters'; // Import the new component
 
 export async function defineMeetingSeriesAction(
   newSeriesData: DefineMeetingSeriesFormValues
@@ -361,22 +361,6 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       return `/events?${params.toString()}`;
   }
 
-  // Functions to update table filters via URL
-  const updateTableFiltersURL = (newFilters: {
-    tmr?: string[];
-    tms?: string[];
-    tmg?: string[];
-    tma?: string[];
-  }) => {
-    const params = new URLSearchParams(searchParams);
-    newFilters.tmr ? params.set('tmr', newFilters.tmr.join(',')) : params.delete('tmr');
-    newFilters.tms ? params.set('tms', newFilters.tms.join(',')) : params.delete('tms');
-    newFilters.tmg ? params.set('tmg', newFilters.tmg.join(',')) : params.delete('tmg');
-    newFilters.tma ? params.set('tma', newFilters.tma.join(',')) : params.delete('tma');
-    params.set('mPage', '1'); // Reset member page
-    return `/events?${params.toString()}`;
-  };
-
   const gdiFilterOptions = [
     { value: NO_GDI_FILTER_VALUE, label: "Miembros Sin GDI Asignado" },
     ...allGdis.map(gdi => ({
@@ -490,105 +474,17 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
               {totalMeetingInstances > 0 ? (
                 <>
-                <div className="my-4 p-3 border rounded-lg bg-card shadow-sm">
-                  <h3 className="text-md font-semibold mb-2 flex items-center"><ListFilter className="mr-2 h-4 w-4 text-primary" />Filtrar Miembros en Tabla (Filas):</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="justify-start text-xs w-full">
-                                <ShieldCheck className="mr-1.5 h-3.5 w-3.5" /> Rol ({tableMemberRoleFilters.length > 0 ? tableMemberRoleFilters.length : 'Todos'})
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                            {roleFilterOptions.map(opt => (
-                                <DropdownMenuCheckboxItem
-                                    key={opt.value}
-                                    checked={tableMemberRoleFilters.includes(opt.value)}
-                                    onCheckedChange={(checked) => {
-                                        const newRoles = checked
-                                            ? [...tableMemberRoleFilters, opt.value]
-                                            : tableMemberRoleFilters.filter(r => r !== opt.value);
-                                        router.push(updateTableFiltersURL({ tmr: newRoles }));
-                                    }}
-                                >{opt.label}</DropdownMenuCheckboxItem>
-                            ))}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                             <Button variant="outline" size="sm" className="justify-start text-xs w-full">
-                                <Activity className="mr-1.5 h-3.5 w-3.5" /> Estado ({tableMemberStatusFilters.length > 0 ? tableMemberStatusFilters.length : 'Todos'})
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                            {statusFilterOptions.map(opt => (
-                                <DropdownMenuCheckboxItem
-                                    key={opt.value}
-                                    checked={tableMemberStatusFilters.includes(opt.value)}
-                                    onCheckedChange={(checked) => {
-                                        const newStatuses = checked
-                                            ? [...tableMemberStatusFilters, opt.value]
-                                            : tableMemberStatusFilters.filter(s => s !== opt.value);
-                                        router.push(updateTableFiltersURL({ tms: newStatuses as string[] }));
-                                    }}
-                                >{opt.label}</DropdownMenuCheckboxItem>
-                            ))}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="justify-start text-xs w-full">
-                                <UsersIcon className="mr-1.5 h-3.5 w-3.5" /> GDI ({tableMemberGdiFilters.length > 0 ? tableMemberGdiFilters.length : 'Todos'})
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="max-h-60 overflow-y-auto">
-                           {gdiFilterOptions.map(opt => (
-                                <DropdownMenuCheckboxItem
-                                    key={opt.value}
-                                    checked={tableMemberGdiFilters.includes(opt.value)}
-                                     onCheckedChange={(checked) => {
-                                        const newGdis = checked
-                                            ? [...tableMemberGdiFilters, opt.value]
-                                            : tableMemberGdiFilters.filter(g => g !== opt.value);
-                                        router.push(updateTableFiltersURL({ tmg: newGdis }));
-                                    }}
-                                >{opt.label}</DropdownMenuCheckboxItem>
-                            ))}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                           <Button variant="outline" size="sm" className="justify-start text-xs w-full">
-                                <Activity className="mr-1.5 h-3.5 w-3.5" /> Área ({tableMemberAreaFilters.length > 0 ? tableMemberAreaFilters.length : 'Todas'})
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="max-h-60 overflow-y-auto">
-                            {areaFilterOptions.map(opt => (
-                                <DropdownMenuCheckboxItem
-                                    key={opt.value}
-                                    checked={tableMemberAreaFilters.includes(opt.value)}
-                                    onCheckedChange={(checked) => {
-                                        const newAreas = checked
-                                            ? [...tableMemberAreaFilters, opt.value]
-                                            : tableMemberAreaFilters.filter(a => a !== opt.value);
-                                        router.push(updateTableFiltersURL({ tma: newAreas }));
-                                    }}
-                                >{opt.label}</DropdownMenuCheckboxItem>
-                            ))}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                   {(tableMemberRoleFilters.length > 0 || tableMemberStatusFilters.length > 0 || tableMemberGdiFilters.length > 0 || tableMemberAreaFilters.length > 0) && (
-                    <Button
-                        variant="link"
-                        size="sm"
-                        className="mt-2 px-0 h-auto text-xs text-destructive hover:text-destructive/80"
-                        onClick={() => router.push(updateTableFiltersURL({ tmr:[], tms:[], tmg:[], tma:[] }))}
-                    >
-                        <X className="mr-1 h-3 w-3" /> Limpiar filtros de miembros
-                    </Button>
-                  )}
-                </div>
+                <h3 className="text-md font-semibold mb-2 flex items-center"><ListFilter className="mr-2 h-4 w-4 text-primary" />Filtrar Miembros en Tabla (Filas):</h3>
+                <EventsTableFilters
+                    roleFilterOptions={roleFilterOptions}
+                    statusFilterOptions={statusFilterOptions}
+                    gdiFilterOptions={gdiFilterOptions}
+                    areaFilterOptions={areaFilterOptions}
+                    currentRoleFilters={tableMemberRoleFilters}
+                    currentStatusFilters={tableMemberStatusFilters}
+                    currentGdiFilters={tableMemberGdiFilters}
+                    currentAreaFilters={tableMemberAreaFilters}
+                  />
 
                 <MeetingTypeAttendanceTable
                   displayedInstances={meetingsForPage}
