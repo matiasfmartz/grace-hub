@@ -1,7 +1,7 @@
 
 'use server';
 import type { Member, MemberWriteData, GDI, MinistryArea, MemberRoleType } from '@/lib/types';
-import { NO_ROLE_FILTER_VALUE, NO_GDI_FILTER_VALUE } from '@/lib/types';
+import { NO_ROLE_FILTER_VALUE, NO_GDI_FILTER_VALUE, NO_AREA_FILTER_VALUE } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
 import { placeholderMembers, placeholderGDIs, placeholderMinistryAreas } from '@/lib/placeholder-data';
 import { calculateMemberRoles } from '@/lib/roleUtils';
@@ -27,10 +27,12 @@ export async function getAllMembers(
   searchTerm?: string,
   memberStatusFiltersParam?: string[],
   roleFilterParams?: string[],
-  guideIdFilterParams?: string[]
+  guideIdFilterParams?: string[],
+  areaIdFilterParams?: string[] 
 ): Promise<{ members: Member[], totalMembers: number, totalPages: number }> {
   const allMembersFromFile = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs); // Needed for guide filter logic
+  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs); 
+  const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
 
   const workingFilteredMembers = allMembersFromFile.filter(member => {
     let statusMatch = true;
@@ -64,7 +66,7 @@ export async function getAllMembers(
       if (actualGuideIdFilters.length > 0) {
         const membersToIncludeFromActualGuides = new Set<string>();
         actualGuideIdFilters.forEach(guideId => {
-          membersToIncludeFromActualGuides.add(guideId); // Include the guide themselves
+          membersToIncludeFromActualGuides.add(guideId); 
           const gdisLedByThisGuide = allGdis.filter(gdi => gdi.guideId === guideId);
           gdisLedByThisGuide.forEach(gdi => {
             if (gdi.memberIds) gdi.memberIds.forEach(memberId => membersToIncludeFromActualGuides.add(memberId));
@@ -80,6 +82,26 @@ export async function getAllMembers(
       } else if (actualGuideIdFilters.length > 0) {
         guideMatch = memberMatchesActualGuide;
       }
+    }
+
+    let areaMatch = true;
+    const hasNoAreaFilter = areaIdFilterParams?.includes(NO_AREA_FILTER_VALUE);
+    const actualAreaIdFilters = areaIdFilterParams?.filter(id => id !== NO_AREA_FILTER_VALUE) || [];
+    if (areaIdFilterParams && areaIdFilterParams.length > 0) {
+        const memberHasNoArea = !member.assignedAreaIds || member.assignedAreaIds.length === 0;
+        let memberMatchesActualArea = false;
+
+        if (actualAreaIdFilters.length > 0) {
+            memberMatchesActualArea = member.assignedAreaIds && member.assignedAreaIds.some(areaId => actualAreaIdFilters.includes(areaId));
+        }
+        
+        if (hasNoAreaFilter && actualAreaIdFilters.length > 0) {
+            areaMatch = memberHasNoArea || memberMatchesActualArea;
+        } else if (hasNoAreaFilter) {
+            areaMatch = memberHasNoArea;
+        } else if (actualAreaIdFilters.length > 0) {
+            areaMatch = memberMatchesActualArea;
+        }
     }
     
     let searchTermMatch = true;
@@ -97,7 +119,7 @@ export async function getAllMembers(
         }
     }
 
-    return statusMatch && roleMatch && guideMatch && searchTermMatch;
+    return statusMatch && roleMatch && guideMatch && areaMatch && searchTermMatch;
   });
 
   const totalMembers = workingFilteredMembers.length;

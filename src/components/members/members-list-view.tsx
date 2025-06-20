@@ -3,13 +3,13 @@
 
 import { useState, useMemo, useCallback, useTransition } from 'react';
 import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberWriteData, MemberRoleType, Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
-import { NO_ROLE_FILTER_VALUE, NO_GDI_FILTER_VALUE } from '@/lib/types';
+import { NO_ROLE_FILTER_VALUE, NO_GDI_FILTER_VALUE, NO_AREA_FILTER_VALUE } from '@/lib/types';
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck, Filter, X, ChevronDown, Users } from 'lucide-react'; 
+import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck, Filter, X, ChevronDown, Users, Briefcase } from 'lucide-react'; 
 import MemberDetailsDialog from './member-details-dialog';
 import AddMemberForm from './add-member-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -37,6 +37,7 @@ interface MembersListViewProps {
   currentMemberStatusFilters?: string[];
   currentRoleFilters?: string[];
   currentGuideIdFilters?: string[];
+  currentAreaFilters?: string[]; 
   totalMembers: number; // Filtered count
   absoluteTotalMembers: number; // Absolute total
 }
@@ -81,6 +82,7 @@ export default function MembersListView({
   currentMemberStatusFilters = [],
   currentRoleFilters = [],
   currentGuideIdFilters = [],
+  currentAreaFilters = [], 
   totalMembers,
   absoluteTotalMembers,
 }: MembersListViewProps) {
@@ -89,6 +91,7 @@ export default function MembersListView({
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(currentMemberStatusFilters || []);
   const [selectedRoles, setSelectedRoles] = useState<string[]>(currentRoleFilters || []);
   const [selectedGuideIds, setSelectedGuideIds] = useState<string[]>(currentGuideIdFilters || []);
+  const [selectedAreaIds, setSelectedAreaIds] = useState<string[]>(currentAreaFilters || []); 
 
   const [sortKey, setSortKey] = useState<SortKey>('fullName');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
@@ -114,13 +117,25 @@ export default function MembersListView({
     ];
   }, [allGDIs, allMembersForDropdowns]);
 
-  const getGdiGuideName = useCallback((member: Member): string => {
+  const getGdiName = useCallback((member: Member): string => {
     if (!member.assignedGDIId) return "No asignado";
     const gdi = allGDIs.find(g => g.id === member.assignedGDIId);
-    if (!gdi) return "GDI no encontrado";
-    const guide = allMembersForDropdowns.find(m => m.id === gdi.guideId);
-    return guide ? `${guide.firstName} ${guide.lastName}` : "Guía no encontrado";
-  }, [allGDIs, allMembersForDropdowns]);
+    return gdi ? gdi.name : "GDI no encontrado";
+  }, [allGDIs]);
+
+  const areaFilterOptions = useMemo(() => {
+    return [
+      { id: NO_AREA_FILTER_VALUE, name: "Sin Área Asignada", leaderId: '', memberIds: [], description: '' },
+      ...allMinistryAreas.sort((a,b) => a.name.localeCompare(b.name))
+    ];
+  }, [allMinistryAreas]);
+
+  const getMemberAreaNames = useCallback((member: Member): string[] => {
+    if (!member.assignedAreaIds || member.assignedAreaIds.length === 0) return [];
+    return member.assignedAreaIds
+      .map(areaId => allMinistryAreas.find(area => area.id === areaId)?.name)
+      .filter(Boolean) as string[];
+  }, [allMinistryAreas]);
 
 
   const toggleFilterItem = (
@@ -150,6 +165,9 @@ export default function MembersListView({
     
     if (selectedGuideIds.length > 0) params.set('guide', selectedGuideIds.join(','));
     else params.delete('guide');
+
+    if (selectedAreaIds.length > 0) params.set('area', selectedAreaIds.join(',')); 
+    else params.delete('area');
     
     router.push(`${pathname}?${params.toString()}`);
     router.refresh();
@@ -160,6 +178,7 @@ export default function MembersListView({
     setSelectedStatuses([]);
     setSelectedRoles([]);
     setSelectedGuideIds([]);
+    setSelectedAreaIds([]); 
     
     const params = new URLSearchParams();
     params.set('page', '1');
@@ -268,7 +287,7 @@ export default function MembersListView({
     router.refresh(); 
   };
   
-  const hasActiveFilters = searchInput.trim() !== '' || selectedStatuses.length > 0 || selectedRoles.length > 0 || selectedGuideIds.length > 0;
+  const hasActiveFilters = searchInput.trim() !== '' || selectedStatuses.length > 0 || selectedRoles.length > 0 || selectedGuideIds.length > 0 || selectedAreaIds.length > 0;
 
 
   return (
@@ -353,12 +372,12 @@ export default function MembersListView({
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary data-[state=open]:text-primary">
                 <Users className="mr-2 h-3.5 w-3.5" />
-                <span>{selectedGuideIds.length > 0 ? `Guía (${selectedGuideIds.length})` : "Guía GDI"}</span>
+                <span>{selectedGuideIds.length > 0 ? `GDI (${selectedGuideIds.length})` : "GDI"}</span>
                 <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64 max-h-72 overflow-y-auto">
-              <DropdownMenuLabel>Filtrar por Guía GDI</DropdownMenuLabel>
+              <DropdownMenuLabel>Filtrar por GDI (Guía o Miembro)</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {gdiGuidesForFilter.map(guide => (
                 <DropdownMenuCheckboxItem
@@ -367,11 +386,35 @@ export default function MembersListView({
                   onCheckedChange={() => toggleFilterItem(guide.id, selectedGuideIds, setSelectedGuideIds)}
                 >
                   {guide.firstName} {guide.id !== NO_GDI_FILTER_VALUE ? guide.lastName : ''}
+                  {guide.id !== NO_GDI_FILTER_VALUE ? ` (Guía)` : ''}
                 </DropdownMenuCheckboxItem>
               ))}
               {gdiGuidesForFilter.length === 1 && gdiGuidesForFilter[0].id === NO_GDI_FILTER_VALUE && (
                  <DropdownMenuItem disabled>No hay guías para mostrar</DropdownMenuItem>
               )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary data-[state=open]:text-primary">
+                <Briefcase className="mr-2 h-3.5 w-3.5" />
+                <span>{selectedAreaIds.length > 0 ? `Área (${selectedAreaIds.length})` : "Área"}</span>
+                <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64 max-h-72 overflow-y-auto">
+              <DropdownMenuLabel>Filtrar por Área Ministerial</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {areaFilterOptions.map(area => (
+                <DropdownMenuCheckboxItem
+                  key={area.id}
+                  checked={selectedAreaIds.includes(area.id)}
+                  onCheckedChange={() => toggleFilterItem(area.id, selectedAreaIds, setSelectedAreaIds)}
+                >
+                  {area.name}
+                </DropdownMenuCheckboxItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
           
@@ -399,7 +442,8 @@ export default function MembersListView({
                 </div>
               </TableHead>
               <TableHead>Teléfono</TableHead>
-              <TableHead>Guía</TableHead>
+              <TableHead>GDI</TableHead>
+              <TableHead>Áreas</TableHead>
               <TableHead>Roles</TableHead>
               <TableHead onClick={() => handleSort('status')} className="cursor-pointer">
                 <div className="flex items-center gap-1 hover:text-primary">
@@ -410,52 +454,68 @@ export default function MembersListView({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {processedMembers.map((member) => (
-              <TableRow key={member.id} className="hover:bg-muted/50 transition-colors">
-                <TableCell>
-                  <Avatar>
-                    <AvatarImage src={member.avatarUrl} alt={`${member.firstName} ${member.lastName}`} data-ai-hint="person portrait"/>
-                    <AvatarFallback>{member.firstName.substring(0, 1)}{member.lastName.substring(0,1)}</AvatarFallback>
-                  </Avatar>
-                </TableCell>
-                <TableCell className="font-medium">{member.firstName} {member.lastName}</TableCell>
-                <TableCell>{member.phone}</TableCell>
-                <TableCell>{getGdiGuideName(member)}</TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {member.roles && member.roles.length > 0 ? (
-                      member.roles.map(role => (
-                        <Badge key={role} variant="secondary" className="text-xs">
-                          {roleDisplayMap[role] || role}
-                        </Badge>
-                      ))
-                    ) : (
-                      <span className="text-xs text-muted-foreground">N/A</span>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={
-                    member.status === 'Active' ? 'default' :
-                    member.status === 'Inactive' ? 'secondary' :
-                    'outline'
-                  }
-                  className={
-                    member.status === 'Active' ? 'bg-green-500/20 text-green-700 border-green-500/50' :
-                    member.status === 'Inactive' ? 'bg-red-500/20 text-red-700 border-red-500/50' :
-                    'bg-yellow-500/20 text-yellow-700 border-yellow-500/50'
-                  }
-                  >
-                    {displayStatus(member.status)}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-center">
-                  <Button variant="outline" size="icon" onClick={() => handleOpenDetailsDialog(member)} title="Ver Detalles" disabled={isProcessingMember}>
-                    <Info className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            {processedMembers.map((member) => {
+              const memberAreas = getMemberAreaNames(member);
+              return (
+                <TableRow key={member.id} className="hover:bg-muted/50 transition-colors">
+                  <TableCell>
+                    <Avatar>
+                      <AvatarImage src={member.avatarUrl} alt={`${member.firstName} ${member.lastName}`} data-ai-hint="person portrait"/>
+                      <AvatarFallback>{member.firstName.substring(0, 1)}{member.lastName.substring(0,1)}</AvatarFallback>
+                    </Avatar>
+                  </TableCell>
+                  <TableCell className="font-medium">{member.firstName} {member.lastName}</TableCell>
+                  <TableCell>{member.phone}</TableCell>
+                  <TableCell>{getGdiName(member)}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1 max-w-xs">
+                      {memberAreas.length > 0 ? (
+                        memberAreas.map(areaName => (
+                          <Badge key={areaName} variant="outline" className="text-xs whitespace-nowrap">
+                            {areaName}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-xs text-muted-foreground">N/A</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {member.roles && member.roles.length > 0 ? (
+                        member.roles.map(role => (
+                          <Badge key={role} variant="secondary" className="text-xs">
+                            {roleDisplayMap[role] || role}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-xs text-muted-foreground">N/A</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={
+                      member.status === 'Active' ? 'default' :
+                      member.status === 'Inactive' ? 'secondary' :
+                      'outline'
+                    }
+                    className={
+                      member.status === 'Active' ? 'bg-green-500/20 text-green-700 border-green-500/50' :
+                      member.status === 'Inactive' ? 'bg-red-500/20 text-red-700 border-red-500/50' :
+                      'bg-yellow-500/20 text-yellow-700 border-yellow-500/50'
+                    }
+                    >
+                      {displayStatus(member.status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Button variant="outline" size="icon" onClick={() => handleOpenDetailsDialog(member)} title="Ver Detalles" disabled={isProcessingMember}>
+                      <Info className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

@@ -85,7 +85,8 @@ async function getMembersPageData(
   searchTermParam?: string,
   memberStatusFiltersParam?: string[],
   roleFiltersParam?: string[],
-  guideFiltersParam?: string[]
+  guideFiltersParam?: string[],
+  areaFiltersParam?: string[] 
 ) {
   const { members, totalMembers, totalPages } = await getAllMembers(
     currentPageParam,
@@ -93,7 +94,8 @@ async function getMembersPageData(
     searchTermParam,
     memberStatusFiltersParam,
     roleFiltersParam,
-    guideFiltersParam
+    guideFiltersParam,
+    areaFiltersParam 
   );
   const allMembersForDropdowns = await getAllMembersNonPaginated();
   const allGDIsData = await getAllGdis();
@@ -125,6 +127,7 @@ interface MembersPageProps {
     memberStatus?: string;
     role?: string;
     guide?: string;
+    area?: string; 
   };
 }
 
@@ -135,10 +138,12 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
   const memberStatusFilterString = searchParams.memberStatus || '';
   const roleFilterString = searchParams.role || '';
   const guideFilterString = searchParams.guide || '';
+  const areaFilterString = searchParams.area || ''; 
   
   const currentMemberStatusFiltersArray = memberStatusFilterString ? memberStatusFilterString.split(',') : [];
   const currentRoleFiltersArray = roleFilterString ? roleFilterString.split(',') : [];
   const currentGuideFiltersArray = guideFilterString ? guideFilterString.split(',') : [];
+  const currentAreaFiltersArray = areaFilterString ? areaFilterString.split(',') : []; 
 
   const {
     members,
@@ -157,10 +162,11 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
     searchTerm,
     currentMemberStatusFiltersArray,
     currentRoleFiltersArray,
-    currentGuideFiltersArray
+    currentGuideFiltersArray,
+    currentAreaFiltersArray 
   );
 
-  const viewKey = `${currentPage}-${pageSize}-${searchTerm}-${memberStatusFilterString}-${roleFilterString}-${guideFilterString}`;
+  const viewKey = `${currentPage}-${pageSize}-${searchTerm}-${memberStatusFilterString}-${roleFilterString}-${guideFilterString}-${areaFilterString}`; 
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -188,6 +194,7 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
         currentMemberStatusFilters={currentMemberStatusFiltersArray}
         currentRoleFilters={currentRoleFiltersArray}
         currentGuideIdFilters={currentGuideFiltersArray}
+        currentAreaFilters={currentAreaFiltersArray} 
         totalMembers={totalMembers}
         absoluteTotalMembers={absoluteTotalMembers}
       />
