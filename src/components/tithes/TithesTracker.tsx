@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useTransition } from 'react';
@@ -20,6 +19,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Filter, X, Check, Users, ShieldCheck, Briefcase, Activity, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import TitheProgressionChart from './TitheProgressionChart';
+import TitheSummaryCards from './TitheSummaryCards';
 
 interface FilterOption {
   value: string;
@@ -158,6 +158,12 @@ export function TithesTracker({
             </div>
             <div className="flex justify-end"><Button onClick={handleApplyFilters}><Search className="mr-2 h-4 w-4"/>Aplicar Filtros</Button></div>
         </div>
+
+        <TitheSummaryCards 
+            filteredMembers={initialMembers}
+            allTitheRecords={titheRecords}
+            months={months}
+        />
 
         <TitheProgressionChart
           filteredMembers={initialMembers}
