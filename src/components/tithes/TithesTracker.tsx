@@ -19,6 +19,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLab
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Filter, X, Check, Users, ShieldCheck, Briefcase, Activity, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import TitheProgressionChart from './TitheProgressionChart';
 
 interface FilterOption {
   value: string;
@@ -157,6 +158,12 @@ export function TithesTracker({
             </div>
             <div className="flex justify-end"><Button onClick={handleApplyFilters}><Search className="mr-2 h-4 w-4"/>Aplicar Filtros</Button></div>
         </div>
+
+        <TitheProgressionChart
+          filteredMembers={initialMembers}
+          allTitheRecords={titheRecords}
+          months={months}
+        />
 
         <div className="border rounded-lg shadow-md">
             <ScrollArea className="w-full whitespace-nowrap">
