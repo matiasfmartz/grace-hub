@@ -134,8 +134,8 @@
     "monthlyDayOfWeek": "Friday"
   },
   {
-    "id": "series-1750353949734-5uj2p",
-    "name": "jovenes",
+    "id": "series-1750354537453-pos30",
+    "name": "Jovenes",
     "description": "",
     "defaultTime": "10:00",
     "defaultLocation": "Santuario Principal",
@@ -145,7 +145,22 @@
       "allMembers"
     ],
     "frequency": "OneTime",
-    "oneTimeDate": "2025-06-22",
+    "oneTimeDate": "2025-06-21",
+    "cancelledDates": []
+  },
+  {
+    "id": "series-1750359636136-jbd3q",
+    "name": "Organizacion Impacto",
+    "description": "",
+    "defaultTime": "20:00",
+    "defaultLocation": "Santuario Principal",
+    "seriesType": "ministryArea",
+    "ownerGroupId": "1749880199537-cvuyxy3",
+    "targetAttendeeGroups": [
+      "allMembers"
+    ],
+    "frequency": "OneTime",
+    "oneTimeDate": "2025-06-28",
     "cancelledDates": []
   }
 ]

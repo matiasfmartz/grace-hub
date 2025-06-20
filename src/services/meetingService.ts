@@ -315,7 +315,7 @@ export async function addMeetingSeries(
     targetAttendeeGroups: seriesData.targetAttendeeGroups,
     frequency: seriesData.frequency,
     oneTimeDate: seriesData.frequency === "OneTime" ? seriesData.oneTimeDate : undefined,
-    cancelledDates: [], // Initialize cancelledDates
+    cancelledDates: [], 
     weeklyDays: seriesData.frequency === "Weekly" ? seriesData.weeklyDays : undefined,
     monthlyRuleType: seriesData.frequency === "Monthly" ? seriesData.monthlyRuleType : undefined,
     monthlyDayOfMonth: seriesData.frequency === "Monthly" && seriesData.monthlyRuleType === "DayOfMonth" ? seriesData.monthlyDayOfMonth : undefined,
@@ -324,7 +324,45 @@ export async function addMeetingSeries(
   };
 
   await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, [...seriesList, newSeries]);
-  const generatedInstances = await ensureFutureInstances(newSeries.id);
+  
+  let generatedInstances: Meeting[] = [];
+
+  if (newSeries.frequency === "OneTime" && newSeries.oneTimeDate && isValidDateFn(parseISO(newSeries.oneTimeDate))) {
+    const oneTimeDateObj = parseISO(newSeries.oneTimeDate);
+    // Resolve attendees
+    const allMembersForResolve = await readDbFile<Member>(MEMBERS_DB_FILE, []);
+    const allGdisForResolve = await readDbFile<GDI>(GDIS_DB_FILE, []);
+    const allMinistryAreasForResolve = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
+    
+    let resolvedUids: string[];
+    if (newSeries.seriesType === 'general') {
+        resolvedUids = await resolveAttendeeUidsForGeneralSeries(newSeries.targetAttendeeGroups, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
+    } else if (newSeries.seriesType === 'gdi' && newSeries.ownerGroupId) {
+        resolvedUids = await resolveAttendeeUidsForGroupSeries('gdi', newSeries.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
+    } else if (newSeries.seriesType === 'ministryArea' && newSeries.ownerGroupId) {
+        resolvedUids = await resolveAttendeeUidsForGroupSeries('ministryArea', newSeries.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
+    } else {
+        resolvedUids = [];
+    }
+
+    const oneTimeInstance = await addMeetingInstanceInternal({
+        seriesId: newSeries.id,
+        name: `${newSeries.name} (${format(oneTimeDateObj, 'd MMM', { locale: es })})`,
+        date: newSeries.oneTimeDate, // Already a 'yyyy-MM-dd' string or undefined
+        time: newSeries.defaultTime,
+        location: newSeries.defaultLocation,
+        description: newSeries.description,
+        attendeeUids: resolvedUids,
+        minute: null,
+    });
+    generatedInstances.push(oneTimeInstance);
+  } else if (newSeries.frequency !== "OneTime") {
+    // For recurring series, call ensureFutureInstances
+    const recurringGeneratedInstances = await ensureFutureInstances(newSeries.id);
+    if (recurringGeneratedInstances.length > 0) {
+        generatedInstances.push(...recurringGeneratedInstances);
+    }
+  }
   return {series: newSeries, newInstances: generatedInstances.length > 0 ? generatedInstances : undefined };
 }
 
@@ -342,7 +380,7 @@ export async function updateMeetingSeries(
   const updatedSeries: MeetingSeries = {
     ...existingSeries,
     ...updates,
-    cancelledDates: updates.cancelledDates ?? existingSeries.cancelledDates ?? [], // Preserve or initialize cancelledDates
+    cancelledDates: updates.cancelledDates ?? existingSeries.cancelledDates ?? [], 
     oneTimeDate: updates.frequency === "OneTime" ? (updates.oneTimeDate ?? existingSeries.oneTimeDate) : undefined,
     weeklyDays: updates.frequency === "Weekly" ? (updates.weeklyDays ?? existingSeries.weeklyDays) : undefined,
     monthlyRuleType: updates.frequency === "Monthly" ? (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) : undefined,
@@ -527,10 +565,10 @@ export async function updateMeetingMinute(meetingId: string, minute: string | nu
 }
 
 export async function deleteMeetingInstance(instanceId: string): Promise<void> {
-  const instanceToDelete = await getMeetingById(instanceId); // Get instance details before deleting
+  const instanceToDelete = await getMeetingById(instanceId); 
   if (!instanceToDelete) {
     console.warn(`Attempted to delete non-existent meeting instance: ${instanceId}`);
-    return; // Or throw error if preferred
+    return; 
   }
 
   let allSeries = await getAllMeetingSeries();
@@ -538,7 +576,7 @@ export async function deleteMeetingInstance(instanceId: string): Promise<void> {
 
   if (seriesIndex !== -1) {
     const series = allSeries[seriesIndex];
-    if (series.frequency !== "OneTime") { // Only track cancellations for recurring series
+    if (series.frequency !== "OneTime") { 
       if (!series.cancelledDates) {
         series.cancelledDates = [];
       }
