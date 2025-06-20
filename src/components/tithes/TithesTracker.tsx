@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useTransition } from 'react';
@@ -5,7 +6,7 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { eachMonthOfInterval, format, startOfMonth, endOfMonth, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { Member, TitheRecord } from '@/lib/types';
-import { setTitheStatus } from '@/services/titheService';
+import { batchUpdateTithesForMonth } from '@/services/titheService';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
@@ -17,9 +18,11 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Filter, X, Check, Users, ShieldCheck, Briefcase, Activity, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Search, Filter, X, Check, Users, ShieldCheck, Briefcase, Activity, ChevronLeft, ChevronRight, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import TitheProgressionChart from './TitheProgressionChart';
 import TitheSummaryCards from './TitheSummaryCards';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Label } from '../ui/label';
 
 interface FilterOption {
   value: string;
@@ -81,6 +84,10 @@ export function TithesTracker({
   );
   
   const [titheRecords, setTitheRecords] = useState(initialTitheRecords);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingMonth, setEditingMonth] = useState<{ year: number; month: number; monthLabel: string } | null>(null);
+  const [draftTitheStatus, setDraftTitheStatus] = useState<Record<string, boolean>>({});
+
 
   const months = useMemo(() => {
     if (!startDate || !endDate || startDate > endDate) return [];
@@ -124,23 +131,64 @@ export function TithesTracker({
       router.push(`${pathname}?${params.toString()}`);
   };
   
-  const handleTitheChange = (memberId: string, year: number, month: number, didTithe: boolean) => {
-      startUpdateTransition(async () => {
-        const optimisticRecordId = `${memberId}-${year}-${month}`;
-        
-        setTitheRecords(prev => didTithe ? [...prev, { id: optimisticRecordId, memberId, year, month }] : prev.filter(r => !(r.memberId === memberId && r.year === year && r.month === month)));
+  const handleMonthClick = (monthDate: Date) => {
+    const year = monthDate.getFullYear();
+    const monthNum = monthDate.getMonth() + 1;
+    const monthLabel = format(monthDate, 'MMMM yyyy', { locale: es });
 
-        const result = await setTitheStatus(memberId, year, month, didTithe);
-        if (!result.success) {
-            setTitheRecords(initialTitheRecords);
+    const initialDraftStatus: Record<string, boolean> = {};
+    initialMembers.forEach(member => {
+        initialDraftStatus[member.id] = titheRecords.some(r => r.memberId === member.id && r.year === year && r.month === monthNum);
+    });
+    
+    setDraftTitheStatus(initialDraftStatus);
+    setEditingMonth({ year, month: monthNum, monthLabel });
+    setIsEditDialogOpen(true);
+  };
+  
+  const handleDraftTitheChange = (memberId: string, didTithe: boolean) => {
+    setDraftTitheStatus(prev => ({
+        ...prev,
+        [memberId]: didTithe,
+    }));
+  };
+  
+  const handleSaveChanges = () => {
+    if (!editingMonth) return;
+
+    const updates = Object.entries(draftTitheStatus).map(([memberId, didTithe]) => ({
+        memberId,
+        didTithe,
+    }));
+    
+    startUpdateTransition(async () => {
+        const result = await batchUpdateTithesForMonth(editingMonth.year, editingMonth.month, updates);
+
+        if (result.success) {
+            let updatedRecords = titheRecords.filter(r => !(r.year === editingMonth.year && r.month === editingMonth.month));
+            const newRecordsForMonth = updates
+                .filter(update => update.didTithe)
+                .map(update => ({
+                    id: `${update.memberId}-${editingMonth.year}-${editingMonth.month}`,
+                    memberId: update.memberId,
+                    year: editingMonth.year,
+                    month: editingMonth.month,
+                }));
+            setTitheRecords([...updatedRecords, ...newRecordsForMonth]);
+            
+            toast({ title: "Éxito", description: result.message });
+            setIsEditDialogOpen(false);
+            setEditingMonth(null);
+        } else {
             toast({ title: "Error", description: result.message, variant: 'destructive' });
         }
-      });
+    });
   };
 
   const hasActiveMemberFilters = filters.currentSearchTerm || filters.currentStatusFilters.length > 0 || filters.currentRoleFilters.length > 0 || filters.currentGdiFilters.length > 0 || filters.currentAreaFilters.length > 0;
 
   return (
+    <>
     <div className="space-y-6">
         <div className="space-y-4 p-4 border rounded-lg bg-card shadow-sm">
             <h3 className="text-lg font-semibold flex items-center"><Filter className="mr-2 h-5 w-5 text-primary"/> Filtros</h3>
@@ -174,8 +222,41 @@ export function TithesTracker({
         <div className="border rounded-lg shadow-md">
             <ScrollArea className="w-full whitespace-nowrap">
               <Table>
-                <TableHeader><TableRow><TableHead className="sticky left-0 bg-card z-10 w-[250px] min-w-[250px]">Miembro</TableHead>{months.map(month => (<TableHead key={month.toISOString()} className="text-center min-w-[100px] capitalize">{format(month, 'MMM yyyy', { locale: es })}</TableHead>))}</TableRow></TableHeader>
-                <TableBody>{initialMembers.length > 0 ? initialMembers.map(member => (<TableRow key={member.id}><TableCell className="sticky left-0 bg-card z-10 font-medium">{member.firstName} {member.lastName}</TableCell>{months.map(month => {const year = month.getFullYear();const monthNum = month.getMonth() + 1;const isChecked = titheRecords.some(r => r.memberId === member.id && r.year === year && r.month === monthNum);return (<TableCell key={month.toISOString()} className="text-center"><Checkbox disabled={isUpdating} checked={isChecked} onCheckedChange={(checked) => handleTitheChange(member.id, year, monthNum, !!checked)}/></TableCell>);})}</TableRow>)) : (<TableRow><TableCell colSpan={months.length + 1} className="h-24 text-center">No se encontraron miembros con los filtros aplicados.</TableCell></TableRow>)}</TableBody>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky left-0 bg-card z-10 w-[250px] min-w-[250px]">Miembro</TableHead>
+                    {months.map(month => (
+                      <TableHead key={month.toISOString()} className="text-center min-w-[120px] capitalize">
+                        <button 
+                          onClick={() => handleMonthClick(month)}
+                          className="w-full h-full p-2 font-semibold text-primary hover:bg-muted rounded-md"
+                        >
+                          {format(month, 'MMM yyyy', { locale: es })}
+                        </button>
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>{initialMembers.length > 0 ? initialMembers.map(member => (
+                    <TableRow key={member.id}>
+                        <TableCell className="sticky left-0 bg-card z-10 font-medium">{member.firstName} {member.lastName}</TableCell>
+                        {months.map(month => {
+                            const year = month.getFullYear();
+                            const monthNum = month.getMonth() + 1;
+                            const isChecked = titheRecords.some(r => r.memberId === member.id && r.year === year && r.month === monthNum);
+                            return (
+                                <TableCell key={month.toISOString()} className="text-center">
+                                    {isChecked 
+                                        ? <CheckCircle2 className="h-5 w-5 text-green-500 mx-auto" /> 
+                                        : <XCircle className="h-5 w-5 text-muted-foreground/50 mx-auto" />
+                                    }
+                                </TableCell>
+                            );
+                        })}
+                    </TableRow>)) : 
+                    (<TableRow><TableCell colSpan={months.length + 1} className="h-24 text-center">No se encontraron miembros con los filtros aplicados.</TableCell></TableRow>)
+                }
+                </TableBody>
               </Table>
               <ScrollBar orientation="horizontal" />
             </ScrollArea>
@@ -191,5 +272,41 @@ export function TithesTracker({
             )}
         </div>
     </div>
+    
+    <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Registrar Diezmos para {editingMonth?.monthLabel}</DialogTitle>
+          <DialogDescription>
+            Marque los miembros que han diezmado este mes.
+          </DialogDescription>
+        </DialogHeader>
+        <ScrollArea className="max-h-[60vh] my-4 pr-3">
+            <div className="space-y-2">
+                {initialMembers.map(member => (
+                    <div key={member.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-muted">
+                        <Checkbox
+                            id={`edit-${member.id}`}
+                            checked={draftTitheStatus[member.id] || false}
+                            onCheckedChange={(checked) => handleDraftTitheChange(member.id, !!checked)}
+                        />
+                        <Label htmlFor={`edit-${member.id}`} className="font-normal flex-grow cursor-pointer">
+                            {member.firstName} {member.lastName}
+                        </Label>
+                    </div>
+                ))}
+            </div>
+        </ScrollArea>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+          <Button onClick={handleSaveChanges} disabled={isUpdating}>
+            {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Guardar Cambios
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    </>
   );
 }

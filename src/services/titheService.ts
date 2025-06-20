@@ -1,3 +1,4 @@
+
 'use server';
 import type { TitheRecord } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
@@ -40,4 +41,36 @@ export async function setTitheStatus(memberId: string, year: number, month: numb
         console.error("Error setting tithe status:", error);
         return { success: false, message: `Error al actualizar: ${error.message}` };
     }
+}
+
+export async function batchUpdateTithesForMonth(
+  year: number,
+  month: number,
+  updates: { memberId: string; didTithe: boolean }[]
+): Promise<{ success: boolean; message: string }> {
+  try {
+    let allRecords = await getAllTitheRecords();
+
+    // Remove all existing records for the given month
+    let recordsToKeep = allRecords.filter(r => !(r.year === year && r.month === month));
+    
+    // Create new records for members who tithed
+    const newRecordsForMonth = updates
+      .filter(update => update.didTithe)
+      .map(update => ({
+        id: `${update.memberId}-${year}-${month}`,
+        memberId: update.memberId,
+        year: year,
+        month: month,
+      }));
+
+    const finalRecords = [...recordsToKeep, ...newRecordsForMonth];
+
+    await writeDbFile<TitheRecord>(TITHES_DB_FILE, finalRecords);
+    revalidatePath('/tithes');
+    return { success: true, message: "Registros de diezmos actualizados exitosamente." };
+  } catch (error: any) {
+    console.error("Error batch updating tithes:", error);
+    return { success: false, message: `Error al actualizar diezmos: ${error.message}` };
+  }
 }
