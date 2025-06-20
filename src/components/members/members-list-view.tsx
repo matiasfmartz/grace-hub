@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck, Filter, X, ChevronDown, Users, Briefcase } from 'lucide-react'; 
+import { Search, ArrowUpNarrowWide, ArrowDownNarrowWide, Info, UserPlus, ListPlus, Loader2, ChevronLeft, ChevronRight, ShieldCheck, Filter, X, ChevronDown, Users, Briefcase, Check } from 'lucide-react';
 import MemberDetailsDialog from './member-details-dialog';
 import AddMemberForm from './add-member-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -19,6 +19,9 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+
 
 interface MembersListViewProps {
   initialMembers: Member[];
@@ -37,7 +40,7 @@ interface MembersListViewProps {
   currentMemberStatusFilters?: string[];
   currentRoleFilters?: string[];
   currentGuideIdFilters?: string[];
-  currentAreaFilters?: string[]; 
+  currentAreaFilters?: string[];
   totalMembers: number; // Filtered count
   absoluteTotalMembers: number; // Absolute total
 }
@@ -82,7 +85,7 @@ export default function MembersListView({
   currentMemberStatusFilters = [],
   currentRoleFilters = [],
   currentGuideIdFilters = [],
-  currentAreaFilters = [], 
+  currentAreaFilters = [],
   totalMembers,
   absoluteTotalMembers,
 }: MembersListViewProps) {
@@ -91,7 +94,7 @@ export default function MembersListView({
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(currentMemberStatusFilters || []);
   const [selectedRoles, setSelectedRoles] = useState<string[]>(currentRoleFilters || []);
   const [selectedGuideIds, setSelectedGuideIds] = useState<string[]>(currentGuideIdFilters || []);
-  const [selectedAreaIds, setSelectedAreaIds] = useState<string[]>(currentAreaFilters || []); 
+  const [selectedAreaIds, setSelectedAreaIds] = useState<string[]>(currentAreaFilters || []);
 
   const [sortKey, setSortKey] = useState<SortKey>('fullName');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
@@ -123,9 +126,9 @@ export default function MembersListView({
     return gdi ? gdi.name : "GDI no encontrado";
   }, [allGDIs]);
 
-  const areaFilterOptions = useMemo(() => {
+  const areaFilterOptions: Array<{ id: string, name: string}> = useMemo(() => {
     return [
-      { id: NO_AREA_FILTER_VALUE, name: "Sin Área Asignada", leaderId: '', memberIds: [], description: '' },
+      { id: NO_AREA_FILTER_VALUE, name: "Sin Área Asignada" },
       ...allMinistryAreas.sort((a,b) => a.name.localeCompare(b.name))
     ];
   }, [allMinistryAreas]);
@@ -166,7 +169,7 @@ export default function MembersListView({
     if (selectedGuideIds.length > 0) params.set('guide', selectedGuideIds.join(','));
     else params.delete('guide');
 
-    if (selectedAreaIds.length > 0) params.set('area', selectedAreaIds.join(',')); 
+    if (selectedAreaIds.length > 0) params.set('area', selectedAreaIds.join(','));
     else params.delete('area');
     
     router.push(`${pathname}?${params.toString()}`);
@@ -178,13 +181,13 @@ export default function MembersListView({
     setSelectedStatuses([]);
     setSelectedRoles([]);
     setSelectedGuideIds([]);
-    setSelectedAreaIds([]); 
+    setSelectedAreaIds([]);
     
     const params = new URLSearchParams();
     params.set('page', '1');
     params.set('pageSize', pageSize.toString());
     router.push(`${pathname}?${params.toString()}`);
-    router.refresh(); 
+    router.refresh();
   };
 
 
@@ -198,7 +201,7 @@ export default function MembersListView({
   };
 
   const processedMembers = useMemo(() => {
-    let membersToProcess = [...members]; 
+    let membersToProcess = [...members];
     membersToProcess.sort((a, b) => {
       let valA, valB;
       if (sortKey === 'fullName') {
@@ -241,7 +244,7 @@ export default function MembersListView({
   const handleAddSingleMemberSubmit = async (data: AddMemberFormValues) => {
     const newMemberWriteData: MemberWriteData = {
       ...data,
-      email: data.email ?? "", 
+      email: data.email ?? "",
       birthDate: data.birthDate ? data.birthDate.toISOString().split('T')[0] : undefined,
       churchJoinDate: data.churchJoinDate ? data.churchJoinDate.toISOString().split('T')[0] : undefined,
       roles: [],
@@ -284,7 +287,7 @@ export default function MembersListView({
     params.set('pageSize', newSize);
     params.set('page', '1');
     router.push(`${pathname}?${params.toString()}`);
-    router.refresh(); 
+    router.refresh();
   };
   
   const hasActiveFilters = searchInput.trim() !== '' || selectedStatuses.length > 0 || selectedRoles.length > 0 || selectedGuideIds.length > 0 || selectedAreaIds.length > 0;
@@ -376,22 +379,43 @@ export default function MembersListView({
                 <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64 max-h-72 overflow-y-auto">
-              <DropdownMenuLabel>Filtrar por GDI (Guía o Miembro)</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {gdiGuidesForFilter.map(guide => (
-                <DropdownMenuCheckboxItem
-                  key={guide.id === NO_GDI_FILTER_VALUE ? NO_GDI_FILTER_VALUE : guide.id}
-                  checked={selectedGuideIds.includes(guide.id)}
-                  onCheckedChange={() => toggleFilterItem(guide.id, selectedGuideIds, setSelectedGuideIds)}
-                >
-                  {guide.firstName} {guide.id !== NO_GDI_FILTER_VALUE ? guide.lastName : ''}
-                  {guide.id !== NO_GDI_FILTER_VALUE ? ` (Guía)` : ''}
-                </DropdownMenuCheckboxItem>
-              ))}
-              {gdiGuidesForFilter.length === 1 && gdiGuidesForFilter[0].id === NO_GDI_FILTER_VALUE && (
-                 <DropdownMenuItem disabled>No hay guías para mostrar</DropdownMenuItem>
-              )}
+            <DropdownMenuContent align="start" className="w-64 p-0">
+              <Command>
+                <CommandInput placeholder="Buscar GDI..." className="h-9 border-0 shadow-none focus-visible:ring-0" />
+                <CommandList className="max-h-60">
+                  <CommandEmpty>No se encontró el GDI.</CommandEmpty>
+                  <DropdownMenuLabel className="px-2 pt-2 text-xs">Filtrar por GDI (Guía o Miembro)</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="mx-1 my-1" />
+                  <CommandGroup>
+                    {gdiGuidesForFilter.map(guide => (
+                       <CommandItem
+                        key={guide.id === NO_GDI_FILTER_VALUE ? NO_GDI_FILTER_VALUE : guide.id}
+                        value={`${guide.firstName} ${guide.id !== NO_GDI_FILTER_VALUE ? guide.lastName : ''}`}
+                        onSelect={() => toggleFilterItem(guide.id, selectedGuideIds, setSelectedGuideIds)}
+                        className="text-xs cursor-pointer"
+                      >
+                        <div className="flex items-center w-full">
+                          <Check
+                            className={cn(
+                              "mr-2 h-3.5 w-3.5",
+                              selectedGuideIds.includes(guide.id) ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <span className="truncate">
+                            {guide.firstName} {guide.id !== NO_GDI_FILTER_VALUE ? guide.lastName : ''}
+                            {guide.id !== NO_GDI_FILTER_VALUE ? ` (Guía)` : ''}
+                          </span>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                   {gdiGuidesForFilter.length === 1 && gdiGuidesForFilter[0].id === NO_GDI_FILTER_VALUE && (
+                    <CommandItem disabled className="text-xs text-muted-foreground text-center py-2">
+                        No hay guías para mostrar
+                    </CommandItem>
+                  )}
+                </CommandList>
+              </Command>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -403,18 +427,35 @@ export default function MembersListView({
                 <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64 max-h-72 overflow-y-auto">
-              <DropdownMenuLabel>Filtrar por Área Ministerial</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {areaFilterOptions.map(area => (
-                <DropdownMenuCheckboxItem
-                  key={area.id}
-                  checked={selectedAreaIds.includes(area.id)}
-                  onCheckedChange={() => toggleFilterItem(area.id, selectedAreaIds, setSelectedAreaIds)}
-                >
-                  {area.name}
-                </DropdownMenuCheckboxItem>
-              ))}
+            <DropdownMenuContent align="start" className="w-64 p-0">
+              <Command>
+                <CommandInput placeholder="Buscar Área..." className="h-9 border-0 shadow-none focus-visible:ring-0" />
+                <CommandList className="max-h-60">
+                  <CommandEmpty>No se encontró el Área.</CommandEmpty>
+                  <DropdownMenuLabel className="px-2 pt-2 text-xs">Filtrar por Área Ministerial</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="mx-1 my-1" />
+                  <CommandGroup>
+                    {areaFilterOptions.map(area => (
+                      <CommandItem
+                        key={area.id}
+                        value={area.name}
+                        onSelect={() => toggleFilterItem(area.id, selectedAreaIds, setSelectedAreaIds)}
+                        className="text-xs cursor-pointer"
+                      >
+                         <div className="flex items-center w-full">
+                          <Check
+                            className={cn(
+                              "mr-2 h-3.5 w-3.5",
+                              selectedAreaIds.includes(area.id) ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <span className="truncate">{area.name}</span>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
             </DropdownMenuContent>
           </DropdownMenu>
           
