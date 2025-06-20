@@ -2,13 +2,16 @@
 'use server';
 import type { Member, MemberWriteData, GDI, MinistryArea, MemberRoleType } from '@/lib/types';
 import { NO_ROLE_FILTER_VALUE, NO_GDI_FILTER_VALUE, NO_AREA_FILTER_VALUE } from '@/lib/types';
-import { readDbFile, writeDbFile } from '@/lib/db-utils';
-import { placeholderMembers, placeholderGDIs, placeholderMinistryAreas } from '@/lib/placeholder-data';
+// import { readDbFile, writeDbFile } from '@/lib/db-utils'; // Commented out
+// import { placeholderMembers, placeholderGDIs, placeholderMinistryAreas } from '@/lib/placeholder-data'; // Commented out
 import { calculateMemberRoles } from '@/lib/roleUtils';
+import { executeQuery, getRowsAndTotal } from '@/lib/mysql-connector';
+import { getAllGdis } from './gdiService'; // Still needed for role calculation logic if kept in TS
+import { getAllMinistryAreas } from './ministryAreaService'; // Still needed for role calculation
 
-const MEMBERS_DB_FILE = 'members-db.json';
-const GDIS_DB_FILE = 'gdis-db.json';
-const MINISTRY_AREAS_DB_FILE = 'ministry-areas-db.json';
+// const MEMBERS_DB_FILE = 'members-db.json'; // No longer used
+// const GDIS_DB_FILE = 'gdis-db.json'; // No longer used by this service directly for member data
+// const MINISTRY_AREAS_DB_FILE = 'ministry-areas-db.json'; // No longer used by this service directly
 
 const roleDisplayMap: Record<MemberRoleType, string> = {
   Leader: "Líder",
@@ -21,6 +24,24 @@ const statusDisplayMap: Record<Member['status'], string> = {
   New: "Nuevo"
 };
 
+// Helper to convert array to comma-separated string for SPs
+const arrayToCsv = (arr?: string[]): string | null => {
+  if (!arr || arr.length === 0) return null;
+  return arr.join(',');
+};
+
+// Helper to parse roles and assignedAreaIds from SP string results
+const parseStringList = (str: string | null | undefined): string[] => {
+  if (!str) return [];
+  return str.split(',');
+}
+
+interface MemberQueryResult extends Omit<Member, 'roles' | 'assignedAreaIds'> {
+  roles: string | null; // Comma-separated string from DB
+  assignedAreaIds: string | null; // Comma-separated string from DB
+}
+
+
 export async function getAllMembers(
   page: number = 1,
   pageSize: number = 10,
@@ -28,352 +49,289 @@ export async function getAllMembers(
   memberStatusFiltersParam?: string[],
   roleFilterParams?: string[],
   guideIdFilterParams?: string[],
-  areaIdFilterParams?: string[] 
+  areaIdFilterParams?: string[]
 ): Promise<{ members: Member[], totalMembers: number, totalPages: number }> {
-  const allMembersFromFile = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs); 
-  const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
+  try {
+    const statusFiltersCsv = arrayToCsv(memberStatusFiltersParam);
+    const roleFiltersCsv = arrayToCsv(roleFilterParams);
+    const guideFiltersCsv = arrayToCsv(guideIdFilterParams);
+    const areaFiltersCsv = arrayToCsv(areaIdFilterParams);
 
-  const workingFilteredMembers = allMembersFromFile.filter(member => {
-    let statusMatch = true;
-    if (memberStatusFiltersParam && memberStatusFiltersParam.length > 0) {
-      statusMatch = member.status && memberStatusFiltersParam.includes(member.status);
-    }
+    const results = await executeQuery<any[]>(
+      'CALL sp_GetAllMembers(?, ?, ?, ?, ?, ?, ?)',
+      [page, pageSize, searchTerm || null, statusFiltersCsv, roleFiltersCsv, guideFiltersCsv, areaFiltersCsv]
+    );
 
-    let roleMatch = true;
-    const hasNoRoleFilter = roleFilterParams?.includes(NO_ROLE_FILTER_VALUE);
-    const actualRoleFilters = roleFilterParams?.filter(r => r !== NO_ROLE_FILTER_VALUE) || [];
-    if (roleFilterParams && roleFilterParams.length > 0) {
-      const memberHasActualRole = actualRoleFilters.length > 0 && member.roles && member.roles.some(role => actualRoleFilters.includes(role));
-      const memberHasNoRole = !member.roles || member.roles.length === 0;
-
-      if (hasNoRoleFilter && actualRoleFilters.length > 0) {
-        roleMatch = memberHasActualRole || memberHasNoRole;
-      } else if (hasNoRoleFilter) {
-        roleMatch = memberHasNoRole;
-      } else if (actualRoleFilters.length > 0) {
-        roleMatch = memberHasActualRole;
-      }
-    }
-
-    let guideMatch = true;
-    const hasNoGdiFilter = guideIdFilterParams?.includes(NO_GDI_FILTER_VALUE);
-    const actualGuideIdFilters = guideIdFilterParams?.filter(id => id !== NO_GDI_FILTER_VALUE) || [];
-    if (guideIdFilterParams && guideIdFilterParams.length > 0) {
-      const memberHasNoGdi = !member.assignedGDIId;
-      let memberMatchesActualGuide = false;
-
-      if (actualGuideIdFilters.length > 0) {
-        const membersToIncludeFromActualGuides = new Set<string>();
-        actualGuideIdFilters.forEach(guideId => {
-          membersToIncludeFromActualGuides.add(guideId); 
-          const gdisLedByThisGuide = allGdis.filter(gdi => gdi.guideId === guideId);
-          gdisLedByThisGuide.forEach(gdi => {
-            if (gdi.memberIds) gdi.memberIds.forEach(memberId => membersToIncludeFromActualGuides.add(memberId));
-          });
-        });
-        memberMatchesActualGuide = membersToIncludeFromActualGuides.has(member.id);
-      }
-
-      if (hasNoGdiFilter && actualGuideIdFilters.length > 0) {
-        guideMatch = memberHasNoGdi || memberMatchesActualGuide;
-      } else if (hasNoGdiFilter) {
-        guideMatch = memberHasNoGdi;
-      } else if (actualGuideIdFilters.length > 0) {
-        guideMatch = memberMatchesActualGuide;
-      }
-    }
-
-    let areaMatch = true;
-    const hasNoAreaFilter = areaIdFilterParams?.includes(NO_AREA_FILTER_VALUE);
-    const actualAreaIdFilters = areaIdFilterParams?.filter(id => id !== NO_AREA_FILTER_VALUE) || [];
-    if (areaIdFilterParams && areaIdFilterParams.length > 0) {
-        const memberHasNoArea = !member.assignedAreaIds || member.assignedAreaIds.length === 0;
-        let memberMatchesActualArea = false;
-
-        if (actualAreaIdFilters.length > 0) {
-            memberMatchesActualArea = member.assignedAreaIds && member.assignedAreaIds.some(areaId => actualAreaIdFilters.includes(areaId));
-        }
-        
-        if (hasNoAreaFilter && actualAreaIdFilters.length > 0) {
-            areaMatch = memberHasNoArea || memberMatchesActualArea;
-        } else if (hasNoAreaFilter) {
-            areaMatch = memberHasNoArea;
-        } else if (actualAreaIdFilters.length > 0) {
-            areaMatch = memberMatchesActualArea;
-        }
-    }
+    const { rows, totalCount } = getRowsAndTotal<MemberQueryResult>(results);
     
-    let searchTermMatch = true;
-    if (searchTerm) {
-        const lowercasedSearchTerm = searchTerm.toLowerCase().trim();
-        if (lowercasedSearchTerm) {
-          searchTermMatch =
-            `${member.firstName} ${member.lastName}`.toLowerCase().includes(lowercasedSearchTerm) ||
-            member.email.toLowerCase().includes(lowercasedSearchTerm) ||
-            (member.phone && member.phone.toLowerCase().includes(lowercasedSearchTerm)) ||
-            (member.status && member.status.toLowerCase().includes(lowercasedSearchTerm)) ||
-            (member.status && statusDisplayMap[member.status]?.toLowerCase().includes(lowercasedSearchTerm)) ||
-            (member.roles && member.roles.some(role => role.toLowerCase().includes(lowercasedSearchTerm))) ||
-            (member.roles && member.roles.some(role => (roleDisplayMap[role as MemberRoleType] || role).toLowerCase().includes(lowercasedSearchTerm)));
-        }
-    }
+    const members: Member[] = rows.map(row => ({
+        ...row,
+        birthDate: row.birthDate ? new Date(row.birthDate).toISOString().split('T')[0] : undefined,
+        churchJoinDate: row.churchJoinDate ? new Date(row.churchJoinDate).toISOString().split('T')[0] : undefined,
+        roles: parseStringList(row.roles) as MemberRoleType[],
+        assignedAreaIds: parseStringList(row.assignedAreaIds),
+    }));
 
-    return statusMatch && roleMatch && guideMatch && areaMatch && searchTermMatch;
-  });
+    const totalPages = Math.ceil(totalCount / pageSize);
+    return { members, totalMembers: totalCount, totalPages };
 
-  const totalMembers = workingFilteredMembers.length;
-  const totalPages = Math.ceil(totalMembers / pageSize);
-  const startIndex = (page - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const membersForPage = workingFilteredMembers.slice(startIndex, endIndex);
-  
-  return { members: membersForPage, totalMembers, totalPages };
+  } catch (error) {
+    console.error("Error in getAllMembers service:", error);
+    throw error;
+  }
 }
 
 
 export async function getAllMembersNonPaginated(): Promise<Member[]> {
-  return readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
+   try {
+    // Calling sp_GetAllMembers with null pagination params, or create a specific SP if needed
+    // For simplicity, using a high page size to fetch all. Not ideal for very large datasets.
+    const results = await executeQuery<any[]>('CALL sp_GetAllMembers(?, ?, ?, ?, ?, ?, ?)', [1, 10000, null, null, null, null, null]);
+    const { rows } = getRowsAndTotal<MemberQueryResult>(results);
+     return rows.map(row => ({
+        ...row,
+        birthDate: row.birthDate ? new Date(row.birthDate).toISOString().split('T')[0] : undefined,
+        churchJoinDate: row.churchJoinDate ? new Date(row.churchJoinDate).toISOString().split('T')[0] : undefined,
+        roles: parseStringList(row.roles) as MemberRoleType[],
+        assignedAreaIds: parseStringList(row.assignedAreaIds),
+    }));
+  } catch (error) {
+    console.error("Error in getAllMembersNonPaginated service:", error);
+    throw error;
+  }
 }
 
 
 export async function getMemberById(id: string): Promise<Member | undefined> {
-  const members = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  return members.find(member => member.id === id);
+  try {
+    const results = await executeQuery<MemberQueryResult[]>('CALL sp_GetMemberById(?)', [id]);
+    if (results && results.length > 0) {
+      const row = results[0];
+       return {
+        ...row,
+        birthDate: row.birthDate ? new Date(row.birthDate).toISOString().split('T')[0] : undefined,
+        churchJoinDate: row.churchJoinDate ? new Date(row.churchJoinDate).toISOString().split('T')[0] : undefined,
+        roles: parseStringList(row.roles) as MemberRoleType[],
+        assignedAreaIds: parseStringList(row.assignedAreaIds),
+      };
+    }
+    return undefined;
+  } catch (error) {
+    console.error(`Error in getMemberById service for ID ${id}:`, error);
+    throw error;
+  }
 }
 
 export async function addMember(memberData: MemberWriteData): Promise<Member> {
-  const members = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
-  const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
-
-  const tempMemberForRoleCalc: Pick<Member, 'id' | 'assignedGDIId' | 'assignedAreaIds'> = {
-      id: '', 
-      assignedGDIId: memberData.assignedGDIId,
-      assignedAreaIds: memberData.assignedAreaIds
-  };
-
   const newMemberId = `${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}`;
-  tempMemberForRoleCalc.id = newMemberId; 
+  try {
+    const allGdis = await getAllGdis(); // Still needed for role calculation
+    const allMinistryAreas = await getAllMinistryAreas(); // Still needed for role calculation
 
-  const calculatedRoles = calculateMemberRoles(tempMemberForRoleCalc, allGdis, allMinistryAreas);
+    await executeQuery<any>(
+      'CALL sp_AddMember(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        newMemberId,
+        memberData.firstName,
+        memberData.lastName,
+        memberData.email || null,
+        memberData.phone,
+        memberData.birthDate ? new Date(memberData.birthDate) : null,
+        memberData.churchJoinDate ? new Date(memberData.churchJoinDate) : null,
+        memberData.baptismDate || null,
+        memberData.attendsLifeSchool || false,
+        memberData.attendsBibleInstitute || false,
+        memberData.fromAnotherChurch || false,
+        memberData.status,
+        memberData.avatarUrl || 'https://placehold.co/100x100',
+        memberData.assignedGDIId || null
+      ]
+    );
+    
+    // Handle Area Assignments
+    if (memberData.assignedAreaIds && memberData.assignedAreaIds.length > 0) {
+        await executeQuery<any>(
+            'CALL sp_SetMemberMinistryAreas(?, ?)',
+            [newMemberId, memberData.assignedAreaIds.join(',')]
+        );
+    }
+    
+    // Calculate roles (application layer)
+    const tempMemberForRoleCalc: Pick<Member, 'id' | 'assignedGDIId' | 'assignedAreaIds'> = {
+        id: newMemberId,
+        assignedGDIId: memberData.assignedGDIId,
+        assignedAreaIds: memberData.assignedAreaIds
+    };
+    const calculatedRoles = calculateMemberRoles(tempMemberForRoleCalc, allGdis, allMinistryAreas);
 
-  const newMember: Member = {
-    ...memberData,
-    id: newMemberId,
-    avatarUrl: memberData.avatarUrl || 'https://placehold.co/100x100',
-    roles: calculatedRoles,
-  };
+    // Save roles
+    if (calculatedRoles.length > 0) {
+        await executeQuery<any>(
+            'CALL sp_SetMemberRoles(?, ?)',
+            [newMemberId, calculatedRoles.join(',')]
+        );
+    }
+    
+    const newMember = await getMemberById(newMemberId);
+    if (!newMember) throw new Error("Failed to retrieve newly added member.");
+    return newMember;
 
-  const updatedMembers = [...members, newMember];
-  await writeDbFile<Member>(MEMBERS_DB_FILE, updatedMembers);
-  await addMemberToAssignments(newMember); 
-
-  return newMember;
+  } catch (error) {
+    console.error("Error in addMember service:", error);
+    throw error;
+  }
 }
 
 export async function updateMember(memberId: string, updates: Partial<Omit<Member, 'id'>>): Promise<Member> {
-  let members = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
-  const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
+   try {
+    const existingMember = await getMemberById(memberId);
+    if (!existingMember) {
+        throw new Error(`Member with ID ${memberId} not found for update.`);
+    }
 
-  const memberIndex = members.findIndex(m => m.id === memberId);
-  if (memberIndex === -1) {
-    throw new Error(`Member with ID ${memberId} not found.`);
+    // Merge updates with existing data to ensure all fields are present if SP expects them
+    const memberToUpdate = { ...existingMember, ...updates };
+    
+    await executeQuery<any>(
+      'CALL sp_UpdateMember(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        memberId,
+        memberToUpdate.firstName,
+        memberToUpdate.lastName,
+        memberToUpdate.email || null,
+        memberToUpdate.phone,
+        memberToUpdate.birthDate ? new Date(memberToUpdate.birthDate) : null,
+        memberToUpdate.churchJoinDate ? new Date(memberToUpdate.churchJoinDate) : null,
+        memberToUpdate.baptismDate || null,
+        memberToUpdate.attendsLifeSchool || false,
+        memberToUpdate.attendsBibleInstitute || false,
+        memberToUpdate.fromAnotherChurch || false,
+        memberToUpdate.status,
+        memberToUpdate.avatarUrl || 'https://placehold.co/100x100',
+        memberToUpdate.assignedGDIId || null
+      ]
+    );
+
+    // Handle Area Assignment Changes
+    // If assignedAreaIds is part of updates, it means we need to resync them.
+    if (updates.assignedAreaIds !== undefined) {
+        await executeQuery<any>(
+            'CALL sp_SetMemberMinistryAreas(?, ?)',
+            [memberId, (updates.assignedAreaIds || []).join(',')]
+        );
+    }
+
+    // Recalculate and Update Roles
+    const allGdis = await getAllGdis();
+    const allMinistryAreas = await getAllMinistryAreas();
+    const tempMemberForRoleCalc: Pick<Member, 'id' | 'assignedGDIId' | 'assignedAreaIds'> = {
+        id: memberId,
+        assignedGDIId: memberToUpdate.assignedGDIId,
+        assignedAreaIds: memberToUpdate.assignedAreaIds
+    };
+    const calculatedRoles = calculateMemberRoles(tempMemberForRoleCalc, allGdis, allMinistryAreas);
+     await executeQuery<any>(
+        'CALL sp_SetMemberRoles(?, ?)',
+        [memberId, calculatedRoles.join(',')]
+    );
+
+    const updatedMember = await getMemberById(memberId);
+    if (!updatedMember) throw new Error("Failed to retrieve updated member.");
+    return updatedMember;
+
+  } catch (error) {
+    console.error(`Error in updateMember service for ID ${memberId}:`, error);
+    throw error;
   }
-
-  const updatedMemberInstance: Member = {
-    ...members[memberIndex],
-    ...updates,
-    avatarUrl: updates.avatarUrl || members[memberIndex].avatarUrl || 'https://placehold.co/100x100',
-  };
-
-  
-  const memberForRoleCalc: Pick<Member, 'id' | 'assignedGDIId' | 'assignedAreaIds'> = {
-    id: memberId,
-    assignedGDIId: updatedMemberInstance.assignedGDIId,
-    assignedAreaIds: updatedMemberInstance.assignedAreaIds,
-  };
-  updatedMemberInstance.roles = calculateMemberRoles(memberForRoleCalc, allGdis, allMinistryAreas);
-
-  members[memberIndex] = updatedMemberInstance;
-  await writeDbFile<Member>(MEMBERS_DB_FILE, members);
-  return members[memberIndex]; 
 }
 
+// updateMemberAssignments is more complex and involves cross-service logic.
+// It's typically handled in the application layer after an update.
+// The sp_UpdateMember should handle the direct data, and then this function
+// would be called in the route handler/server action if GDI/Area assignments changed.
+// For now, the SPs for Add/UpdateMember don't deeply manage these cross-entity assignments;
+// that's orchestrated by the calling service or will need more sophisticated SPs.
+// The `updateMember` above now includes calls to `sp_SetMemberMinistryAreas` and `sp_SetMemberRoles`.
+// Logic for unassigning from old GDIs/Areas if changed is part of the SPs for GDI/Area updates.
 
 export async function updateMemberAssignments(
   memberId: string,
   originalMemberData: Member,
   updatedMemberData: Member
-): Promise<string[]> { 
-  const oldAssignedGDIId = originalMemberData.assignedGDIId;
-  const newAssignedGDIId = updatedMemberData.assignedGDIId;
-  const oldAssignedAreaIds = originalMemberData.assignedAreaIds || [];
-  const newAssignedAreaIds = updatedMemberData.assignedAreaIds || [];
-
-  let affectedMemberIdsForRoleRecalculation = new Set<string>([memberId]);
-
+): Promise<string[]> {
+  // This function's logic needs to be re-evaluated.
+  // With SPs, assignments might be handled when updating the GDI/Area itself,
+  // or by calling specific SPs like `sp_AssignMemberToGDI`, `sp_RemoveMemberFromArea`, etc.
+  // The current `sp_UpdateMember` and `sp_AddMember` assume assignments are handled
+  // by `sp_SetMemberMinistryAreas` and by setting `assignedGDIId`.
+  // The `sp_UpdateGdi` and `sp_UpdateMinistryArea` should manage their member lists.
   
-  if (oldAssignedGDIId !== newAssignedGDIId) {
-    let allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
-    let gdisDbChanged = false;
-
-    
-    if (oldAssignedGDIId) {
-      const oldGdiIndex = allGdis.findIndex(gdi => gdi.id === oldAssignedGDIId);
-      if (oldGdiIndex !== -1) {
-        
-        if (allGdis[oldGdiIndex].guideId === memberId) {
-           allGdis[oldGdiIndex].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${oldAssignedGDIId}`; 
-           affectedMemberIdsForRoleRecalculation.add(allGdis[oldGdiIndex].guideId); 
-        }
-        
-        allGdis[oldGdiIndex].memberIds = allGdis[oldGdiIndex].memberIds.filter(id => id !== memberId);
-        gdisDbChanged = true;
-      }
+  // For roles, the `updateMember` service function already recalculates and sets them.
+  // This function might become a wrapper for more granular SP calls if needed,
+  // or its logic might be fully absorbed by the individual entity update SPs.
+  
+  console.warn("updateMemberAssignments may need refactoring with Stored Procedures. Current role/area updates are handled within addMember/updateMember services.");
+  let affectedIdsForRoleRecalculation = new Set<string>([memberId]);
+  
+  // If GDI changed
+  if (originalMemberData.assignedGDIId !== updatedMemberData.assignedGDIId) {
+    if (originalMemberData.assignedGDIId) {
+        // Potentially tell old GDI's SP to remove member
     }
-
-    
-    if (newAssignedGDIId) {
-      const newGdiIndex = allGdis.findIndex(gdi => gdi.id === newAssignedGDIId);
-      if (newGdiIndex !== -1) {
-        
-        if (allGdis[newGdiIndex].guideId !== memberId && !allGdis[newGdiIndex].memberIds.includes(memberId)) {
-          allGdis[newGdiIndex].memberIds.push(memberId);
-          gdisDbChanged = true;
-        }
-        
-        if (allGdis[newGdiIndex].guideId === memberId) {
-            allGdis[newGdiIndex].memberIds = allGdis[newGdiIndex].memberIds.filter(id => id !== memberId);
-            gdisDbChanged = true; 
-        }
-      }
-    }
-    if (gdisDbChanged) {
-      await writeDbFile<GDI>(GDIS_DB_FILE, allGdis);
+    if (updatedMemberData.assignedGDIId) {
+        // Potentially tell new GDI's SP to add member
     }
   }
 
-  
-  const originalAreaIdsSet = new Set(oldAssignedAreaIds);
-  const updatedAreaIdsSet = new Set(newAssignedAreaIds);
+  // If Areas changed
+  const oldAreas = new Set(originalMemberData.assignedAreaIds || []);
+  const newAreas = new Set(updatedMemberData.assignedAreaIds || []);
+  const addedToAreas = [...newAreas].filter(areaId => !oldAreas.has(areaId));
+  const removedFromAreas = [...oldAreas].filter(areaId => !newAreas.has(areaId));
 
-  const areasAddedTo = Array.from(updatedAreaIdsSet).filter(id => !originalAreaIdsSet.has(id));
-  const areasRemovedFrom = Array.from(originalAreaIdsSet).filter(id => !updatedAreaIdsSet.has(id));
+  // addedToAreas.forEach(areaId => call sp_AddMemberToArea(memberId, areaId));
+  // removedFromAreas.forEach(areaId => call sp_RemoveMemberFromArea(memberId, areaId));
 
-  if (areasAddedTo.length > 0 || areasRemovedFrom.length > 0) {
-    let allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
-    let ministryAreasDbChanged = false;
-
-    areasAddedTo.forEach(areaId => {
-      const areaIndex = allMinistryAreas.findIndex(area => area.id === areaId);
-      if (areaIndex !== -1 && !allMinistryAreas[areaIndex].memberIds.includes(memberId)) {
-        
-        if(allMinistryAreas[areaIndex].leaderId !== memberId){
-            allMinistryAreas[areaIndex].memberIds.push(memberId);
-            ministryAreasDbChanged = true;
-        }
-      }
-    });
-
-    areasRemovedFrom.forEach(areaId => {
-      const areaIndex = allMinistryAreas.findIndex(area => area.id === areaId);
-      if (areaIndex !== -1) {
-        
-        if (allMinistryAreas[areaIndex].leaderId === memberId) {
-          allMinistryAreas[areaIndex].leaderId = placeholderMembers[0]?.id || `NEEDS_LEADER_${areaId}`; 
-          affectedMemberIdsForRoleRecalculation.add(allMinistryAreas[areaIndex].leaderId);
-        }
-        
-        allMinistryAreas[areaIndex].memberIds = allMinistryAreas[areaIndex].memberIds.filter(id => id !== memberId);
-        ministryAreasDbChanged = true;
-      }
-    });
-
-    if (ministryAreasDbChanged) {
-      await writeDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, allMinistryAreas);
-    }
-  }
-  return Array.from(affectedMemberIdsForRoleRecalculation);
+  return Array.from(affectedIdsForRoleRecalculation);
 }
 
-
-
+// addMemberToAssignments also needs re-evaluation.
+// The `sp_AddMember` now handles initial GDI and `sp_SetMemberMinistryAreas` handles areas.
 export async function addMemberToAssignments(
   newMember: Member
 ): Promise<void> {
-  
-
-  if (newMember.assignedGDIId) {
-    let allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
-    const gdiIndex = allGdis.findIndex(gdi => gdi.id === newMember.assignedGDIId);
-    if (gdiIndex !== -1) {
-      
-      if (allGdis[gdiIndex].guideId !== newMember.id && !allGdis[gdiIndex].memberIds.includes(newMember.id)) {
-        allGdis[gdiIndex].memberIds.push(newMember.id);
-        await writeDbFile<GDI>(GDIS_DB_FILE, allGdis);
-      }
-    }
-  }
-
-  const assignedAreaIds = newMember.assignedAreaIds || [];
-  if (assignedAreaIds.length > 0) {
-    let allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
-    let ministryAreasDbChanged = false;
-    assignedAreaIds.forEach(areaId => {
-      const areaIndex = allMinistryAreas.findIndex(area => area.id === areaId);
-      if (areaIndex !== -1) {
-        
-        if (allMinistryAreas[areaIndex].leaderId !== newMember.id && !allMinistryAreas[areaIndex].memberIds.includes(newMember.id)) {
-          allMinistryAreas[areaIndex].memberIds.push(newMember.id);
-          ministryAreasDbChanged = true;
-        }
-      }
-    });
-    if (ministryAreasDbChanged) {
-      await writeDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, allMinistryAreas);
-    }
-  }
+    console.warn("addMemberToAssignments logic mostly handled by sp_AddMember and related SP calls. Review if still needed.");
+    // Initial GDI assignment is done in sp_AddMember by passing p_AssignedGDIId
+    // Initial Area assignments are done by calling sp_SetMemberMinistryAreas in addMember service
 }
-
 
 export async function bulkRecalculateAndUpdateRoles(memberIdsToUpdate: string[]): Promise<void> {
   if (memberIdsToUpdate.length === 0) {
     return;
   }
+  try {
+    const allGdis = await getAllGdis();
+    const allMinistryAreas = await getAllMinistryAreas();
 
-  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
-  const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
-
-  let membersDbChanged = false;
-
-  for (const memberId of memberIdsToUpdate) {
-    const memberIndex = allMembers.findIndex(m => m.id === memberId);
-    if (memberIndex !== -1) {
-      const memberToUpdate = allMembers[memberIndex];
-      
-      const memberForRoleCalc: Pick<Member, 'id' | 'assignedGDIId' | 'assignedAreaIds'> = {
-        id: memberToUpdate.id,
-        assignedGDIId: memberToUpdate.assignedGDIId,
-        assignedAreaIds: memberToUpdate.assignedAreaIds,
-      };
-      const newRoles = calculateMemberRoles(memberForRoleCalc, allGdis, allMinistryAreas);
-
-      
-      const currentRolesSorted = [...(memberToUpdate.roles || [])].sort();
-      const newRolesSorted = [...newRoles].sort();
-
-      if (JSON.stringify(currentRolesSorted) !== JSON.stringify(newRolesSorted)) {
-        allMembers[memberIndex].roles = newRoles;
-        membersDbChanged = true;
+    for (const memberId of memberIdsToUpdate) {
+      const member = await getMemberById(memberId); // Fetch current member data for assignments
+      if (member) {
+        const memberForRoleCalc: Pick<Member, 'id' | 'assignedGDIId' | 'assignedAreaIds'> = {
+          id: member.id,
+          assignedGDIId: member.assignedGDIId,
+          assignedAreaIds: member.assignedAreaIds,
+        };
+        const newRoles = calculateMemberRoles(memberForRoleCalc, allGdis, allMinistryAreas);
+        await executeQuery<any>(
+            'CALL sp_SetMemberRoles(?, ?)',
+            [memberId, newRoles.join(',')]
+        );
       }
     }
-  }
-
-  if (membersDbChanged) {
-    await writeDbFile<Member>(MEMBERS_DB_FILE, allMembers);
+  } catch (error) {
+    console.error("Error in bulkRecalculateAndUpdateRoles:", error);
+    throw error;
   }
 }
 
+    

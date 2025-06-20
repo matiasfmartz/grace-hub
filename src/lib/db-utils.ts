@@ -1,9 +1,9 @@
 
 'use server';
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
+// import { promises as fs } from 'node:fs';
+// import path from 'node:path';
 
-const DB_FOLDER_PATH = path.join(process.cwd(), 'src/lib');
+// const DB_FOLDER_PATH = path.join(process.cwd(), 'src/lib');
 
 // Ensure the directory exists, Next.js might run this in different contexts
 // For simplicity in this prototype, we assume the 'src/lib' directory exists.
@@ -15,29 +15,36 @@ const DB_FOLDER_PATH = path.join(process.cwd(), 'src/lib');
 // }
 
 
-export async function readDbFile<T>(filePath: string, defaultData: T[] = []): Promise<T[]> {
-  try {
-    const fullPath = path.join(DB_FOLDER_PATH, filePath);
-    const fileContent = await fs.readFile(fullPath, 'utf-8');
-    return JSON.parse(fileContent) as T[];
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
-      // File doesn't exist, write default data and return it
-      await writeDbFile(filePath, defaultData);
-      return defaultData;
-    }
-    console.error(`Failed to read ${filePath}:`, error);
-    // Fallback to default data on other errors to prevent app crash
-    return defaultData; 
-  }
-}
+// export async function readDbFile<T>(filePath: string, defaultData: T[] = []): Promise<T[]> {
+//   try {
+//     const fullPath = path.join(DB_FOLDER_PATH, filePath);
+//     const fileContent = await fs.readFile(fullPath, 'utf-8');
+//     return JSON.parse(fileContent) as T[];
+//   } catch (error: any) {
+//     if (error.code === 'ENOENT') {
+//       // File doesn't exist, write default data and return it
+//       await writeDbFile(filePath, defaultData);
+//       return defaultData;
+//     }
+//     console.error(`Failed to read ${filePath}:`, error);
+//     // Fallback to default data on other errors to prevent app crash
+//     return defaultData;
+//   }
+// }
 
-export async function writeDbFile<T>(filePath: string, data: T[]): Promise<void> {
-  try {
-    const fullPath = path.join(DB_FOLDER_PATH, filePath);
-    await fs.writeFile(fullPath, JSON.stringify(data, null, 2), 'utf-8');
-  } catch (error) {
-    console.error(`Failed to write to ${filePath}:`, error);
-    throw error; // Re-throw to be handled by calling function
-  }
-}
+// export async function writeDbFile<T>(filePath: string, data: T[]): Promise<void> {
+//   try {
+//     const fullPath = path.join(DB_FOLDER_PATH, filePath);
+//     await fs.writeFile(fullPath, JSON.stringify(data, null, 2), 'utf-8');
+//   } catch (error) {
+//     console.error(`Failed to write to ${filePath}:`, error);
+//     throw error; // Re-throw to be handled by calling function
+//   }
+// }
+
+// The functions above are for JSON file-based storage.
+// They are being replaced by MySQL database operations.
+// The new MySQL connector is in src/lib/mysql-connector.ts.
+// Service files will be updated to use this connector and stored procedures.
+
+    
