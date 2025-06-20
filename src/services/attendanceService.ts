@@ -1,64 +1,74 @@
 
 'use server';
 import type { AttendanceRecord, Meeting, Member, MeetingSeries, GDI, MinistryArea } from '@/lib/types';
-import { readDbFile, writeDbFile } from '@/lib/db-utils';
+import { executeQuery, getRowsAndTotal } from '@/lib/mysql-connector';
 
-const ATTENDANCE_DB_FILE = 'attendance-db.json';
-const MEMBERS_DB_FILE = 'members-db.json'; 
-const MEETING_SERIES_DB_FILE = 'meeting-series-db.json';
-const GDIS_DB_FILE = 'gdis-db.json';
-const MINISTRY_AREAS_DB_FILE = 'ministry-areas-db.json';
+// Import other service functions for fallbacks in getResolvedAttendees
+import { getAllMembersNonPaginated } from './memberService';
+import { getAllMeetingSeries } from './meetingService';
+import { getAllGdis } from './gdiService';
+import { getAllMinistryAreas } from './ministryAreaService';
+
 
 export async function getAllAttendanceRecords(): Promise<AttendanceRecord[]> {
-  return readDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, []);
+  try {
+    const results = await executeQuery<AttendanceRecord[]>('CALL sp_GetAllAttendanceRecords()');
+    // The SP directly returns the array of records
+    return results && Array.isArray(results) ? results[0] as AttendanceRecord[] : [];
+  } catch (error) {
+    console.error("Error in getAllAttendanceRecords service:", error);
+    throw error;
+  }
 }
 
 export async function getAttendanceForMeeting(meetingId: string): Promise<AttendanceRecord[]> {
-  const allRecords = await getAllAttendanceRecords();
-  return allRecords.filter(record => record.meetingId === meetingId);
+  try {
+    const results = await executeQuery<AttendanceRecord[]>(
+      'CALL sp_GetAttendanceByMeetingId(?)',
+      [meetingId]
+    );
+    return results && Array.isArray(results) ? results[0] as AttendanceRecord[] : [];
+  } catch (error) {
+    console.error(`Error in getAttendanceForMeeting service for meeting ID ${meetingId}:`, error);
+    throw error;
+  }
 }
 
 export async function saveMeetingAttendance(
   meetingId: string,
   memberAttendances: Array<{ memberId: string; attended: boolean; notes?: string }>
 ): Promise<void> {
-  let allRecords = await getAllAttendanceRecords();
-  
-  memberAttendances.forEach(newAtt => {
-    const recordIndex = allRecords.findIndex(
-      r => r.meetingId === meetingId && r.memberId === newAtt.memberId
-    );
-
-    if (recordIndex !== -1) {
-      allRecords[recordIndex].attended = newAtt.attended;
-      allRecords[recordIndex].notes = newAtt.notes || allRecords[recordIndex].notes; 
-    } else {
-      const newRecord: AttendanceRecord = {
-        id: `${meetingId}-${newAtt.memberId}-${Date.now()}`, 
-        meetingId,
-        memberId: newAtt.memberId,
-        attended: newAtt.attended,
-        notes: newAtt.notes || '',
-      };
-      allRecords.push(newRecord);
+  try {
+    for (const newAtt of memberAttendances) {
+      const recordId = `${meetingId}-${newAtt.memberId}-${Date.now()}`; // Generate ID, SP will upsert based on meetingId & memberId
+      await executeQuery<any>(
+        'CALL sp_UpsertAttendanceRecord(?, ?, ?, ?, ?)',
+        [
+          recordId, // Pass generated ID for potential insert
+          meetingId,
+          newAtt.memberId,
+          newAtt.attended,
+          newAtt.notes || null,
+        ]
+      );
     }
-  });
-
-  await writeDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, allRecords);
+  } catch (error) {
+    console.error("Error in saveMeetingAttendance service:", error);
+    throw error;
+  }
 }
 
 export async function getResolvedAttendees(
     meeting: Meeting,
     allMembersParam?: Member[],
-    allMeetingSeriesParam?: MeetingSeries[] 
+    allMeetingSeriesParam?: MeetingSeries[]
 ): Promise<Member[]> {
-    const allMembers = allMembersParam || await readDbFile<Member>(MEMBERS_DB_FILE, []);
-    const allMeetingSeries = allMeetingSeriesParam || await readDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, []);
+    const allMembers = allMembersParam || await getAllMembersNonPaginated();
+    const allMeetingSeriesData = allMeetingSeriesParam || await getAllMeetingSeries();
 
-    const parentSeries = allMeetingSeries.find(s => s.id === meeting.seriesId);
+    const parentSeries = allMeetingSeriesData.find(s => s.id === meeting.seriesId);
 
     if (!parentSeries) {
-        // If series not found, fall back to UIDs stored in meeting if any
         if (!meeting.attendeeUids || meeting.attendeeUids.length === 0) return [];
         return allMembers.filter(member => meeting.attendeeUids.includes(member.id))
             .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
@@ -66,35 +76,35 @@ export async function getResolvedAttendees(
 
     if (parentSeries.seriesType === 'general') {
         if (parentSeries.targetAttendeeGroups.includes("allMembers")) {
-            // For 'general' series with 'allMembers' target, all members are expected.
             return [...allMembers].sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
         } else {
-            // For 'general' series with specific roles (workers, leaders), use UIDs from meeting.attendeeUids (resolved at series creation)
             if (!meeting.attendeeUids || meeting.attendeeUids.length === 0) return [];
             return allMembers.filter(member => meeting.attendeeUids.includes(member.id))
                 .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
         }
     } else if ((parentSeries.seriesType === 'gdi' || parentSeries.seriesType === 'ministryArea') && parentSeries.ownerGroupId) {
-        // For group-specific meetings, attendees are members of that group.
         let groupMemberIds: string[] = [];
         if (parentSeries.seriesType === 'gdi') {
-            const gdis = await readDbFile<GDI>(GDIS_DB_FILE, []);
+            const gdis = await getAllGdis();
             const gdi = gdis.find(g => g.id === parentSeries.ownerGroupId);
             if (gdi) {
-                groupMemberIds = [gdi.guideId, ...gdi.memberIds];
+                groupMemberIds = [gdi.guideId, ...(gdi.memberIds || [])];
             }
         } else if (parentSeries.seriesType === 'ministryArea') {
-            const areas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
+            const areas = await getAllMinistryAreas();
             const area = areas.find(a => a.id === parentSeries.ownerGroupId);
             if (area) {
-                groupMemberIds = [area.leaderId, ...area.memberIds];
+                groupMemberIds = [area.leaderId, ...(area.memberIds || [])];
+                if (area.coordinatorId) groupMemberIds.push(area.coordinatorId);
+                if (area.mentorId) groupMemberIds.push(area.mentorId);
             }
         }
         
-        // The `meeting.attendeeUids` for group meetings should already be resolved to these group members
-        // at instance creation time. So, we can primarily rely on `meeting.attendeeUids`.
+        // Deduplicate IDs before filtering members
+        groupMemberIds = Array.from(new Set(groupMemberIds.filter(Boolean)));
+
+
         if (!meeting.attendeeUids || meeting.attendeeUids.length === 0) {
-             // Fallback if attendeeUids wasn't populated, try to resolve group members dynamically
              if (groupMemberIds.length > 0) {
                  return allMembers.filter(member => groupMemberIds.includes(member.id))
                     .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
@@ -106,7 +116,6 @@ export async function getResolvedAttendees(
             .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
     }
     
-    // Default fallback: if UIDs are directly stored in meeting (e.g. occasional meeting with custom list)
     if (meeting.attendeeUids && meeting.attendeeUids.length > 0) {
         return allMembers.filter(member => meeting.attendeeUids.includes(member.id))
             .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));

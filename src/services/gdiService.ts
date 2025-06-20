@@ -1,215 +1,164 @@
 
 'use server';
 import type { GDI, GdiWriteData, Member, MeetingSeries } from '@/lib/types';
-import { readDbFile, writeDbFile } from '@/lib/db-utils';
-import { placeholderGDIs, placeholderMembers } from '@/lib/placeholder-data';
-import { deleteMeetingSeries } from './meetingService'; // Import for cascading delete
+import { executeQuery, getRowsAndTotal } from '@/lib/mysql-connector';
+import { deleteMeetingSeries } from './meetingService'; // Assumes this service is/will be MySQL backed
+import { getAllMembersNonPaginated } from './memberService'; // For role calculation & affected IDs
 
-const GDIS_DB_FILE = 'gdis-db.json';
-const MEMBERS_DB_FILE = 'members-db.json'; 
-const MEETING_SERIES_DB_FILE = 'meeting-series-db.json';
+// Helper to parse comma-separated member IDs string from DB
+const parseMemberIdsString = (memberIdsStr: string | null | undefined): string[] => {
+  if (!memberIdsStr) return [];
+  return memberIdsStr.split(',').filter(id => id.trim() !== '');
+};
+
+interface GdiQueryResult extends Omit<GDI, 'memberIds'> {
+  memberIds: string | null; // Comma-separated string from DB
+}
+
 
 export async function getAllGdis(): Promise<GDI[]> {
-  return readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
+  try {
+    const results = await executeQuery<GdiQueryResult[]>('CALL sp_GetAllGdis()');
+    const rows = getRowsAndTotal<GdiQueryResult>(results).rows;
+    return rows.map(gdi => ({
+      ...gdi,
+      memberIds: parseMemberIdsString(gdi.memberIds),
+    }));
+  } catch (error) {
+    console.error("Error in getAllGdis service:", error);
+    throw error;
+  }
 }
 
 export async function getGdiById(id: string): Promise<GDI | undefined> {
-  const gdis = await getAllGdis();
-  return gdis.find(gdi => gdi.id === id);
+  try {
+    const results = await executeQuery<GdiQueryResult[]>('CALL sp_GetGdiById(?)', [id]);
+    const rows = getRowsAndTotal<GdiQueryResult>(results).rows;
+    if (rows.length > 0) {
+      const gdi = rows[0];
+      return {
+        ...gdi,
+        memberIds: parseMemberIdsString(gdi.memberIds),
+      };
+    }
+    return undefined;
+  } catch (error) {
+    console.error(`Error in getGdiById service for ID ${id}:`, error);
+    throw error;
+  }
 }
 
 export async function addGdi(gdiData: GdiWriteData): Promise<GDI> {
-  const gdis = await getAllGdis();
-  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  const guideMemberIndex = allMembers.findIndex(m => m.id === gdiData.guideId);
-  
   const newGdiId = `${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}`;
+  try {
+    await executeQuery<any>(
+      'CALL sp_AddGDI(?, ?, ?, ?, ?, ?)',
+      [
+        newGdiId,
+        gdiData.name,
+        gdiData.guideId,
+        gdiData.coordinatorId || null,
+        gdiData.mentorId || null,
+        (gdiData.memberIds && gdiData.memberIds.length > 0) ? gdiData.memberIds.join(',') : null
+      ]
+    );
+    
+    // The SP sp_AddGDI now also handles initial member assignments if p_MemberIds is passed.
+    // If more complex logic is needed for member re-assignment from other GDIs, that would
+    // need to be orchestrated here with more SP calls or enhanced SP logic.
 
-  if (guideMemberIndex !== -1) {
-    const previousGDIIdOfNewGuide = allMembers[guideMemberIndex].assignedGDIId;
-    if (previousGDIIdOfNewGuide) {
-        const prevGdiIdx = gdis.findIndex(g => g.id === previousGDIIdOfNewGuide);
-        if (prevGdiIdx !== -1 && gdis[prevGdiIdx].guideId !== gdiData.guideId) { 
-            gdis[prevGdiIdx].memberIds = gdis[prevGdiIdx].memberIds.filter(id => id !== gdiData.guideId);
-        }
-    }
-    const otherGdiIdx = gdis.findIndex(g => g.guideId === gdiData.guideId);
-    if (otherGdiIdx !== -1) {
-      gdis[otherGdiIdx].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${gdis[otherGdiIdx].id}`; 
-      gdis[otherGdiIdx].memberIds = gdis[otherGdiIdx].memberIds.filter(id => id !== gdiData.guideId);
-    }
-    allMembers[guideMemberIndex].assignedGDIId = newGdiId; 
+    const newGdi = await getGdiById(newGdiId);
+    if (!newGdi) throw new Error("Failed to retrieve newly added GDI.");
+    return newGdi;
+  } catch (error) {
+    console.error("Error in addGdi service:", error);
+    throw error;
   }
-
-  const newGdi: GDI = {
-    ...gdiData,
-    id: newGdiId,
-    memberIds: gdiData.memberIds || [], // Use provided members or empty array
-  };
-  
-  // Ensure provided members are correctly assigned and unassigned from other GDIs
-  if (newGdi.memberIds.length > 0) {
-    for (const memberId of newGdi.memberIds) {
-      const memberIdx = allMembers.findIndex(m => m.id === memberId);
-      if (memberIdx !== -1 && memberId !== newGdi.guideId) { // Don't process guide as a regular member here
-        const previousGDIIdOfMember = allMembers[memberIdx].assignedGDIId;
-        if (previousGDIIdOfMember && previousGDIIdOfMember !== newGdi.id) {
-          const prevGdiIdx = gdis.findIndex(g => g.id === previousGDIIdOfMember);
-          if (prevGdiIdx !== -1 && gdis[prevGdiIdx].guideId !== memberId) {
-            gdis[prevGdiIdx].memberIds = gdis[prevGdiIdx].memberIds.filter(id => id !== memberId);
-          }
-        }
-        allMembers[memberIdx].assignedGDIId = newGdi.id;
-      }
-    }
-  }
-  
-  await writeDbFile<Member>(MEMBERS_DB_FILE, allMembers);
-
-  const updatedGdis = [...gdis, newGdi];
-  await writeDbFile<GDI>(GDIS_DB_FILE, updatedGdis);
-  return newGdi;
 }
 
 export async function updateGdiAndSyncMembers(
   gdiIdToUpdate: string,
-  updatedGdiData: Partial<Pick<GDI, 'name' | 'guideId' | 'memberIds'>>
+  updatedGdiData: Partial<Pick<GDI, 'name' | 'guideId' | 'coordinatorId' | 'mentorId' | 'memberIds'>>
 ): Promise<{ updatedGdi: GDI; affectedMemberIds: string[] }> {
-  let allGdis = await getAllGdis();
-  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  let affectedMemberIds = new Set<string>();
+  try {
+    const originalGdi = await getGdiById(gdiIdToUpdate);
+    if (!originalGdi) {
+      throw new Error(`GDI with ID ${gdiIdToUpdate} not found.`);
+    }
 
-  const gdiIndexToUpdate = allGdis.findIndex(gdi => gdi.id === gdiIdToUpdate);
-  if (gdiIndexToUpdate === -1) {
-    throw new Error(`GDI with ID ${gdiIdToUpdate} not found.`);
+    const affectedMemberIds = new Set<string>();
+
+    // Add original and new guide/coordinator/mentor to affected list
+    if (originalGdi.guideId) affectedMemberIds.add(originalGdi.guideId);
+    if (updatedGdiData.guideId) affectedMemberIds.add(updatedGdiData.guideId);
+    if (originalGdi.coordinatorId) affectedMemberIds.add(originalGdi.coordinatorId);
+    if (updatedGdiData.coordinatorId) affectedMemberIds.add(updatedGdiData.coordinatorId);
+    if (originalGdi.mentorId) affectedMemberIds.add(originalGdi.mentorId);
+    if (updatedGdiData.mentorId) affectedMemberIds.add(updatedGdiData.mentorId);
+
+    // Add original and new members to affected list
+    (originalGdi.memberIds || []).forEach(id => affectedMemberIds.add(id));
+    (updatedGdiData.memberIds || []).forEach(id => affectedMemberIds.add(id));
+    
+    const finalMemberIdsStr = (updatedGdiData.memberIds && updatedGdiData.memberIds.length > 0)
+      ? updatedGdiData.memberIds.join(',')
+      : null;
+
+    await executeQuery<any>(
+      'CALL sp_UpdateGDI(?, ?, ?, ?, ?, ?)',
+      [
+        gdiIdToUpdate,
+        updatedGdiData.name ?? originalGdi.name,
+        updatedGdiData.guideId ?? originalGdi.guideId,
+        updatedGdiData.coordinatorId ?? originalGdi.coordinatorId,
+        updatedGdiData.mentorId ?? originalGdi.mentorId,
+        finalMemberIdsStr 
+      ]
+    );
+    
+    // The SP sp_UpdateGDI now also handles updating member assignments if p_MemberIds is passed.
+    // This implies it removes old members not in the new list and adds new ones.
+
+    const updatedGdi = await getGdiById(gdiIdToUpdate);
+    if (!updatedGdi) throw new Error("Failed to retrieve updated GDI.");
+    
+    return { updatedGdi, affectedMemberIds: Array.from(affectedMemberIds).filter(Boolean) as string[] };
+  } catch (error) {
+    console.error(`Error in updateGdiAndSyncMembers for ID ${gdiIdToUpdate}:`, error);
+    throw error;
   }
-
-  const originalGdi = { ...allGdis[gdiIndexToUpdate] };
-  const newName = updatedGdiData.name ?? originalGdi.name;
-  const newGuideId = updatedGdiData.guideId ?? originalGdi.guideId;
-  
-  const newMemberIdsFromClient = (updatedGdiData.memberIds ?? originalGdi.memberIds).filter(id => id !== newGuideId); 
-
-  affectedMemberIds.add(newGuideId); 
-  if (originalGdi.guideId) affectedMemberIds.add(originalGdi.guideId); 
-
-  if (newGuideId && newGuideId !== originalGdi.guideId) {
-    if (originalGdi.guideId) {
-      const oldGuideMemberIndex = allMembers.findIndex(m => m.id === originalGdi.guideId);
-      if (oldGuideMemberIndex !== -1 && allMembers[oldGuideMemberIndex].assignedGDIId === gdiIdToUpdate) {
-        allMembers[oldGuideMemberIndex].assignedGDIId = null;
-      }
-    }
-    const newGuideMemberIndex = allMembers.findIndex(m => m.id === newGuideId);
-    if (newGuideMemberIndex !== -1) {
-      const previousGDIIdOfNewGuide = allMembers[newGuideMemberIndex].assignedGDIId;
-      const otherGdiIdx = allGdis.findIndex(g => g.guideId === newGuideId && g.id !== gdiIdToUpdate);
-      if (otherGdiIdx !== -1) {
-        allGdis[otherGdiIdx].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${allGdis[otherGdiIdx].id}`;
-        allGdis[otherGdiIdx].memberIds = allGdis[otherGdiIdx].memberIds.filter(id => id !== newGuideId);
-        if(allGdis[otherGdiIdx].guideId !== placeholderMembers[0]?.id) affectedMemberIds.add(allGdis[otherGdiIdx].guideId); 
-      }
-      if (previousGDIIdOfNewGuide && previousGDIIdOfNewGuide !== gdiIdToUpdate) {
-         const prevGdiIdx = allGdis.findIndex(g => g.id === previousGDIIdOfNewGuide);
-         if (prevGdiIdx !== -1 && allGdis[prevGdiIdx].guideId !== newGuideId) {
-           allGdis[prevGdiIdx].memberIds = allGdis[prevGdiIdx].memberIds.filter(id => id !== newGuideId);
-         }
-      }
-      allMembers[newGuideMemberIndex].assignedGDIId = gdiIdToUpdate;
-    }
-  } else if (!newGuideId && originalGdi.guideId) { 
-      const oldGuideIdx = allMembers.findIndex(m => m.id === originalGdi.guideId);
-      if (oldGuideIdx !== -1 && allMembers[oldGuideIdx].assignedGDIId === gdiIdToUpdate) {
-        allMembers[oldGuideIdx].assignedGDIId = null;
-      }
-  }
-
-  const originalMemberIdsInGdi = originalGdi.memberIds.filter(id => id !== originalGdi.guideId);
-  
-  const membersAddedToGdiList = newMemberIdsFromClient.filter(id => !originalMemberIdsInGdi.includes(id));
-  const membersRemovedFromGdiList = originalMemberIdsInGdi.filter(id => !newMemberIdsFromClient.includes(id));
-
-  membersAddedToGdiList.forEach(memberId => {
-    affectedMemberIds.add(memberId);
-    const memberIdx = allMembers.findIndex(m => m.id === memberId);
-    if (memberIdx !== -1) {
-      const previousGDIIdOfMember = allMembers[memberIdx].assignedGDIId;
-      const otherGdiIdx = allGdis.findIndex(g => g.guideId === memberId && g.id !== gdiIdToUpdate);
-      if (otherGdiIdx !== -1) {
-          allGdis[otherGdiIdx].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${allGdis[otherGdiIdx].id}`;
-          allGdis[otherGdiIdx].memberIds = allGdis[otherGdiIdx].memberIds.filter(id => id !== memberId);
-          if(allGdis[otherGdiIdx].guideId !== placeholderMembers[0]?.id) affectedMemberIds.add(allGdis[otherGdiIdx].guideId);
-      }
-      if (previousGDIIdOfMember && previousGDIIdOfMember !== gdiIdToUpdate) {
-           const prevGdiIdx = allGdis.findIndex(g => g.id === previousGDIIdOfMember);
-           if (prevGdiIdx !== -1 && allGdis[prevGdiIdx].guideId !== memberId) { 
-              allGdis[prevGdiIdx].memberIds = allGdis[prevGdiIdx].memberIds.filter(id => id !== memberId);
-           }
-      }
-      allMembers[memberIdx].assignedGDIId = gdiIdToUpdate;
-    }
-  });
-
-  membersRemovedFromGdiList.forEach(memberId => {
-    affectedMemberIds.add(memberId);
-    const memberIdx = allMembers.findIndex(m => m.id === memberId);
-    if (memberIdx !== -1 && allMembers[memberIdx].assignedGDIId === gdiIdToUpdate) {
-      allMembers[memberIdx].assignedGDIId = null;
-    }
-  });
-
-  const gdiAfterServerUpdate: GDI = {
-    id: gdiIdToUpdate,
-    name: newName,
-    guideId: newGuideId,
-    memberIds: newMemberIdsFromClient, 
-  };
-  allGdis[gdiIndexToUpdate] = gdiAfterServerUpdate;
-  
-  await writeDbFile<GDI>(GDIS_DB_FILE, allGdis);
-  await writeDbFile<Member>(MEMBERS_DB_FILE, allMembers); 
-
-  return { updatedGdi: gdiAfterServerUpdate, affectedMemberIds: Array.from(affectedMemberIds).filter(Boolean) as string[] };
 }
 
 export async function deleteGdi(gdiId: string): Promise<string[]> {
-  let allGdis = await getAllGdis();
-  const gdiToDelete = allGdis.find(g => g.id === gdiId);
-
-  if (!gdiToDelete) {
-    throw new Error(`GDI with ID ${gdiId} not found.`);
-  }
-
-  const remainingGdis = allGdis.filter(gdi => gdi.id !== gdiId);
-  await writeDbFile<GDI>(GDIS_DB_FILE, remainingGdis);
-
-  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  const affectedMemberIds = new Set<string>();
-
-  // Add guide and all members of the deleted GDI to affectedMemberIds
-  if (gdiToDelete.guideId) {
-    affectedMemberIds.add(gdiToDelete.guideId);
-  }
-  gdiToDelete.memberIds.forEach(memberId => affectedMemberIds.add(memberId));
-
-  // Update members who were part of the deleted GDI
-  const updatedMembers = allMembers.map(member => {
-    if (member.assignedGDIId === gdiId) {
-      return { ...member, assignedGDIId: null };
+  try {
+    const gdiToDelete = await getGdiById(gdiId);
+    if (!gdiToDelete) {
+      throw new Error(`GDI with ID ${gdiId} not found for deletion.`);
     }
-    return member;
-  });
-  await writeDbFile<Member>(MEMBERS_DB_FILE, updatedMembers);
+    
+    const affectedMemberIds = new Set<string>();
+    if (gdiToDelete.guideId) affectedMemberIds.add(gdiToDelete.guideId);
+    if (gdiToDelete.coordinatorId) affectedMemberIds.add(gdiToDelete.coordinatorId);
+    if (gdiToDelete.mentorId) affectedMemberIds.add(gdiToDelete.mentorId);
+    (gdiToDelete.memberIds || []).forEach(id => affectedMemberIds.add(id));
 
-  // Delete associated meeting series
-  const allMeetingSeries = await readDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, []);
-  const seriesToDelete = allMeetingSeries.filter(
-    series => series.seriesType === 'gdi' && series.ownerGroupId === gdiId
-  );
+    // Call SP to delete the GDI. This SP should also handle unassigning members.
+    await executeQuery<any>('CALL sp_DeleteGDI(?)', [gdiId]);
 
-  for (const series of seriesToDelete) {
-    await deleteMeetingSeries(series.id); // This will also delete instances and attendance
+    // Cascade delete to meeting series associated with this GDI
+    // This assumes getAllMeetingSeries and deleteMeetingSeries are MySQL-backed
+    const allMeetingSeries = await getAllMeetingSeries(); // Fetch all series
+    const seriesToDelete = allMeetingSeries.filter(
+      series => series.seriesType === 'gdi' && series.ownerGroupId === gdiId
+    );
+
+    for (const series of seriesToDelete) {
+      await deleteMeetingSeries(series.id); // This should call its own SP to delete series & related data
+    }
+    
+    return Array.from(affectedMemberIds).filter(Boolean) as string[];
+  } catch (error) {
+    console.error(`Error in deleteGdi service for ID ${gdiId}:`, error);
+    throw error;
   }
-  
-  return Array.from(affectedMemberIds);
 }

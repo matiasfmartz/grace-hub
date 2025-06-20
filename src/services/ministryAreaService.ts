@@ -1,184 +1,180 @@
 
 'use server';
 import type { MinistryArea, MinistryAreaWriteData, Member, MeetingSeries } from '@/lib/types';
-import { readDbFile, writeDbFile } from '@/lib/db-utils';
-import { placeholderMinistryAreas, placeholderMembers } from '@/lib/placeholder-data';
-import { deleteMeetingSeries } from './meetingService'; // Import for cascading delete
+import { executeQuery, getRowsAndTotal } from '@/lib/mysql-connector';
+import { deleteMeetingSeries } from './meetingService'; // Assumes this service is/will be MySQL backed
 
-const MINISTRY_AREAS_DB_FILE = 'ministry-areas-db.json';
-const MEMBERS_DB_FILE = 'members-db.json';
-const MEETING_SERIES_DB_FILE = 'meeting-series-db.json';
+// Helper to parse comma-separated member IDs string from DB
+const parseMemberIdsString = (memberIdsStr: string | null | undefined): string[] => {
+  if (!memberIdsStr) return [];
+  return memberIdsStr.split(',').filter(id => id.trim() !== '');
+};
 
+interface MinistryAreaQueryResult extends Omit<MinistryArea, 'memberIds'> {
+  memberIds: string | null; // Comma-separated string from DB
+}
 
 export async function getAllMinistryAreas(): Promise<MinistryArea[]> {
-  return readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
+  try {
+    const results = await executeQuery<MinistryAreaQueryResult[]>('CALL sp_GetAllMinistryAreas()');
+    const rows = getRowsAndTotal<MinistryAreaQueryResult>(results).rows;
+    return rows.map(area => ({
+      ...area,
+      memberIds: parseMemberIdsString(area.memberIds),
+    }));
+  } catch (error) {
+    console.error("Error in getAllMinistryAreas service:", error);
+    throw error;
+  }
 }
 
 export async function getMinistryAreaById(id: string): Promise<MinistryArea | undefined> {
-  const areas = await getAllMinistryAreas();
-  return areas.find(area => area.id === id);
+  try {
+    const results = await executeQuery<MinistryAreaQueryResult[]>('CALL sp_GetMinistryAreaById(?)', [id]);
+    const rows = getRowsAndTotal<MinistryAreaQueryResult>(results).rows;
+    if (rows.length > 0) {
+      const area = rows[0];
+      return {
+        ...area,
+        memberIds: parseMemberIdsString(area.memberIds),
+      };
+    }
+    return undefined;
+  } catch (error) {
+    console.error(`Error in getMinistryAreaById service for ID ${id}:`, error);
+    throw error;
+  }
 }
 
 export async function addMinistryArea(areaData: MinistryAreaWriteData): Promise<MinistryArea> {
-  const areas = await getAllMinistryAreas();
-  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
   const newAreaId = `${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}`;
+  try {
+    await executeQuery<any>(
+      'CALL sp_AddMinistryArea(?, ?, ?, ?, ?, ?)',
+      [
+        newAreaId,
+        areaData.name,
+        areaData.description || null,
+        areaData.leaderId,
+        areaData.coordinatorId || null,
+        areaData.mentorId || null,
+      ]
+    );
 
-  const leaderMemberIndex = allMembers.findIndex(m => m.id === areaData.leaderId);
-  if (leaderMemberIndex !== -1) {
-    if(!allMembers[leaderMemberIndex].assignedAreaIds){
-      allMembers[leaderMemberIndex].assignedAreaIds = [];
-    }
-    if (!allMembers[leaderMemberIndex].assignedAreaIds!.includes(newAreaId)) {
-         allMembers[leaderMemberIndex].assignedAreaIds!.push(newAreaId);
-    }
-  }
-
-  // Assign provided members to the new area
-  if (areaData.memberIds && areaData.memberIds.length > 0) {
-    for (const memberId of areaData.memberIds) {
-      if (memberId === areaData.leaderId) continue; // Skip if member is also the leader
-      const memberIdx = allMembers.findIndex(m => m.id === memberId);
-      if (memberIdx !== -1) {
-        if (!allMembers[memberIdx].assignedAreaIds) {
-          allMembers[memberIdx].assignedAreaIds = [];
-        }
-        if (!allMembers[memberIdx].assignedAreaIds!.includes(newAreaId)) {
-          allMembers[memberIdx].assignedAreaIds!.push(newAreaId);
-        }
+    // Assign members using sp_SetMinistryAreaMembers
+    // The SP should handle the MemberMinistryAreas junction table.
+    // The SP should also ideally update Members.assignedAreaIds or this is handled by a trigger.
+    if (areaData.memberIds && areaData.memberIds.length > 0) {
+      // Ensure leader is not in the memberIds list passed to sp_SetMinistryAreaMembers
+      const membersToAssign = areaData.memberIds.filter(id => id !== areaData.leaderId);
+      if (membersToAssign.length > 0) {
+        await executeQuery<any>(
+          'CALL sp_SetMinistryAreaMembers(?, ?)',
+          [newAreaId, membersToAssign.join(',')]
+        );
       }
     }
+    // It's important that sp_AddMinistryArea also ensures the leader is assigned if not done by sp_SetMinistryAreaMembers
+
+    const newArea = await getMinistryAreaById(newAreaId);
+    if (!newArea) throw new Error("Failed to retrieve newly added Ministry Area.");
+    return newArea;
+  } catch (error) {
+    console.error("Error in addMinistryArea service:", error);
+    throw error;
   }
-  await writeDbFile<Member>(MEMBERS_DB_FILE, allMembers);
-
-  const newArea: MinistryArea = {
-    ...areaData,
-    id: newAreaId,
-    memberIds: areaData.memberIds ? areaData.memberIds.filter(id => id !== areaData.leaderId) : [], // Ensure leader is not in memberIds
-  };
-
-  const updatedAreas = [...areas, newArea];
-  await writeDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, updatedAreas);
-  return newArea;
 }
 
 export async function updateMinistryAreaAndSyncMembers(
   areaId: string,
-  updatedAreaData: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description'>>
+  updatedAreaData: Partial<Pick<MinistryArea, 'leaderId' | 'coordinatorId' | 'mentorId' | 'memberIds' | 'name' | 'description'>>
 ): Promise<{ updatedArea: MinistryArea; affectedMemberIds: string[] }> {
-  let allCurrentAreas = await getAllMinistryAreas();
-  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  let affectedMemberIds = new Set<string>();
+  try {
+    const originalArea = await getMinistryAreaById(areaId);
+    if (!originalArea) {
+      throw new Error(`Ministry Area with ID ${areaId} not found.`);
+    }
 
-  const areaIndex = allCurrentAreas.findIndex(area => area.id === areaId);
-  if (areaIndex === -1) {
-    throw new Error(`Ministry Area with ID ${areaId} not found.`);
+    const affectedMemberIds = new Set<string>();
+
+    // Add original and new leader/coordinator/mentor to affected list
+    if (originalArea.leaderId) affectedMemberIds.add(originalArea.leaderId);
+    if (updatedAreaData.leaderId) affectedMemberIds.add(updatedAreaData.leaderId);
+    if (originalArea.coordinatorId) affectedMemberIds.add(originalArea.coordinatorId);
+    if (updatedAreaData.coordinatorId) affectedMemberIds.add(updatedAreaData.coordinatorId);
+    if (originalArea.mentorId) affectedMemberIds.add(originalArea.mentorId);
+    if (updatedAreaData.mentorId) affectedMemberIds.add(updatedAreaData.mentorId);
+
+    // Add original and new members to affected list
+    (originalArea.memberIds || []).forEach(id => affectedMemberIds.add(id));
+    if (updatedAreaData.memberIds) { // Only if memberIds are being explicitly updated
+        updatedAreaData.memberIds.forEach(id => affectedMemberIds.add(id));
+    }
+
+
+    await executeQuery<any>(
+      'CALL sp_UpdateMinistryArea(?, ?, ?, ?, ?, ?)',
+      [
+        areaId,
+        updatedAreaData.name ?? originalArea.name,
+        updatedAreaData.description ?? originalArea.description,
+        updatedAreaData.leaderId ?? originalArea.leaderId,
+        updatedAreaData.coordinatorId !== undefined ? updatedAreaData.coordinatorId : originalArea.coordinatorId,
+        updatedAreaData.mentorId !== undefined ? updatedAreaData.mentorId : originalArea.mentorId,
+      ]
+    );
+
+    // If memberIds are part of the update, sync them
+    if (updatedAreaData.memberIds !== undefined) {
+      const membersToAssign = updatedAreaData.memberIds.filter(id => id !== (updatedAreaData.leaderId || originalArea.leaderId));
+      await executeQuery<any>(
+        'CALL sp_SetMinistryAreaMembers(?, ?)',
+        [areaId, membersToAssign.length > 0 ? membersToAssign.join(',') : null]
+      );
+    }
+
+    const updatedArea = await getMinistryAreaById(areaId);
+    if (!updatedArea) throw new Error("Failed to retrieve updated Ministry Area.");
+    
+    return { updatedArea, affectedMemberIds: Array.from(affectedMemberIds).filter(Boolean) as string[] };
+  } catch (error) {
+    console.error(`Error in updateMinistryAreaAndSyncMembers for ID ${areaId}:`, error);
+    throw error;
   }
-
-  const currentAreaBeforeUpdate = { ...allCurrentAreas[areaIndex] };
-  const newLeaderId = updatedAreaData.leaderId ?? currentAreaBeforeUpdate.leaderId;
-  const newMemberIdsFromClient = (updatedAreaData.memberIds ?? currentAreaBeforeUpdate.memberIds).filter(id => id !== newLeaderId);
-
-  affectedMemberIds.add(newLeaderId); 
-  if(currentAreaBeforeUpdate.leaderId) affectedMemberIds.add(currentAreaBeforeUpdate.leaderId); 
-
-  const areaAfterClientUpdate: MinistryArea = {
-    ...currentAreaBeforeUpdate,
-    name: updatedAreaData.name ?? currentAreaBeforeUpdate.name,
-    description: updatedAreaData.description ?? currentAreaBeforeUpdate.description,
-    leaderId: newLeaderId,
-    memberIds: newMemberIdsFromClient, 
-  };
-  
-  allCurrentAreas[areaIndex] = areaAfterClientUpdate;
-  await writeDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, allCurrentAreas);
-
-  if (newLeaderId && newLeaderId !== currentAreaBeforeUpdate.leaderId) {
-    if (currentAreaBeforeUpdate.leaderId) {
-      const oldLeaderIdx = allMembers.findIndex(m => m.id === currentAreaBeforeUpdate.leaderId);
-      if (oldLeaderIdx !== -1 && allMembers[oldLeaderIdx].assignedAreaIds) {
-        allMembers[oldLeaderIdx].assignedAreaIds = allMembers[oldLeaderIdx].assignedAreaIds!.filter(id => id !== areaId);
-      }
-    }
-    const newLeaderIdx = allMembers.findIndex(m => m.id === newLeaderId);
-    if (newLeaderIdx !== -1) {
-      if (!allMembers[newLeaderIdx].assignedAreaIds) {
-        allMembers[newLeaderIdx].assignedAreaIds = [];
-      }
-      if (!allMembers[newLeaderIdx].assignedAreaIds!.includes(areaId)) {
-        allMembers[newLeaderIdx].assignedAreaIds!.push(areaId);
-      }
-    }
-  }
-
-  const originalMemberIdsInArea = currentAreaBeforeUpdate.memberIds.filter(id => id !== currentAreaBeforeUpdate.leaderId);
-  const membersAddedToAreaList = newMemberIdsFromClient.filter(id => !originalMemberIdsInArea.includes(id));
-  const membersRemovedFromAreaList = originalMemberIdsInArea.filter(id => !newMemberIdsFromClient.includes(id));
-
-  membersAddedToAreaList.forEach(memberId => {
-    affectedMemberIds.add(memberId);
-    const memberIndex = allMembers.findIndex(m => m.id === memberId);
-    if (memberIndex !== -1) {
-      if (!allMembers[memberIndex].assignedAreaIds) {
-        allMembers[memberIndex].assignedAreaIds = [];
-      }
-      if (!allMembers[memberIndex].assignedAreaIds!.includes(areaId)) {
-        allMembers[memberIndex].assignedAreaIds!.push(areaId);
-      }
-    }
-  });
-
-  membersRemovedFromAreaList.forEach(memberId => {
-    affectedMemberIds.add(memberId);
-    const memberIndex = allMembers.findIndex(m => m.id === memberId);
-    if (memberIndex !== -1 && allMembers[memberIndex].assignedAreaIds) {
-      allMembers[memberIndex].assignedAreaIds = allMembers[memberIndex].assignedAreaIds!.filter(id => id !== areaId);
-    }
-  });
-  
-  await writeDbFile<Member>(MEMBERS_DB_FILE, allMembers);
-
-  return { updatedArea: areaAfterClientUpdate, affectedMemberIds: Array.from(affectedMemberIds).filter(Boolean) as string[] };
 }
 
 export async function deleteMinistryArea(areaId: string): Promise<string[]> {
-  let allMinistryAreas = await getAllMinistryAreas();
-  const areaToDelete = allMinistryAreas.find(area => area.id === areaId);
-
-  if (!areaToDelete) {
-    throw new Error(`Ministry Area with ID ${areaId} not found.`);
-  }
-
-  const remainingAreas = allMinistryAreas.filter(area => area.id !== areaId);
-  await writeDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, remainingAreas);
-
-  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  const affectedMemberIds = new Set<string>();
-
-  // Add leader and all members of the deleted area to affectedMemberIds
-  if (areaToDelete.leaderId) {
-    affectedMemberIds.add(areaToDelete.leaderId);
-  }
-  areaToDelete.memberIds.forEach(memberId => affectedMemberIds.add(memberId));
-
-  // Update members who were part of the deleted area
-  const updatedMembers = allMembers.map(member => {
-    if (member.assignedAreaIds && member.assignedAreaIds.includes(areaId)) {
-      return { ...member, assignedAreaIds: member.assignedAreaIds.filter(id => id !== areaId) };
+  try {
+    const areaToDelete = await getMinistryAreaById(areaId);
+    if (!areaToDelete) {
+      throw new Error(`Ministry Area with ID ${areaId} not found for deletion.`);
     }
-    return member;
-  });
-  await writeDbFile<Member>(MEMBERS_DB_FILE, updatedMembers);
+    
+    const affectedMemberIds = new Set<string>();
+    if (areaToDelete.leaderId) affectedMemberIds.add(areaToDelete.leaderId);
+    if (areaToDelete.coordinatorId) affectedMemberIds.add(areaToDelete.coordinatorId);
+    if (areaToDelete.mentorId) affectedMemberIds.add(areaToDelete.mentorId);
+    (areaToDelete.memberIds || []).forEach(id => affectedMemberIds.add(id));
 
-  // Delete associated meeting series
-  const allMeetingSeries = await readDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, []);
-  const seriesToDelete = allMeetingSeries.filter(
-    series => series.seriesType === 'ministryArea' && series.ownerGroupId === areaId
-  );
+    // Call SP to delete the Ministry Area. This SP should also handle
+    // unassigning members from MemberMinistryAreas and potentially updating Members.assignedAreaIds
+    // (or rely on triggers for the latter).
+    await executeQuery<any>('CALL sp_DeleteMinistryArea(?)', [areaId]);
 
-  for (const series of seriesToDelete) {
-    await deleteMeetingSeries(series.id); // This will also delete instances and attendance
+    // Cascade delete to meeting series associated with this area
+    // This assumes getAllMeetingSeries and deleteMeetingSeries are MySQL-backed
+    const allMeetingSeries = await getAllMeetingSeries(); // Fetch all series
+    const seriesToDelete = allMeetingSeries.filter(
+      series => series.seriesType === 'ministryArea' && series.ownerGroupId === areaId
+    );
+
+    for (const series of seriesToDelete) {
+      await deleteMeetingSeries(series.id); // This should call its own SP to delete series & related data
+    }
+    
+    return Array.from(affectedMemberIds).filter(Boolean) as string[];
+  } catch (error) {
+    console.error(`Error in deleteMinistryArea service for ID ${areaId}:`, error);
+    throw error;
   }
-
-  return Array.from(affectedMemberIds);
 }

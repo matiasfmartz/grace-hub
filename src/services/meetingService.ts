@@ -1,20 +1,33 @@
 
 'use server';
 import type { Meeting, MeetingWriteData, MeetingSeries, MeetingSeriesWriteData, Member, GDI, MinistryArea, MeetingTargetRoleType, AttendanceRecord, DayOfWeekType, MonthlyRuleType, WeekOrdinalType, MeetingFrequencyType, MeetingInstanceUpdateData } from '@/lib/types';
-import { readDbFile, writeDbFile } from '@/lib/db-utils';
-import { format, parseISO, addWeeks, setDay, addMonths, setDate, getDate, getDaysInMonth, lastDayOfMonth, startOfDay, isSameDay, nextDay, previousDay, getDay, isValid as isValidDateFn, isWithinInterval, addDays } from 'date-fns';
+import { format, parseISO, addWeeks, setDay, addMonths, setDate, getDate, getDaysInMonth, lastDayOfMonth, startOfDay, isSameDay, nextDay, getDay, isValid as isValidDateFn, isWithinInterval, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { executeQuery, getRowsAndTotal } from '@/lib/mysql-connector';
+
+// Import other services that are (or will be) MySQL backed for resolving attendees
+import { getAllMembersNonPaginated } from './memberService';
+import { getAllGdis } from './gdiService';
+import { getAllMinistryAreas } from './ministryAreaService';
 
 
-const MEETINGS_DB_FILE = 'meetings-db.json';
-const MEETING_SERIES_DB_FILE = 'meeting-series-db.json';
-const MEMBERS_DB_FILE = 'members-db.json';
-const GDIS_DB_FILE = 'gdis-db.json';
-const MINISTRY_AREAS_DB_FILE = 'ministry-areas-db.json';
-const ATTENDANCE_DB_FILE = 'attendance-db.json';
+// Helper to parse comma-separated string from DB
+const parseStringList = (str: string | null | undefined): string[] => {
+  if (!str) return [];
+  return str.split(',').filter(s => s.trim() !== '');
+};
 
-// --- Helper Functions for Date Calculations ---
+interface MeetingSeriesQueryResult extends Omit<MeetingSeries, 'targetAttendeeGroups' | 'weeklyDays' | 'cancelledDates'> {
+  targetAttendeeGroups: string | null;
+  weeklyDays: string | null;
+  cancelledDates: string | null;
+}
+interface MeetingQueryResult extends Omit<Meeting, 'attendeeUids'> {
+  attendeeUids: string | null;
+}
 
+
+// --- Helper Functions for Date Calculations (Remain in TS) ---
 const dayOfWeekMapping: Record<DayOfWeekType, number> = {
     Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6,
 };
@@ -26,7 +39,7 @@ function getNextWeeklyOccurrences(series: MeetingSeries, startDate: Date, count:
 
     while (occurrences.length < count) {
         for (const dayStr of series.weeklyDays) {
-            const targetDayNumber = dayOfWeekMapping[dayStr];
+            const targetDayNumber = dayOfWeekMapping[dayStr as DayOfWeekType];
             let nextOccurrence = nextDay(currentDate, targetDayNumber);
             
             if (isSameDay(nextOccurrence, currentDate) || nextOccurrence < currentDate) {
@@ -49,34 +62,6 @@ function getNextWeeklyOccurrences(series: MeetingSeries, startDate: Date, count:
     return occurrences.slice(0, count).sort((a,b) => a.getTime() - b.getTime());
 }
 
-
-function getNthDayOfMonth(year: number, month: number, dayOfWeek: number, ordinal: number): Date | null {
-    const firstDayOfMonth = new Date(year, month, 1);
-    let count = 0;
-    let currentDate = firstDayOfMonth;
-
-    while (currentDate.getMonth() === month) {
-        if (getDay(currentDate) === dayOfWeek) {
-            count++;
-            if (count === ordinal) {
-                return currentDate;
-            }
-        }
-        currentDate = new Date(year, month, getDate(currentDate) + 1);
-    }
-    return null; 
-}
-
-function getLastDayOfWeekInMonth(year: number, month: number, dayOfWeek: number): Date | null {
-    let current = lastDayOfMonth(new Date(year, month));
-    while (getDay(current) !== dayOfWeek) {
-        current = new Date(current.setDate(current.getDate()-1)); 
-         if(current.getMonth() !== month) return null; 
-    }
-     return (current.getMonth() === month) ? current : null;
-}
-
-
 function getNextMonthlyOccurrences(series: MeetingSeries, startDate: Date, count: number): Date[] {
     const occurrences: Date[] = [];
     let currentMonthDate = startOfDay(new Date(startDate.getFullYear(), startDate.getMonth(), 1));
@@ -93,7 +78,7 @@ function getNextMonthlyOccurrences(series: MeetingSeries, startDate: Date, count
             currentMonthDate = addMonths(currentMonthDate, 1);
         }
     } else if (series.monthlyRuleType === 'DayOfWeekOfMonth' && series.monthlyWeekOrdinal && series.monthlyDayOfWeek) {
-        const targetDayNumber = dayOfWeekMapping[series.monthlyDayOfWeek];
+        const targetDayNumber = dayOfWeekMapping[series.monthlyDayOfWeek as DayOfWeekType];
         const ordinalMap: Record<WeekOrdinalType, number> = { First: 1, Second: 2, Third: 3, Fourth: 4, Last: 5 }; 
         
         while (occurrences.length < count) {
@@ -110,7 +95,7 @@ function getNextMonthlyOccurrences(series: MeetingSeries, startDate: Date, count
                 potentialDate = testDate ? startOfDay(testDate) : null;
 
             } else {
-                const ordinalNumber = ordinalMap[series.monthlyWeekOrdinal];
+                const ordinalNumber = ordinalMap[series.monthlyWeekOrdinal as WeekOrdinalType];
                 let firstDayOfMonth = startOfDay(new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth(), 1));
                 let dayCount = 0;
                 let dateInMonth = firstDayOfMonth;
@@ -137,38 +122,79 @@ function getNextMonthlyOccurrences(series: MeetingSeries, startDate: Date, count
 }
 
 
-// Meeting Series Functions
+// --- Meeting Series Functions ---
 export async function getAllMeetingSeries(): Promise<MeetingSeries[]> {
-  return readDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, []);
+  try {
+    const results = await executeQuery<MeetingSeriesQueryResult[]>('CALL sp_GetAllMeetingSeries()');
+    const rows = getRowsAndTotal<MeetingSeriesQueryResult>(results).rows;
+    return rows.map(s => ({
+      ...s,
+      targetAttendeeGroups: parseStringList(s.targetAttendeeGroups) as MeetingTargetRoleType[],
+      weeklyDays: parseStringList(s.weeklyDays) as DayOfWeekType[],
+      cancelledDates: parseStringList(s.cancelledDates),
+    }));
+  } catch (error) {
+    console.error("Error in getAllMeetingSeries service:", error);
+    throw error;
+  }
 }
 
 export async function getMeetingSeriesById(id: string): Promise<MeetingSeries | undefined> {
-  const seriesList = await getAllMeetingSeries();
-  return seriesList.find(series => series.id === id);
+  try {
+    const results = await executeQuery<MeetingSeriesQueryResult[]>('CALL sp_GetMeetingSeriesById(?)', [id]);
+    const rows = getRowsAndTotal<MeetingSeriesQueryResult>(results).rows;
+    if (rows.length > 0) {
+      const s = rows[0];
+      return {
+        ...s,
+        targetAttendeeGroups: parseStringList(s.targetAttendeeGroups) as MeetingTargetRoleType[],
+        weeklyDays: parseStringList(s.weeklyDays) as DayOfWeekType[],
+        cancelledDates: parseStringList(s.cancelledDates),
+      };
+    }
+    return undefined;
+  } catch (error) {
+    console.error(`Error in getMeetingSeriesById service for ID ${id}:`, error);
+    throw error;
+  }
 }
 
 async function resolveAttendeeUidsForGeneralSeries(
   targetGroups: MeetingTargetRoleType[],
-  allMembers: Member[],
-  allGdis: GDI[],
-  allMinistryAreas: MinistryArea[]
+  allMembers: Member[], // Assumed to be MySQL-backed via memberService
+  allGdis: GDI[],       // Assumed to be MySQL-backed via gdiService
+  allMinistryAreas: MinistryArea[] // Assumed to be MySQL-backed via ministryAreaService
 ): Promise<string[]> {
     const attendeeSet = new Set<string>();
-
     if (targetGroups.includes("allMembers")) {
-        return []; 
+        return []; // Empty array signifies "all members" to the SP or instance creation logic
     }
-
     for (const role of targetGroups) {
         if (role === 'workers') {
             allGdis.forEach(gdi => {
                 const guide = allMembers.find(m => m.id === gdi.guideId && m.status === 'Active');
                 if(guide) attendeeSet.add(gdi.guideId);
+                 if (gdi.coordinatorId) { // Include GDI Coordinator if exists
+                    const coordinator = allMembers.find(m => m.id === gdi.coordinatorId && m.status === 'Active');
+                    if (coordinator) attendeeSet.add(gdi.coordinatorId);
+                }
+                if (gdi.mentorId) { // Include GDI Mentor if exists
+                    const mentor = allMembers.find(m => m.id === gdi.mentorId && m.status === 'Active');
+                    if (mentor) attendeeSet.add(gdi.mentorId);
+                }
             });
             allMinistryAreas.forEach(area => {
                 const leader = allMembers.find(m => m.id === area.leaderId && m.status === 'Active');
                 if(leader) attendeeSet.add(area.leaderId);
-                area.memberIds.forEach(memberId => {
+                if (area.coordinatorId) { // Include Area Coordinator if exists
+                    const coordinator = allMembers.find(m => m.id === area.coordinatorId && m.status === 'Active');
+                    if (coordinator) attendeeSet.add(area.coordinatorId);
+                }
+                 if (area.mentorId) { // Include Area Mentor if exists
+                    const mentor = allMembers.find(m => m.id === area.mentorId && m.status === 'Active');
+                    if (mentor) attendeeSet.add(area.mentorId);
+                }
+                (area.memberIds || []).forEach(memberId => {
                     const member = allMembers.find(m => m.id === memberId && m.status === 'Active');
                     if (member && memberId !== area.leaderId) attendeeSet.add(memberId);
                 });
@@ -197,15 +223,25 @@ async function resolveAttendeeUidsForGroupSeries(
     if (groupType === 'gdi') {
         const gdi = allGdis.find(g => g.id === groupId);
         if (!gdi) return [];
+        const memberIds = new Set<string>();
+        if (gdi.guideId) memberIds.add(gdi.guideId);
+        if (gdi.coordinatorId) memberIds.add(gdi.coordinatorId);
+        if (gdi.mentorId) memberIds.add(gdi.mentorId);
+        (gdi.memberIds || []).forEach(id => memberIds.add(id));
         return allMembers
-            .filter(m => m.id === gdi.guideId || (gdi.memberIds && gdi.memberIds.includes(m.id)))
+            .filter(m => memberIds.has(m.id))
             .map(m => m.id);
 
     } else if (groupType === 'ministryArea') {
         const area = allMinistryAreas.find(a => a.id === groupId);
         if (!area) return [];
+        const memberIds = new Set<string>();
+        if (area.leaderId) memberIds.add(area.leaderId);
+        if (area.coordinatorId) memberIds.add(area.coordinatorId);
+        if (area.mentorId) memberIds.add(area.mentorId);
+        (area.memberIds || []).forEach(id => memberIds.add(id));
          return allMembers
-            .filter(m => m.id === area.leaderId || (area.memberIds && area.memberIds.includes(m.id)))
+            .filter(m => memberIds.has(m.id))
             .map(m => m.id);
     }
     return [];
@@ -217,9 +253,8 @@ export async function ensureFutureInstances(seriesId: string): Promise<Meeting[]
         return []; 
     }
 
-    const allMeetingsFromFile = await readDbFile<Meeting>(MEETINGS_DB_FILE, []);
-    const existingInstancesForSeries = allMeetingsFromFile.filter(m => m.seriesId === seriesId)
-                                                .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+    const existingInstancesForSeries = await getMeetingsBySeriesIdInternal(seriesId); // Use internal fetch
+    existingInstancesForSeries.sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
 
     const today = startOfDay(new Date());
     const futureInstances = existingInstancesForSeries.filter(m => parseISO(m.date) >= today);
@@ -256,9 +291,9 @@ export async function ensureFutureInstances(seriesId: string): Promise<Meeting[]
 
     const newlyGeneratedInstances: Meeting[] = [];
     if (newOccurrenceDates.length > 0) {
-        const allMembersForResolve = await readDbFile<Member>(MEMBERS_DB_FILE, []);
-        const allGdisForResolve = await readDbFile<GDI>(GDIS_DB_FILE, []);
-        const allMinistryAreasForResolve = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
+        const allMembersForResolve = await getAllMembersNonPaginated();
+        const allGdisForResolve = await getAllGdis();
+        const allMinistryAreasForResolve = await getAllMinistryAreas();
 
         let resolvedUids: string[];
          if (series.seriesType === 'general') {
@@ -272,25 +307,23 @@ export async function ensureFutureInstances(seriesId: string): Promise<Meeting[]
         }
 
         for (const date of newOccurrenceDates) {
-            // Check if this date was previously cancelled
             const formattedDateToCheck = format(date, 'yyyy-MM-dd');
             if (series.cancelledDates && series.cancelledDates.includes(formattedDateToCheck)) {
-                continue; // Skip generating this instance
+                continue; 
             }
-
             const alreadyExists = existingInstancesForSeries.some(m => isSameDay(parseISO(m.date), date));
             if (!alreadyExists) {
-                const instance = await addMeetingInstanceInternal({
+                const instance = await addMeetingInstanceSP({ // Use SP direct call
                     seriesId: series.id,
                     name: `${series.name} (${format(date, 'd MMM', { locale: es })})`,
                     date: formattedDateToCheck,
                     time: series.defaultTime,
                     location: series.defaultLocation,
-                    description: series.description,
-                    attendeeUids: resolvedUids,
+                    description: series.description || '',
+                    attendeeUids: resolvedUids, // This will be a string[]
                     minute: null,
                 });
-                newlyGeneratedInstances.push(instance);
+                if (instance) newlyGeneratedInstances.push(instance);
             }
         }
     }
@@ -301,123 +334,142 @@ export async function ensureFutureInstances(seriesId: string): Promise<Meeting[]
 export async function addMeetingSeries(
   seriesData: MeetingSeriesWriteData,
 ): Promise<{series: MeetingSeries, newInstances?: Meeting[]}> {
-  const seriesList = await getAllMeetingSeries();
   const newSeriesId = `series-${Date.now().toString()}-${Math.random().toString(36).substring(2, 7)}`;
+  try {
+    await executeQuery<any>(
+      'CALL sp_AddMeetingSeries(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        newSeriesId,
+        seriesData.name,
+        seriesData.description || null,
+        seriesData.defaultTime,
+        seriesData.defaultLocation,
+        seriesData.seriesType,
+        seriesData.ownerGroupId || null,
+        seriesData.targetAttendeeGroups ? seriesData.targetAttendeeGroups.join(',') : null,
+        seriesData.frequency,
+        seriesData.oneTimeDate || null,
+        seriesData.weeklyDays ? seriesData.weeklyDays.join(',') : null,
+        seriesData.monthlyRuleType || null,
+        (seriesData.monthlyRuleType === 'DayOfMonth' ? seriesData.monthlyDayOfMonth : 
+         seriesData.monthlyRuleType === 'DayOfWeekOfMonth' ? `${seriesData.monthlyWeekOrdinal}_${seriesData.monthlyDayOfWeek}` : null)
+      ]
+    );
 
-  const newSeries: MeetingSeries = {
-    id: newSeriesId,
-    name: seriesData.name,
-    description: seriesData.description,
-    defaultTime: seriesData.defaultTime,
-    defaultLocation: seriesData.defaultLocation,
-    seriesType: seriesData.seriesType,
-    ownerGroupId: seriesData.ownerGroupId,
-    targetAttendeeGroups: seriesData.targetAttendeeGroups,
-    frequency: seriesData.frequency,
-    oneTimeDate: seriesData.frequency === "OneTime" ? seriesData.oneTimeDate : undefined,
-    cancelledDates: [], 
-    weeklyDays: seriesData.frequency === "Weekly" ? seriesData.weeklyDays : undefined,
-    monthlyRuleType: seriesData.frequency === "Monthly" ? seriesData.monthlyRuleType : undefined,
-    monthlyDayOfMonth: seriesData.frequency === "Monthly" && seriesData.monthlyRuleType === "DayOfMonth" ? seriesData.monthlyDayOfMonth : undefined,
-    monthlyWeekOrdinal: seriesData.frequency === "Monthly" && seriesData.monthlyRuleType === "DayOfWeekOfMonth" ? seriesData.monthlyWeekOrdinal : undefined,
-    monthlyDayOfWeek: seriesData.frequency === "Monthly" && seriesData.monthlyRuleType === "DayOfWeekOfMonth" ? seriesData.monthlyDayOfWeek : undefined,
-  };
-
-  await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, [...seriesList, newSeries]);
-  
-  let generatedInstances: Meeting[] = [];
-
-  if (newSeries.frequency === "OneTime" && newSeries.oneTimeDate && isValidDateFn(parseISO(newSeries.oneTimeDate))) {
-    const oneTimeDateObj = parseISO(newSeries.oneTimeDate);
-    // Resolve attendees
-    const allMembersForResolve = await readDbFile<Member>(MEMBERS_DB_FILE, []);
-    const allGdisForResolve = await readDbFile<GDI>(GDIS_DB_FILE, []);
-    const allMinistryAreasForResolve = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
+    const newSeries = await getMeetingSeriesById(newSeriesId);
+    if (!newSeries) throw new Error("Failed to retrieve newly added meeting series.");
     
-    let resolvedUids: string[];
-    if (newSeries.seriesType === 'general') {
-        resolvedUids = await resolveAttendeeUidsForGeneralSeries(newSeries.targetAttendeeGroups, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
-    } else if (newSeries.seriesType === 'gdi' && newSeries.ownerGroupId) {
-        resolvedUids = await resolveAttendeeUidsForGroupSeries('gdi', newSeries.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
-    } else if (newSeries.seriesType === 'ministryArea' && newSeries.ownerGroupId) {
-        resolvedUids = await resolveAttendeeUidsForGroupSeries('ministryArea', newSeries.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
-    } else {
-        resolvedUids = [];
-    }
+    let generatedInstances: Meeting[] = [];
+    if (newSeries.frequency === "OneTime" && newSeries.oneTimeDate && isValidDateFn(parseISO(newSeries.oneTimeDate))) {
+        const oneTimeDateObj = parseISO(newSeries.oneTimeDate);
+        const allMembersForResolve = await getAllMembersNonPaginated();
+        const allGdisForResolve = await getAllGdis();
+        const allMinistryAreasForResolve = await getAllMinistryAreas();
+        
+        let resolvedUids: string[];
+        if (newSeries.seriesType === 'general') {
+            resolvedUids = await resolveAttendeeUidsForGeneralSeries(newSeries.targetAttendeeGroups, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
+        } else if (newSeries.seriesType === 'gdi' && newSeries.ownerGroupId) {
+            resolvedUids = await resolveAttendeeUidsForGroupSeries('gdi', newSeries.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
+        } else if (newSeries.seriesType === 'ministryArea' && newSeries.ownerGroupId) {
+            resolvedUids = await resolveAttendeeUidsForGroupSeries('ministryArea', newSeries.ownerGroupId, allMembersForResolve, allGdisForResolve, allMinistryAreasForResolve);
+        } else {
+            resolvedUids = [];
+        }
 
-    const oneTimeInstance = await addMeetingInstanceInternal({
-        seriesId: newSeries.id,
-        name: `${newSeries.name} (${format(oneTimeDateObj, 'd MMM', { locale: es })})`,
-        date: newSeries.oneTimeDate, // Already a 'yyyy-MM-dd' string or undefined
-        time: newSeries.defaultTime,
-        location: newSeries.defaultLocation,
-        description: newSeries.description,
-        attendeeUids: resolvedUids,
-        minute: null,
-    });
-    generatedInstances.push(oneTimeInstance);
-  } else if (newSeries.frequency !== "OneTime") {
-    // For recurring series, call ensureFutureInstances
-    const recurringGeneratedInstances = await ensureFutureInstances(newSeries.id);
-    if (recurringGeneratedInstances.length > 0) {
-        generatedInstances.push(...recurringGeneratedInstances);
+        const oneTimeInstance = await addMeetingInstanceSP({
+            seriesId: newSeries.id,
+            name: `${newSeries.name} (${format(oneTimeDateObj, 'd MMM', { locale: es })})`,
+            date: newSeries.oneTimeDate,
+            time: newSeries.defaultTime,
+            location: newSeries.defaultLocation,
+            description: newSeries.description || '',
+            attendeeUids: resolvedUids,
+            minute: null,
+        });
+        if (oneTimeInstance) generatedInstances.push(oneTimeInstance);
+    } else if (newSeries.frequency !== "OneTime") {
+        const recurringGeneratedInstances = await ensureFutureInstances(newSeries.id);
+        if (recurringGeneratedInstances.length > 0) {
+            generatedInstances.push(...recurringGeneratedInstances);
+        }
     }
+    return {series: newSeries, newInstances: generatedInstances.length > 0 ? generatedInstances : undefined };
+
+  } catch (error) {
+    console.error("Error in addMeetingSeries service:", error);
+    throw error;
   }
-  return {series: newSeries, newInstances: generatedInstances.length > 0 ? generatedInstances : undefined };
 }
 
 export async function updateMeetingSeries(
     seriesId: string, 
     updates: Partial<MeetingSeriesWriteData>
 ): Promise<{ updatedSeries: MeetingSeries; newlyGeneratedInstances?: Meeting[] }> {
-  const seriesList = await getAllMeetingSeries();
-  const seriesIndex = seriesList.findIndex(s => s.id === seriesId);
-  if (seriesIndex === -1) {
-    throw new Error(`MeetingSeries with ID ${seriesId} not found.`);
-  }
+  try {
+    const existingSeries = await getMeetingSeriesById(seriesId);
+    if (!existingSeries) {
+      throw new Error(`MeetingSeries with ID ${seriesId} not found.`);
+    }
+    
+    const finalSeriesData = { ...existingSeries, ...updates };
 
-  const existingSeries = seriesList[seriesIndex];
-  const updatedSeries: MeetingSeries = {
-    ...existingSeries,
-    ...updates,
-    cancelledDates: updates.cancelledDates ?? existingSeries.cancelledDates ?? [], 
-    oneTimeDate: updates.frequency === "OneTime" ? (updates.oneTimeDate ?? existingSeries.oneTimeDate) : undefined,
-    weeklyDays: updates.frequency === "Weekly" ? (updates.weeklyDays ?? existingSeries.weeklyDays) : undefined,
-    monthlyRuleType: updates.frequency === "Monthly" ? (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) : undefined,
-    monthlyDayOfMonth: (updates.frequency === "Monthly" && (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) === "DayOfMonth") ? (updates.monthlyDayOfMonth ?? existingSeries.monthlyDayOfMonth) : undefined,
-    monthlyWeekOrdinal: (updates.frequency === "Monthly" && (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) === "DayOfWeekOfMonth") ? (updates.monthlyWeekOrdinal ?? existingSeries.monthlyWeekOrdinal) : undefined,
-    monthlyDayOfWeek: (updates.frequency === "Monthly" && (updates.monthlyRuleType ?? existingSeries.monthlyRuleType) === "DayOfWeekOfMonth") ? (updates.monthlyDayOfWeek ?? existingSeries.monthlyDayOfWeek) : undefined,
-  };
-  
-  seriesList[seriesIndex] = updatedSeries;
-  await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, seriesList);
-  const newlyGeneratedInstances = await ensureFutureInstances(updatedSeries.id);
-  return { updatedSeries, newlyGeneratedInstances: newlyGeneratedInstances.length > 0 ? newlyGeneratedInstances : undefined };
+    await executeQuery<any>(
+      'CALL sp_UpdateMeetingSeries(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        seriesId,
+        finalSeriesData.name,
+        finalSeriesData.description || null,
+        finalSeriesData.defaultTime,
+        finalSeriesData.defaultLocation,
+        finalSeriesData.seriesType,
+        finalSeriesData.ownerGroupId || null,
+        finalSeriesData.targetAttendeeGroups ? finalSeriesData.targetAttendeeGroups.join(',') : null,
+        finalSeriesData.frequency,
+        finalSeriesData.oneTimeDate || null,
+        finalSeriesData.cancelledDates ? finalSeriesData.cancelledDates.join(',') : null,
+        finalSeriesData.weeklyDays ? finalSeriesData.weeklyDays.join(',') : null,
+        finalSeriesData.monthlyRuleType || null,
+        (finalSeriesData.monthlyRuleType === 'DayOfMonth' ? finalSeriesData.monthlyDayOfMonth : 
+         finalSeriesData.monthlyRuleType === 'DayOfWeekOfMonth' ? `${finalSeriesData.monthlyWeekOrdinal}_${finalSeriesData.monthlyDayOfWeek}` : null)
+      ]
+    );
+
+    const updatedSeries = await getMeetingSeriesById(seriesId);
+    if (!updatedSeries) throw new Error("Failed to retrieve updated meeting series.");
+    
+    const newlyGeneratedInstances = await ensureFutureInstances(updatedSeries.id);
+    return { updatedSeries, newlyGeneratedInstances: newlyGeneratedInstances.length > 0 ? newlyGeneratedInstances : undefined };
+
+  } catch (error) {
+    console.error(`Error in updateMeetingSeries service for ID ${seriesId}:`, error);
+    throw error;
+  }
 }
 
 export async function deleteMeetingSeries(seriesId: string): Promise<void> {
-  const seriesList = await getAllMeetingSeries();
-  const updatedSeriesList = seriesList.filter(s => s.id !== seriesId);
-  await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, updatedSeriesList);
-
-  const allMeetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []);
-  const meetingsToDelete = allMeetings.filter(m => m.seriesId === seriesId);
-  const meetingIdsToDelete = meetingsToDelete.map(m => m.id);
-  const remainingMeetings = allMeetings.filter(m => m.seriesId !== seriesId);
-  await writeDbFile<Meeting>(MEETINGS_DB_FILE, remainingMeetings);
-
-  if (meetingIdsToDelete.length > 0) {
-    const allAttendance = await readDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, []);
-    const remainingAttendance = allAttendance.filter(att => !meetingIdsToDelete.includes(att.meetingId));
-    await writeDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, remainingAttendance);
+  try {
+    await executeQuery<any>('CALL sp_DeleteMeetingSeries(?)', [seriesId]);
+  } catch (error) {
+    console.error(`Error in deleteMeetingSeries service for ID ${seriesId}:`, error);
+    throw error;
   }
 }
 
 
-// Meeting Instance Functions
+// --- Meeting Instance Functions ---
 export async function getAllMeetings(): Promise<Meeting[]> {
-  const meetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []);
-  return meetings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  try {
+    const results = await executeQuery<MeetingQueryResult[]>('CALL sp_GetAllMeetings()');
+    const rows = getRowsAndTotal<MeetingQueryResult>(results).rows;
+    return rows.map(m => ({
+      ...m,
+      attendeeUids: parseStringList(m.attendeeUids),
+    })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  } catch (error) {
+    console.error("Error in getAllMeetings service:", error);
+    throw error;
+  }
 }
 
 export async function getFilteredMeetingInstances(
@@ -427,62 +479,90 @@ export async function getFilteredMeetingInstances(
   page: number = 1,
   pageSize: number = 10
 ): Promise<{ instances: Meeting[]; totalCount: number; totalPages: number }> {
-  if (seriesId) {
-    await ensureFutureInstances(seriesId);
-  }
-  
-  let allMeetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []);
-  
-  let filtered = allMeetings.filter(meeting => meeting.seriesId === seriesId);
+  try {
+    if (seriesId) {
+      await ensureFutureInstances(seriesId);
+    }
+    
+    const results = await executeQuery<any[]>(
+      'CALL sp_GetFilteredMeetingInstances(?, ?, ?, ?, ?)',
+      [seriesId, startDate || null, endDate || null, page, pageSize]
+    );
+    const { rows, totalCount } = getRowsAndTotal<MeetingQueryResult>(results);
+    
+    const instances: Meeting[] = rows.map(row => ({
+      ...row,
+      attendeeUids: parseStringList(row.attendeeUids),
+    }));
 
-  if (startDate) {
-    const start = startOfDay(parseISO(startDate));
-    filtered = filtered.filter(meeting => {
-      const meetingDate = parseISO(meeting.date);
-      return isValidDateFn(meetingDate) && meetingDate >= start;
-    });
-  }
+    const totalPages = Math.ceil(totalCount / pageSize);
+    return { instances, totalCount, totalPages };
 
-  if (endDate) {
-    const end = startOfDay(parseISO(endDate)); 
-    filtered = filtered.filter(meeting => {
-      const meetingDate = parseISO(meeting.date);
-      return isValidDateFn(meetingDate) && meetingDate <= end;
-    });
+  } catch (error) {
+    console.error("Error in getFilteredMeetingInstances service:", error);
+    throw error;
   }
-  
-  filtered.sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
-
-  const totalCount = filtered.length;
-  const totalPages = Math.ceil(totalCount / pageSize);
-  const startIndex = (page - 1) * pageSize;
-  const paginatedInstances = filtered.slice(startIndex, startIndex + pageSize);
-  
-  return { instances: paginatedInstances, totalCount, totalPages };
 }
 
+async function getMeetingsBySeriesIdInternal(seriesId: string): Promise<Meeting[]> {
+  try {
+    const results = await executeQuery<MeetingQueryResult[]>('CALL sp_GetMeetingsBySeriesId(?)', [seriesId]);
+    const rows = getRowsAndTotal<MeetingQueryResult>(results).rows;
+    return rows.map(m => ({
+        ...m,
+        attendeeUids: parseStringList(m.attendeeUids),
+    })).sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+  } catch (error) {
+    console.error(`Error in getMeetingsBySeriesIdInternal for series ID ${seriesId}:`, error);
+    return []; // Return empty on error to allow ensureFutureInstances to proceed
+  }
+}
 
 export async function getMeetingsBySeriesId(seriesId: string): Promise<Meeting[]> {
   await ensureFutureInstances(seriesId);
-  const allMeetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []); // Reread after potential generation
-  return allMeetings.filter(meeting => meeting.seriesId === seriesId)
-                    .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+  return getMeetingsBySeriesIdInternal(seriesId);
 }
 
 export async function getMeetingById(id: string): Promise<Meeting | undefined> {
-  const meetings = await getAllMeetings(); 
-  return meetings.find(meeting => meeting.id === id);
+  try {
+    const results = await executeQuery<MeetingQueryResult[]>('CALL sp_GetMeetingById(?)', [id]);
+    const rows = getRowsAndTotal<MeetingQueryResult>(results).rows;
+    if (rows.length > 0) {
+      const m = rows[0];
+      return {
+        ...m,
+        attendeeUids: parseStringList(m.attendeeUids),
+      };
+    }
+    return undefined;
+  } catch (error) {
+    console.error(`Error in getMeetingById service for ID ${id}:`, error);
+    throw error;
+  }
 }
 
-async function addMeetingInstanceInternal(meetingInstanceData: Omit<Meeting, 'id'>): Promise<Meeting> {
-  const meetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []);
-  const newMeetingInstance: Meeting = {
-    id: `instance-${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}-${meetings.length}`,
-    ...meetingInstanceData,
-  };
-  const updatedMeetings = [...meetings, newMeetingInstance];
-  await writeDbFile<Meeting>(MEETINGS_DB_FILE, updatedMeetings);
-  return newMeetingInstance;
+async function addMeetingInstanceSP(meetingInstanceData: Omit<Meeting, 'id'>): Promise<Meeting | null> {
+  const newMeetingInstanceId = `instance-${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}`;
+  try {
+    await executeQuery<any>(
+      'CALL sp_AddMeetingInstance(?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        newMeetingInstanceId,
+        meetingInstanceData.seriesId,
+        meetingInstanceData.name,
+        meetingInstanceData.date,
+        meetingInstanceData.time,
+        meetingInstanceData.location,
+        meetingInstanceData.description || null,
+        meetingInstanceData.attendeeUids ? meetingInstanceData.attendeeUids.join(',') : null,
+        meetingInstanceData.minute || null,
+      ]
+    );
+    return getMeetingById(newMeetingInstanceId);
+  } catch (error) {
+     console.error("Error in addMeetingInstanceSP:", error);
+     return null;
+  }
 }
 
 export async function addMeetingInstance(
@@ -494,9 +574,9 @@ export async function addMeetingInstance(
     throw new Error(`MeetingSeries with ID ${seriesId} not found.`);
   }
   
-  const allMembersForResolve = await readDbFile<Member>(MEMBERS_DB_FILE, []);
-  const allGdisForResolve = await readDbFile<GDI>(GDIS_DB_FILE, []);
-  const allMinistryAreasForResolve = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
+  const allMembersForResolve = await getAllMembersNonPaginated();
+  const allGdisForResolve = await getAllGdis();
+  const allMinistryAreasForResolve = await getAllMinistryAreas();
 
   let resolvedUids: string[];
   if (series.seriesType === 'general') {
@@ -509,91 +589,83 @@ export async function addMeetingInstance(
       resolvedUids = [];
   }
 
-  return addMeetingInstanceInternal({
+  const newInstance = await addMeetingInstanceSP({
     seriesId: series.id,
     name: instanceDetails.name,
     date: instanceDetails.date, 
     time: instanceDetails.time,
     location: instanceDetails.location,
-    description: instanceDetails.description,
+    description: instanceDetails.description || '',
     attendeeUids: resolvedUids,
     minute: null,
   });
+  if (!newInstance) throw new Error("Failed to create and retrieve new meeting instance via SP.");
+  return newInstance;
 }
 
 
 export async function updateMeeting(meetingId: string, updates: Partial<MeetingWriteData>): Promise<Meeting> {
-  const meetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []);
-  const meetingIndex = meetings.findIndex(m => m.id === meetingId);
+  try {
+    const existingMeeting = await getMeetingById(meetingId);
+    if (!existingMeeting) {
+        throw new Error(`Meeting with ID ${meetingId} not found.`);
+    }
+    const finalUpdates = { ...existingMeeting, ...updates };
 
-  if (meetingIndex === -1) {
-    throw new Error(`Meeting with ID ${meetingId} not found.`);
+    await executeQuery<any>(
+      'CALL sp_UpdateMeetingInstance(?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        meetingId,
+        finalUpdates.seriesId, // SP needs seriesId, though it shouldn't change
+        finalUpdates.name,
+        finalUpdates.date, // Ensure date is in YYYY-MM-DD string format
+        finalUpdates.time,
+        finalUpdates.location,
+        finalUpdates.description || null,
+        finalUpdates.attendeeUids ? finalUpdates.attendeeUids.join(',') : null,
+        finalUpdates.minute || null
+      ]
+    );
+    const updatedMeeting = await getMeetingById(meetingId);
+    if (!updatedMeeting) throw new Error("Failed to retrieve updated meeting instance.");
+    return updatedMeeting;
+  } catch (error) {
+    console.error(`Error in updateMeeting service for ID ${meetingId}:`, error);
+    throw error;
   }
-  
-  const originalMeeting = meetings[meetingIndex];
-
-  let formattedUpdates = { ...updates } as Partial<Meeting>;
-  if (updates.date && typeof updates.date === 'string' && !isNaN(parseISO(updates.date).getTime())) {
-    formattedUpdates.date = updates.date;
-  } else if (updates.date && updates.date instanceof Date) {
-     formattedUpdates.date = format(updates.date, 'yyyy-MM-dd');
-  }
-
-  const updatedMeeting: Meeting = {
-    ...originalMeeting,
-    ...formattedUpdates,
-    attendeeUids: updates.attendeeUids !== undefined ? updates.attendeeUids : originalMeeting.attendeeUids,
-  };
-
-  meetings[meetingIndex] = updatedMeeting;
-  await writeDbFile<Meeting>(MEETINGS_DB_FILE, meetings);
-  return updatedMeeting;
 }
 
 
 export async function updateMeetingMinute(meetingId: string, minute: string | null): Promise<Meeting> {
-  const meetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []);
-  const meetingIndex = meetings.findIndex(m => m.id === meetingId);
-
-  if (meetingIndex === -1) {
-    throw new Error(`Meeting with ID ${meetingId} not found.`);
+  try {
+    await executeQuery<any>('CALL sp_UpdateMeetingInstanceMinute(?, ?)', [meetingId, minute]);
+    const updatedMeeting = await getMeetingById(meetingId);
+    if (!updatedMeeting) throw new Error("Failed to retrieve meeting after updating minute.");
+    return updatedMeeting;
+  } catch (error) {
+    console.error(`Error in updateMeetingMinute service for ID ${meetingId}:`, error);
+    throw error;
   }
-
-  meetings[meetingIndex].minute = minute;
-  await writeDbFile<Meeting>(MEETINGS_DB_FILE, meetings);
-  return meetings[meetingIndex];
 }
 
 export async function deleteMeetingInstance(instanceId: string): Promise<void> {
-  const instanceToDelete = await getMeetingById(instanceId); 
-  if (!instanceToDelete) {
-    console.warn(`Attempted to delete non-existent meeting instance: ${instanceId}`);
-    return; 
-  }
-
-  let allSeries = await getAllMeetingSeries();
-  const seriesIndex = allSeries.findIndex(s => s.id === instanceToDelete.seriesId);
-
-  if (seriesIndex !== -1) {
-    const series = allSeries[seriesIndex];
-    if (series.frequency !== "OneTime") { 
-      if (!series.cancelledDates) {
-        series.cancelledDates = [];
-      }
-      const formattedDate = format(parseISO(instanceToDelete.date), 'yyyy-MM-dd');
-      if (!series.cancelledDates.includes(formattedDate)) {
-        series.cancelledDates.push(formattedDate);
-        allSeries[seriesIndex] = series;
-        await writeDbFile<MeetingSeries>(MEETING_SERIES_DB_FILE, allSeries);
-      }
+  try {
+    const instanceToDelete = await getMeetingById(instanceId); 
+    if (!instanceToDelete) {
+      console.warn(`Attempted to delete non-existent meeting instance: ${instanceId}`);
+      return; 
     }
+
+    const series = await getMeetingSeriesById(instanceToDelete.seriesId);
+    if (series && series.frequency !== "OneTime") { 
+      const formattedDate = format(parseISO(instanceToDelete.date), 'yyyy-MM-dd');
+      await executeQuery<any>('CALL sp_AddCancelledDateToSeries(?, ?)', [series.id, formattedDate]);
+    }
+
+    await executeQuery<any>('CALL sp_DeleteMeetingInstance(?)', [instanceId]);
+  } catch (error) {
+    console.error(`Error in deleteMeetingInstance service for ID ${instanceId}:`, error);
+    throw error;
   }
-
-  let allMeetings = await readDbFile<Meeting>(MEETINGS_DB_FILE, []);
-  const meetingsLeft = allMeetings.filter(m => m.id !== instanceId);
-  await writeDbFile<Meeting>(MEETINGS_DB_FILE, meetingsLeft);
-
-  let allAttendanceRecords = await readDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, []);
-  const attendanceRecordsLeft = allAttendanceRecords.filter(ar => ar.meetingId !== instanceId);
-  await writeDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, attendanceRecordsLeft);
 }
+
