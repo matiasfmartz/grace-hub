@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from 'react';
@@ -6,7 +5,7 @@ import type { GDI, Member } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox'; // Changed from Select
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -63,30 +62,24 @@ export default function ManageSingleGdiView({
         const newDefaultName = `GDI de ${selectedGuide.firstName} ${selectedGuide.lastName}`;
         
         if (isAdding) {
-          // If adding and the name is empty or was the placeholder for a previously (but not yet saved) selected guide
           if (!editableGdi.name.trim() || editableGdi.name.startsWith("GDI de ")) {
             setEditableGdi(prev => ({ ...prev, name: newDefaultName }));
           }
-        } else { // Editing existing GDI
+        } else { 
           const originalGuide = allMembers.find(m => m.id === initialGdi.guideId);
           const originalDefaultName = originalGuide ? `GDI de ${originalGuide.firstName} ${originalGuide.lastName}` : "";
 
-          // Update name if it was empty or the default name of the *original* guide
           if (!editableGdi.name.trim() || editableGdi.name === originalDefaultName) {
             setEditableGdi(prev => ({ ...prev, name: newDefaultName }));
           }
         }
       }
-    } else { // No guide selected
+    } else { 
       if (isAdding) {
-         // If adding and the name was a default pattern, clear it
         if (editableGdi.name.startsWith("GDI de ")) {
            setEditableGdi(prev => ({ ...prev, name: "" }));
         }
       }
-      // If editing and no guide is selected, don't clear a custom name.
-      // If the name was a default pattern for the original guide and the guide is deselected,
-      // it might be desirable to clear it or leave it as is. For now, leave it.
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editableGdi.guideId, isAdding, initialGdi.guideId, allMembers]);
@@ -100,7 +93,7 @@ export default function ManageSingleGdiView({
   const handleGuideChange = (newGuideId: string) => {
     setEditableGdi(prev => {
       const updatedMemberIds = (prev.memberIds || []).filter(id => id !== newGuideId);
-      return { ...prev, guideId: newGuideId, memberIds: updatedMemberIds, name: prev.name }; // Preserve name for useEffect to handle
+      return { ...prev, guideId: newGuideId, memberIds: updatedMemberIds, name: prev.name }; 
     });
   };
 
@@ -188,6 +181,14 @@ export default function ManageSingleGdiView({
       .filter(Boolean) as Member[];
   }, [editableGdi.memberIds, editableGdi.guideId, allMembers]);
 
+  const guideOptions = useMemo(() => {
+      return activeMembers.map(member => ({
+          value: member.id,
+          label: `${member.firstName} ${member.lastName} (${member.email})${allGdis.some(g => g.guideId === member.id && (isAdding || g.id !== initialGdi.id)) ? " (Guía de otro GDI)" : ""}`,
+          disabled: allGdis.some(g => g.guideId === member.id && (isAdding || g.id !== initialGdi.id))
+      }));
+  }, [activeMembers, allGdis, isAdding, initialGdi.id]);
+
   return (
     <>
       <CardContent className="grid grid-cols-1 lg:grid-cols-5 gap-6 p-0 pt-4">
@@ -195,23 +196,16 @@ export default function ManageSingleGdiView({
               <div className="p-4 border rounded-lg shadow-sm bg-card">
                   <h3 className="text-lg font-semibold mb-3 flex items-center"><UserCheck className="mr-2 h-5 w-5 text-muted-foreground" />Guía del GDI</h3>
                   <Label htmlFor="guideIdSelect">Seleccionar Guía (miembros activos)</Label>
-                  <Select onValueChange={handleGuideChange} value={editableGdi.guideId} disabled={isPending}>
-                      <SelectTrigger className="mt-1" id="guideIdSelect">
-                          <SelectValue placeholder="Seleccionar nuevo guía" />
-                      </SelectTrigger>
-                      <SelectContent>
-                          {activeMembers.map((member) => ( 
-                          <SelectItem
-                              key={member.id}
-                              value={member.id}
-                              disabled={allGdis.some(g => g.guideId === member.id && (isAdding || g.id !== initialGdi.id))}
-                          >
-                              {member.firstName} {member.lastName} ({member.email})
-                              {allGdis.some(g => g.guideId === member.id && (isAdding || g.id !== initialGdi.id)) && " (Guía de otro GDI)"}
-                          </SelectItem>
-                          ))}
-                      </SelectContent>
-                  </Select>
+                   <Combobox
+                    options={guideOptions}
+                    value={editableGdi.guideId}
+                    onChange={handleGuideChange}
+                    placeholder="Seleccionar nuevo guía"
+                    searchPlaceholder="Buscar guía..."
+                    emptyStateMessage="No se encontró ningún miembro activo."
+                    disabled={isPending}
+                    triggerClassName="mt-1"
+                  />
                    {editableGdi.guideId && !activeMembers.find(m=>m.id === editableGdi.guideId) && (
                       <p className="text-xs text-destructive mt-1">El guía actual no está activo o no se encuentra. Por favor, seleccione un guía activo.</p>
                   )}
@@ -323,5 +317,3 @@ export default function ManageSingleGdiView({
     </>
   );
 }
-
-    

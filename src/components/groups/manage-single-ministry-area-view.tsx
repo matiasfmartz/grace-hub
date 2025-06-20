@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from 'react';
@@ -6,7 +5,7 @@ import type { MinistryArea, Member } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox'; // Changed from Select
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -29,8 +28,8 @@ interface ManageSingleMinistryAreaViewProps {
 
 export default function ManageSingleMinistryAreaView({
   ministryArea: initialMinistryArea,
-  allMembers, // Keep allMembers for displaying details of existing members if needed
-  activeMembers, // Use activeMembers for selection lists
+  allMembers, 
+  activeMembers, 
   updateMinistryAreaAction,
   onSuccess,
   isAdding = false,
@@ -130,7 +129,6 @@ export default function ManageSingleMinistryAreaView({
     return allMembers.find(m => m.id === editableArea.leaderId);
   }, [editableArea.leaderId, allMembers]);
 
-  // For Ministry Area members, only active members can be assigned.
   const availableMembersForAssignment = useMemo(() => {
     return activeMembers.filter(member =>
       member.id !== editableArea.leaderId &&
@@ -144,6 +142,14 @@ export default function ManageSingleMinistryAreaView({
     return (editableArea.memberIds || []).map(id => allMembers.find(m => m.id === id)).filter(Boolean) as Member[];
   }, [editableArea.memberIds, allMembers]);
 
+  const leaderOptions = useMemo(() => {
+    return activeMembers.map(member => ({
+        value: member.id,
+        label: `${member.firstName} ${member.lastName} (${member.email})`
+    }));
+  }, [activeMembers]);
+
+
   return (
     <>
       <CardContent className="grid grid-cols-1 lg:grid-cols-5 gap-6 p-0 pt-4">
@@ -151,18 +157,16 @@ export default function ManageSingleMinistryAreaView({
               <div className="p-4 border rounded-lg shadow-sm bg-card">
                   <h3 className="text-lg font-semibold mb-3 flex items-center"><UserCheck className="mr-2 h-5 w-5 text-muted-foreground" />Líder del Área</h3>
                   <Label htmlFor="leaderIdSelect">Seleccionar Líder (miembros activos)</Label>
-                  <Select onValueChange={handleLeaderChange} value={editableArea.leaderId} disabled={isPending}>
-                      <SelectTrigger className="mt-1" id="leaderIdSelect">
-                          <SelectValue placeholder="Seleccionar nuevo líder" />
-                      </SelectTrigger>
-                      <SelectContent>
-                          {activeMembers.map((member) => ( // Leader selection uses activeMembers
-                          <SelectItem key={member.id} value={member.id}>
-                              {member.firstName} {member.lastName} ({member.email})
-                          </SelectItem>
-                          ))}
-                      </SelectContent>
-                  </Select>
+                  <Combobox
+                    options={leaderOptions}
+                    value={editableArea.leaderId}
+                    onChange={handleLeaderChange}
+                    placeholder="Seleccionar nuevo líder"
+                    searchPlaceholder="Buscar líder..."
+                    emptyStateMessage="No se encontró ningún miembro activo."
+                    disabled={isPending}
+                    triggerClassName="mt-1"
+                  />
                   {editableArea.leaderId && !activeMembers.find(m=>m.id === editableArea.leaderId) && (
                       <p className="text-xs text-destructive mt-1">El líder actual no está activo o no se encuentra. Por favor, seleccione un líder activo.</p>
                   )}
