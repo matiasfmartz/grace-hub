@@ -7,7 +7,6 @@ import Image from 'next/image';
 
 import OverallMonthlyAttendanceChart from '@/components/dashboard/OverallMonthlyAttendanceChart';
 import GdiOverallAttendanceChart from '@/components/dashboard/GdiOverallAttendanceChart';
-// import AttendanceBreakdownChart from '@/components/dashboard/AttendanceBreakdownChart'; // Replaced by MonthlyAttendanceBreakdownCard
 import MonthlyAttendanceBreakdownCard from '@/components/dashboard/MonthlyAttendanceBreakdownCard';
 import MemberRoleDistributionChart from '@/components/dashboard/MemberRoleDistributionChart';
 import MissedMeetingsTable from '@/components/dashboard/MissedMeetingsTable';
@@ -25,10 +24,6 @@ import type { Meeting, Member, AttendanceRecord, MeetingSeries, GDI } from '@/li
 import { subMonths, startOfMonth, endOfMonth, formatISO, parseISO, isWithinInterval, isValid } from 'date-fns';
 
 async function getDashboardData() {
-  const now = new Date();
-  const lastMonthStart = startOfMonth(subMonths(now, 1));
-  const lastMonthEnd = endOfMonth(subMonths(now, 1));
-
   const [
     allMeetingsData,
     allMembersData,
@@ -43,11 +38,6 @@ async function getDashboardData() {
     getAllGdis(),
   ]);
 
-  const meetingsLastMonthForOverallChart = allMeetingsData.filter(m => {
-    const meetingDate = parseISO(m.date);
-    return isValid(meetingDate) && isWithinInterval(meetingDate, { start: lastMonthStart, end: lastMonthEnd });
-  });
-
   const gdiSeriesIds = new Set(allSeriesData.filter(s => s.seriesType === 'gdi').map(s => s.id));
   const gdiMeetings = allMeetingsData.filter(m => gdiSeriesIds.has(m.seriesId));
 
@@ -59,8 +49,7 @@ async function getDashboardData() {
     .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
 
   return {
-    allMeetingsData, // Pass all meetings for the new monthly breakdown card
-    meetingsLastMonthForOverallChart, // Keep this for the specific "OverallMonthlyAttendanceChart"
+    allMeetingsData,
     allAttendanceData,
     allMembersData,
     gdiMeetings,
@@ -74,7 +63,6 @@ async function getDashboardData() {
 export default async function DashboardPage() {
   const {
     allMeetingsData,
-    meetingsLastMonthForOverallChart,
     allAttendanceData,
     allMembersData,
     gdiMeetings,
@@ -108,7 +96,6 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Replace AttendanceBreakdownChart with MonthlyAttendanceBreakdownCard */}
         <MonthlyAttendanceBreakdownCard
             allMeetings={allMeetingsData}
             allAttendanceRecords={allAttendanceData}
@@ -118,21 +105,10 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <TrendingUp className="mr-2 h-5 w-5 text-primary" />
-              Asistencia General (Último Mes)
-            </CardTitle>
-            <CardDescription>Tendencia de asistencia a todas las reuniones durante el último mes.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <OverallMonthlyAttendanceChart
-              meetingsLastMonth={meetingsLastMonthForOverallChart}
-              allAttendanceRecords={allAttendanceData}
-            />
-          </CardContent>
-        </Card>
+        <OverallMonthlyAttendanceChart
+          allMeetings={allMeetingsData}
+          allAttendanceRecords={allAttendanceData}
+        />
 
         <Card>
           <CardHeader>
@@ -189,3 +165,4 @@ export default async function DashboardPage() {
     </div>
   );
 }
+
