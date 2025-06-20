@@ -30,9 +30,14 @@ export async function executeQuery<T>(
     connection = await connectionPool.getConnection();
     const [results] = await connection.execute(sql, params);
     return results as T;
-  } catch (error) {
-    console.error('MySQL Query Error:', error);
-    throw error; // Re-throw the error to be handled by the caller
+  } catch (error: any) {
+    console.error('MySQL Query Error:', error.message);
+    if (error.code === 'ECONNREFUSED') {
+      throw new Error(
+        `Connection to MySQL server was refused. Please ensure the MySQL server is running at ${MYSQL_CONFIG.host}:${MYSQL_CONFIG.port} and accessible. Original error: ${error.message}`
+      );
+    }
+    throw error; // Re-throw other errors to be handled by the caller
   } finally {
     if (connection) {
       connection.release();
