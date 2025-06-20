@@ -20,7 +20,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react'; // Added useEffect
 import { DatePicker } from '@/components/ui/date-picker';
 import { UsersRound, CalendarRange, LineChart as LineChartIcon } from 'lucide-react';
 
@@ -65,17 +65,24 @@ export default function GdiOverallAttendanceChart({
   gdiMeetings,
   allAttendanceRecords,
 }: GdiOverallAttendanceChartProps) {
-  const [startDate, setStartDate] = useState<Date | undefined>(() => startOfDay(new Date()));
-  const [endDate, setEndDate] = useState<Date | undefined>(() => dateFnsEndOfDay(new Date()));
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined); // Initialize as undefined
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);   // Initialize as undefined
+
+  useEffect(() => {
+    // Set initial dates on client-side after mount
+    setStartDate(startOfDay(new Date()));
+    setEndDate(dateFnsEndOfDay(new Date()));
+  }, []); // Empty dependency array ensures this runs once on mount
+
 
   const meetingsForPeriod = useMemo(() => {
-    if (!gdiMeetings) return [];
+    if (!gdiMeetings || !startDate || !endDate) return []; // Guard against undefined dates
     return gdiMeetings.filter(meeting => {
       const meetingDateObj = parseISO(meeting.date);
       if (!isValid(meetingDateObj)) return false;
 
-      const isAfterOrOnStartDate = startDate ? meetingDateObj >= startOfDay(startDate) : true;
-      const isBeforeOrOnEndDate = endDate ? meetingDateObj <= dateFnsEndOfDay(endDate) : true;
+      const isAfterOrOnStartDate = meetingDateObj >= startOfDay(startDate);
+      const isBeforeOrOnEndDate = meetingDateObj <= dateFnsEndOfDay(endDate);
       
       return isAfterOrOnStartDate && isBeforeOrOnEndDate;
     });
@@ -220,6 +227,3 @@ export default function GdiOverallAttendanceChart({
     </Card>
   );
 }
-
-
-    

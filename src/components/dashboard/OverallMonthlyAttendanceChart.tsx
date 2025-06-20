@@ -20,7 +20,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react'; // Added useEffect
 import { DatePicker } from '@/components/ui/date-picker';
 import { CalendarRange, TrendingUp } from 'lucide-react';
 
@@ -47,17 +47,23 @@ export default function OverallMonthlyAttendanceChart({
   allAttendanceRecords,
 }: OverallAttendanceChartProps) {
 
-  const [startDate, setStartDate] = useState<Date | undefined>(() => startOfMonth(new Date()));
-  const [endDate, setEndDate] = useState<Date | undefined>(() => endOfMonth(new Date()));
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined); // Initialize as undefined
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);   // Initialize as undefined
+
+  useEffect(() => {
+    // Set initial dates on client-side after mount
+    setStartDate(startOfMonth(new Date()));
+    setEndDate(endOfMonth(new Date()));
+  }, []); // Empty dependency array ensures this runs once on mount
 
   const meetingsForPeriod = useMemo(() => {
-    if (!allMeetings) return [];
+    if (!allMeetings || !startDate || !endDate) return []; // Guard against undefined dates
     return allMeetings.filter(meeting => {
       const meetingDateObj = parseISO(meeting.date);
       if (!isValid(meetingDateObj)) return false;
 
-      const isAfterOrOnStartDate = startDate ? meetingDateObj >= startOfDay(startDate) : true;
-      const isBeforeOrOnEndDate = endDate ? meetingDateObj <= endOfDay(endDate) : true; // Corrected to include the whole end day
+      const isAfterOrOnStartDate = meetingDateObj >= startOfDay(startDate);
+      const isBeforeOrOnEndDate = meetingDateObj <= endOfDay(endDate);
       
       return isAfterOrOnStartDate && isBeforeOrOnEndDate;
     });
@@ -68,8 +74,8 @@ export default function OverallMonthlyAttendanceChart({
     let effectiveStartDate = startDate;
     let effectiveEndDate = endDate;
 
-    // If filters are not set, or invalid, derive range from meetingsForPeriod
     if (!effectiveStartDate || !effectiveEndDate || effectiveStartDate > effectiveEndDate) {
+      // If filters are not yet set by useEffect or are invalid, try to derive range from meetingsForPeriod (which might be empty)
       const validMeetingsInCurrentPeriod = meetingsForPeriod.filter(m => isValid(parseISO(m.date)));
       if (validMeetingsInCurrentPeriod.length === 0) return [];
 
@@ -127,7 +133,7 @@ export default function OverallMonthlyAttendanceChart({
             <CalendarRange className="mr-1.5 h-3.5 w-3.5 text-primary/70"/>
             {cardDescription}
         </CardDescription>
-        <div className="pt-3 space-y-2">
+        <div className="pt-3">
             <div className="flex flex-col sm:flex-row gap-2 items-end">
                 <div className="flex-grow w-full sm:w-auto">
                     <label htmlFor="trendStartDateFilter" className="text-xs font-medium text-muted-foreground">Fecha Inicio</label>
@@ -140,7 +146,7 @@ export default function OverallMonthlyAttendanceChart({
             </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-4 pb-4 pt-0">
         {chartData.length > 0 ? (
           <ChartContainer config={chartConfig} className="h-[300px] w-full">
             <RechartsLineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 40 }}>
@@ -162,6 +168,7 @@ export default function OverallMonthlyAttendanceChart({
                 axisLine={false}
                 tickMargin={5}
                 tick={{ fontSize: 10 }}
+                label={{ value: 'Total Asistentes/Día', angle: -90, position: 'insideLeft', offset: 10, style: {fontSize: '10px', fill: 'hsl(var(--muted-foreground))'} }}
               />
               <Tooltip
                 cursor={true}
@@ -192,4 +199,3 @@ export default function OverallMonthlyAttendanceChart({
     </Card>
   );
 }
-
