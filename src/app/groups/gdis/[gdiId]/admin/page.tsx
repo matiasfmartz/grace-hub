@@ -296,8 +296,7 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
                   updateGdiAction={updateGdiDetailsAction}
                   onSuccess={() => {
                       setIsEditGdiDetailsOpen(false);
-                      const params = new URLSearchParams(currentHookSearchParams.toString());
-                      router.push(`/groups/gdis/${gdiId}/admin?${params.toString()}`);
+                      router.refresh();
                   }}
                 />
               </div>

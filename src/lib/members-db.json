@@ -80,11 +80,12 @@
     "attendsLifeSchool": true,
     "attendsBibleInstitute": false,
     "fromAnotherChurch": false,
-    "assignedGDIId": null,
+    "assignedGDIId": "gdi2",
     "assignedAreaIds": [
       "1750352396551-w9poihx"
     ],
     "roles": [
+      "GeneralAttendee",
       "Worker"
     ]
   },

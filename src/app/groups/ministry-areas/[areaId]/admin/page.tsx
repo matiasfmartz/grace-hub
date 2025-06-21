@@ -294,8 +294,7 @@ export default function MinistryAreaAdminPage({}: MinistryAreaAdminPageProps) {
                   updateMinistryAreaAction={updateMinistryAreaDetailsAction}
                   onSuccess={() => {
                       setIsEditAreaDetailsOpen(false);
-                      const params = new URLSearchParams(currentHookSearchParams.toString());
-                      router.push(`/groups/ministry-areas/${areaId}/admin?${params.toString()}`);
+                      router.refresh();
                   }}
                 />
               </div>
