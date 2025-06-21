@@ -5,7 +5,7 @@ import type { TitheRecord } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { HandCoins, CalendarOff, CheckCircle2, XCircle, PieChart, Info } from 'lucide-react';
-import { format, isWithinInterval, startOfDay, endOfDay, isValid, eachMonthOfInterval, startOfMonth, endOfMonth } from 'date-fns';
+import { format, isWithinInterval, startOfDay, endOfDay, isValid, eachMonthOfInterval, startOfMonth, endOfMonth, startOfYear } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +25,7 @@ export default function MemberTitheHistory({ memberId, allTitheRecords, startDat
       return { start: startDate, end: endDate, isDefault: false };
     }
     const now = new Date();
-    return { start: startOfMonth(now), end: endOfMonth(now), isDefault: true };
+    return { start: startOfYear(now), end: endOfMonth(now), isDefault: true };
   }, [startDate, endDate]);
   
   const summaryStats = useMemo(() => {
@@ -75,7 +75,7 @@ export default function MemberTitheHistory({ memberId, allTitheRecords, startDat
   }, [effectiveDateRange, allTitheRecords, memberId]);
 
   const descriptionText = effectiveDateRange.isDefault
-    ? `Mostrando estado para el mes actual (${format(effectiveDateRange.start, 'MMMM yyyy', { locale: es })}). Seleccione un rango de fechas para ver el historial detallado.`
+    ? `Mostrando estado para el año actual (hasta ${format(effectiveDateRange.end, 'MMMM yyyy', { locale: es })}). Seleccione un rango para ver más detalles.`
     : `Resumen de diezmos para el miembro en el período seleccionado.`;
 
 
