@@ -5,7 +5,7 @@ import type { TitheRecord } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { HandCoins, CalendarOff, CheckCircle2, XCircle, PieChart, Info } from 'lucide-react';
-import { format, isWithinInterval, startOfDay, endOfDay, isValid, eachMonthOfInterval } from 'date-fns';
+import { format, isWithinInterval, startOfDay, endOfDay, isValid, eachMonthOfInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -20,19 +20,25 @@ interface MemberTitheHistoryProps {
 
 export default function MemberTitheHistory({ memberId, allTitheRecords, startDate, endDate }: MemberTitheHistoryProps) {
   
-  const summaryStats = useMemo(() => {
-    if (!startDate || !endDate || !isValid(startDate) || !isValid(endDate) || startDate > endDate) {
-        return null; // Don't show stats if no valid range
+  const effectiveDateRange = useMemo(() => {
+    if (startDate && endDate && isValid(startDate) && isValid(endDate) && startDate <= endDate) {
+      return { start: startDate, end: endDate, isDefault: false };
     }
+    const now = new Date();
+    return { start: startOfMonth(now), end: endOfMonth(now), isDefault: true };
+  }, [startDate, endDate]);
+  
+  const summaryStats = useMemo(() => {
+    const { start, end } = effectiveDateRange;
 
-    const totalMonthsInRange = eachMonthOfInterval({ start: startDate, end: endDate }).length;
+    const totalMonthsInRange = eachMonthOfInterval({ start, end }).length;
     
     const tithedRecordsInDateRange = allTitheRecords.filter(record => {
       if (record.memberId !== memberId) return false;
       try {
         const recordDate = new Date(record.year, record.month - 1);
         if (!isValid(recordDate)) return false;
-        return isWithinInterval(recordDate, { start: startOfDay(startDate), end: endOfDay(endDate) });
+        return isWithinInterval(recordDate, { start: startOfDay(start), end: endOfDay(end) });
       } catch {
         return false;
       }
@@ -47,13 +53,11 @@ export default function MemberTitheHistory({ memberId, allTitheRecords, startDat
         untithedMonthsCount,
         percentage,
     };
-  }, [startDate, endDate, allTitheRecords, memberId]);
+  }, [effectiveDateRange, allTitheRecords, memberId]);
 
   const monthlyStatuses = useMemo(() => {
-    if (!startDate || !endDate || !isValid(startDate) || !isValid(endDate) || startDate > endDate) {
-        return [];
-    }
-    const allMonthsInRange = eachMonthOfInterval({ start: startDate, end: endDate });
+    const { start, end } = effectiveDateRange;
+    const allMonthsInRange = eachMonthOfInterval({ start, end });
     const memberTitheSet = new Set(
         allTitheRecords
             .filter(r => r.memberId === memberId)
@@ -68,7 +72,12 @@ export default function MemberTitheHistory({ memberId, allTitheRecords, startDat
             tithed: memberTitheSet.has(monthKey)
         };
     }).sort((a, b) => b.date.getTime() - a.date.getTime()); // Sort descending
-  }, [startDate, endDate, allTitheRecords, memberId]);
+  }, [effectiveDateRange, allTitheRecords, memberId]);
+
+  const descriptionText = effectiveDateRange.isDefault
+    ? `Mostrando estado para el mes actual (${format(effectiveDateRange.start, 'MMMM yyyy', { locale: es })}). Seleccione un rango de fechas para ver el historial detallado.`
+    : `Resumen de diezmos para el miembro en el período seleccionado.`;
+
 
   return (
     <Card className="shadow-sm mt-6">
@@ -78,11 +87,10 @@ export default function MemberTitheHistory({ memberId, allTitheRecords, startDat
           Historial de Diezmos
         </CardTitle>
         <CardDescription>
-          Resumen de diezmos para el miembro en el período seleccionado.
+          {descriptionText}
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {summaryStats ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
               <Card className="bg-green-500/5">
@@ -143,12 +151,6 @@ export default function MemberTitheHistory({ memberId, allTitheRecords, startDat
               )}
             </ScrollArea>
           </>
-        ) : (
-          <div className="flex items-center text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
-              <Info className="mr-2 h-4 w-4 shrink-0" />
-              Seleccione un rango de fechas para ver el historial detallado de diezmos.
-          </div>
-        )}
       </CardContent>
     </Card>
   );
