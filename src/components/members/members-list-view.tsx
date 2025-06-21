@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useTransition } from 'react';
-import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberWriteData, MemberRoleType, Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
+import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberWriteData, MemberRoleType, Meeting, MeetingSeries, AttendanceRecord, TitheRecord } from '@/lib/types';
 import { NO_ROLE_FILTER_VALUE, NO_GDI_FILTER_VALUE, NO_AREA_FILTER_VALUE } from '@/lib/types';
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -31,6 +31,7 @@ interface MembersListViewProps {
   allMeetings: Meeting[];
   allMeetingSeries: MeetingSeries[];
   allAttendanceRecords: AttendanceRecord[];
+  allTitheRecords: TitheRecord[];
   addSingleMemberAction: (newMemberData: MemberWriteData) => Promise<{ success: boolean; message: string; newMember?: Member }>;
   updateMemberAction: (memberData: Member) => Promise<{ success: boolean; message: string; updatedMember?: Member }>;
   currentPage: number;
@@ -76,6 +77,7 @@ export default function MembersListView({
   allMeetings,
   allMeetingSeries,
   allAttendanceRecords,
+  allTitheRecords,
   addSingleMemberAction,
   updateMemberAction,
   currentPage,
@@ -621,6 +623,7 @@ export default function MembersListView({
           allMeetings={allMeetings}
           allMeetingSeries={allMeetingSeries}
           allAttendanceRecords={allAttendanceRecords}
+          allTitheRecords={allTitheRecords}
           isOpen={isDetailsDialogOpen}
           onClose={handleCloseDetailsDialog}
           onMemberUpdated={handleMemberUpdated}

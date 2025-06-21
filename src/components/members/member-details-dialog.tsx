@@ -1,20 +1,21 @@
 
 "use client";
 
-import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberRoleType, Meeting, MeetingSeries, AttendanceRecord } from '@/lib/types';
+import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberRoleType, Meeting, MeetingSeries, AttendanceRecord, TitheRecord } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, ShieldCheck, BarChart3, ListChecks, LineChart, Filter as FilterIcon, Printer } from 'lucide-react'; // Added Printer
+import { Pencil, ShieldCheck, BarChart3, ListChecks, LineChart, Filter as FilterIcon, Printer, BookOpenCheck } from 'lucide-react'; // Added Printer, BookOpenCheck
 import AddMemberForm from './add-member-form';
 import MemberAttendanceSummary from './member-attendance-chart';
 import MemberAttendanceLineChart from './member-attendance-line-chart';
+import MemberTitheHistory from './member-tithe-history'; // New import
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
-import React, { useState, useTransition, useMemo, useEffect, useRef } from 'react'; // Added useRef
+import React, { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
 
 interface MemberDetailsDialogProps {
@@ -25,6 +26,7 @@ interface MemberDetailsDialogProps {
   allMeetings: Meeting[];
   allMeetingSeries: MeetingSeries[];
   allAttendanceRecords: AttendanceRecord[];
+  allTitheRecords: TitheRecord[];
   isOpen: boolean;
   onClose: () => void;
   onMemberUpdated: (updatedMember: Member) => void;
@@ -46,6 +48,7 @@ export default function MemberDetailsDialog({
   allMeetings,
   allMeetingSeries,
   allAttendanceRecords,
+  allTitheRecords,
   isOpen,
   onClose,
   onMemberUpdated,
@@ -267,8 +270,8 @@ export default function MemberDetailsDialog({
                     <TabsTrigger value="details" className="flex items-center gap-2">
                         <ListChecks className="h-4 w-4" /> Detalles
                     </TabsTrigger>
-                    <TabsTrigger value="attendance" className="flex items-center gap-2">
-                        <BarChart3 className="h-4 w-4" /> Asistencias
+                    <TabsTrigger value="history" className="flex items-center gap-2">
+                        <BookOpenCheck className="h-4 w-4" /> Historial
                     </TabsTrigger>
                 </TabsList>
                 <TabsContent value="details" className="p-6">
@@ -320,15 +323,15 @@ export default function MemberDetailsDialog({
                       </div>
                     </div>
                 </TabsContent>
-                <TabsContent value="attendance" className="p-6 space-y-6" id="attendance-print-section-wrapper">
+                <TabsContent value="history" className="p-6 space-y-6" id="attendance-print-section-wrapper">
                     <div id="attendance-print-section">
                         <div className="bg-muted/50 p-4 rounded-lg shadow-sm no-print">
                           <div className="flex flex-col sm:flex-row justify-between items-center mb-3">
                             <h3 className="text-md font-semibold text-primary flex items-center">
-                                <FilterIcon className="mr-2 h-4 w-4" /> Filtrar Historial de Asistencia
+                                <FilterIcon className="mr-2 h-4 w-4" /> Filtrar Historial
                             </h3>
                             <Button onClick={handlePrintAttendance} variant="outline" size="sm">
-                                <Printer className="mr-2 h-4 w-4" /> Imprimir
+                                <Printer className="mr-2 h-4 w-4" /> Imprimir Historial
                             </Button>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -397,6 +400,12 @@ export default function MemberDetailsDialog({
                             startDate={attendanceStartDate}
                             endDate={attendanceEndDate}
                         />
+                        <MemberTitheHistory
+                            memberId={member.id}
+                            allTitheRecords={allTitheRecords}
+                            startDate={attendanceStartDate}
+                            endDate={attendanceEndDate}
+                        />
                     </div>
                 </TabsContent>
             </Tabs>
@@ -416,4 +425,3 @@ export default function MemberDetailsDialog({
     </Dialog>
   );
 }
-

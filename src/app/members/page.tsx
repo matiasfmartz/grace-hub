@@ -1,6 +1,6 @@
 
 'use server';
-import type { Member, GDI, MinistryArea, Meeting, MeetingSeries, AttendanceRecord, MemberWriteData } from '@/lib/types';
+import type { Member, GDI, MinistryArea, Meeting, MeetingSeries, AttendanceRecord, MemberWriteData, TitheRecord } from '@/lib/types';
 import MembersListView from '@/components/members/members-list-view';
 import { revalidatePath } from 'next/cache';
 import {
@@ -16,6 +16,7 @@ import { getAllGdis } from '@/services/gdiService';
 import { getAllMinistryAreas } from '@/services/ministryAreaService';
 import { getAllMeetings, getAllMeetingSeries } from '@/services/meetingService';
 import { getAllAttendanceRecords } from '@/services/attendanceService';
+import { getAllTitheRecords } from '@/services/titheService';
 
 
 export async function addSingleMemberAction(newMemberData: Omit<Member, 'id' | 'roles'>): Promise<{ success: boolean; message: string; newMember?: Member }> {
@@ -103,6 +104,7 @@ async function getMembersPageData(
   const allMeetingsData = await getAllMeetings();
   const allMeetingSeriesData = await getAllMeetingSeries();
   const allAttendanceRecordsData = await getAllAttendanceRecords();
+  const allTitheRecordsData = await getAllTitheRecords();
   const absoluteTotalMembers = allMembersForDropdowns.length;
 
   return {
@@ -115,6 +117,7 @@ async function getMembersPageData(
     allMeetings: allMeetingsData,
     allMeetingSeries: allMeetingSeriesData,
     allAttendanceRecords: allAttendanceRecordsData,
+    allTitheRecords: allTitheRecordsData,
     absoluteTotalMembers, // New prop: absolute total
   };
 }
@@ -155,6 +158,7 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
     allMeetings,
     allMeetingSeries,
     allAttendanceRecords,
+    allTitheRecords,
     absoluteTotalMembers
   } = await getMembersPageData(
     currentPage,
@@ -185,6 +189,7 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
         allMeetings={allMeetings}
         allMeetingSeries={allMeetingSeries}
         allAttendanceRecords={allAttendanceRecords}
+        allTitheRecords={allTitheRecords}
         addSingleMemberAction={addSingleMemberAction}
         updateMemberAction={updateMemberAction}
         currentPage={currentPage}
