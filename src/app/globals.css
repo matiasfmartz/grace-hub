@@ -24,6 +24,8 @@ body {
     --accent-foreground: 45 100% 15%; /* Dark text on yellow accent */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
+    --success: 142.1 70.6% 45.3%;
+    --success-foreground: 0 0% 98%;
     --border: 207 50% 85%; /* Subtle blue-themed border */
     --input: 207 50% 90%; /* Input background */
     --ring: 207 88% 60%; /* Ring color, darker shade of primary */
@@ -59,6 +61,8 @@ body {
     --accent-foreground: 45 100% 15%; /* Dark text on yellow */
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
+    --success: 142.1 70.6% 45.3%;
+    --success-foreground: 0 0% 98%;
     --border: 207 50% 30%;
     --input: 207 50% 25%;
     --ring: 207 88% 60%;

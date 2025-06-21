@@ -120,12 +120,12 @@ export default function MemberTitheHistory({ memberId, allTitheRecords, startDat
                         <TableCell className="capitalize font-medium">{format(date, 'MMMM yyyy', { locale: es })}</TableCell>
                         <TableCell className="text-right">
                           {tithed ? (
-                            <Badge variant="default" className="bg-green-100 text-green-800 border border-green-200 hover:bg-green-200">
+                            <Badge variant="success">
                               <CheckCircle2 className="mr-1 h-3 w-3" />
                               Registrado
                             </Badge>
                           ) : (
-                            <Badge variant="destructive" className="bg-red-100 text-red-800 border border-red-200 hover:bg-red-200">
+                            <Badge variant="destructive">
                                <XCircle className="mr-1 h-3 w-3" />
                               No Registrado
                             </Badge>
