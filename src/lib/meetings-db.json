@@ -394,35 +394,5 @@
       "7"
     ],
     "minute": null
-  },
-  {
-    "id": "instance-1750352041967-o12tch2-23",
-    "seriesId": "series-1750352041937-u4zuh",
-    "name": "ensayo (27 jun)",
-    "date": "2025-06-28",
-    "time": "10:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "attendeeUids": [
-      "7",
-      "8",
-      "1749877175613-ls6oqv6"
-    ],
-    "minute": null
-  },
-  {
-    "id": "instance-1750352041971-3sfnwsm-24",
-    "seriesId": "series-1750352041937-u4zuh",
-    "name": "ensayo (25 jul)",
-    "date": "2025-07-25",
-    "time": "10:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "attendeeUids": [
-      "7",
-      "8",
-      "1749877175613-ls6oqv6"
-    ],
-    "minute": null
   }
 ]

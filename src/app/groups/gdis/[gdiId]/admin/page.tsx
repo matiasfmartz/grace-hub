@@ -1,4 +1,3 @@
-
 'use client';
 import { getGdiById, getAllGdis } from '@/services/gdiService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
@@ -207,6 +206,13 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
     }
   };
 
+  const handleSeriesDeleted = () => {
+    const params = new URLSearchParams(currentHookSearchParams.toString());
+    params.delete('activeSeriesId');
+    params.delete('mPage');
+    router.push(`/groups/gdis/${gdiId}/admin?${params.toString()}`);
+  };
+
   const createSeriesLink = (seriesIdToLink: string) => {
       const params = new URLSearchParams();
       params.set('activeSeriesId', seriesIdToLink);
@@ -372,6 +378,7 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
                               deleteMeetingSeriesAction={(seriesIdToDelete) => handleDeleteGdiMeetingSeriesAction(gdi.id, seriesIdToDelete)}
                               seriesTypeContext="gdi"
                               ownerGroupIdContext={gdi.id}
+                              onDeleteSuccess={handleSeriesDeleted}
                           />
                       </div>
                   </div>
@@ -426,4 +433,3 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
     </div>
   );
 }
-

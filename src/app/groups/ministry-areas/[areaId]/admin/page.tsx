@@ -1,4 +1,3 @@
-
 'use client';
 import { getMinistryAreaById } from '@/services/ministryAreaService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
@@ -207,6 +206,13 @@ export default function MinistryAreaAdminPage({}: MinistryAreaAdminPageProps) {
     }
   };
 
+  const handleSeriesDeleted = () => {
+    const params = new URLSearchParams(currentHookSearchParams.toString());
+    params.delete('activeSeriesId');
+    params.delete('mPage');
+    router.push(`/groups/ministry-areas/${areaId}/admin?${params.toString()}`);
+  };
+
   const createSeriesLink = (seriesIdToLink: string) => {
       const params = new URLSearchParams();
       params.set('activeSeriesId', seriesIdToLink);
@@ -375,6 +381,7 @@ export default function MinistryAreaAdminPage({}: MinistryAreaAdminPageProps) {
                               deleteMeetingSeriesAction={(seriesIdToDelete) => handleDeleteAreaMeetingSeriesAction(ministryArea.id, seriesIdToDelete)}
                               seriesTypeContext="ministryArea"
                               ownerGroupIdContext={ministryArea.id}
+                              onDeleteSuccess={handleSeriesDeleted}
                           />
                       </div>
                   </div>
@@ -429,4 +436,3 @@ export default function MinistryAreaAdminPage({}: MinistryAreaAdminPageProps) {
     </div>
   );
 }
-

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useTransition } from 'react';
@@ -30,6 +29,7 @@ interface ManageMeetingSeriesDialogProps {
   deleteMeetingSeriesAction: (seriesId: string) => Promise<{ success: boolean; message: string }>;
   seriesTypeContext: MeetingSeriesType; // Added context
   ownerGroupIdContext?: string | null; // Added context
+  onDeleteSuccess?: () => void;
 }
 
 const getDayLabel = (dayId: DayOfWeekType): string => {
@@ -57,7 +57,8 @@ export default function ManageMeetingSeriesDialog({
   updateMeetingSeriesAction,
   deleteMeetingSeriesAction,
   seriesTypeContext,
-  ownerGroupIdContext
+  ownerGroupIdContext,
+  onDeleteSuccess,
 }: ManageMeetingSeriesDialogProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -72,6 +73,9 @@ export default function ManageMeetingSeriesDialog({
   const handleDeleteSuccess = () => {
     setIsDeleteAlertOpen(false);
     setIsDialogOpen(false); 
+    if (onDeleteSuccess) {
+      onDeleteSuccess();
+    }
   };
   
   const parsedOneTimeDate = (series.oneTimeDate && typeof series.oneTimeDate === 'string' && series.oneTimeDate.trim() !== "")
