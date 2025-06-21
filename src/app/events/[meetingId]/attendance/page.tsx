@@ -143,33 +143,35 @@ export default async function MeetingAttendancePage({ params }: MeetingAttendanc
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="mb-6 flex justify-between items-center">
+      <div className="mb-6">
         <Button asChild variant="outline">
           <Link href={backLink}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             {backLinkText}
           </Link>
         </Button>
-        <ManageMeetingInstanceDialog
-            instance={meetingInstance}
-            series={meetingSeries}
-            updateInstanceAction={handleUpdateMeetingInstanceAction}
-            deleteInstanceAction={handleDeleteMeetingInstanceAction}
-            redirectOnDeletePath={backLink}
-             triggerButton={
-                <Button variant="outline">
-                    <Settings className="mr-2 h-4 w-4" /> Gestionar Reunión
-                </Button>
-            }
-        />
       </div>
 
       <Card className="mb-8 shadow-lg">
-        <CardHeader>
-          <CardTitle className="font-headline text-3xl text-primary">{pageTitle}</CardTitle>
-          <CardDescription className="text-md">
-            {meetingDateTime} - {meetingLocation}
-          </CardDescription>
+        <CardHeader className="flex flex-col sm:flex-row justify-between items-start gap-4">
+          <div>
+            <CardTitle className="font-headline text-3xl text-primary">{pageTitle}</CardTitle>
+            <CardDescription className="text-md">
+              {meetingDateTime} - {meetingLocation}
+            </CardDescription>
+          </div>
+          <ManageMeetingInstanceDialog
+              instance={meetingInstance}
+              series={meetingSeries}
+              updateInstanceAction={handleUpdateMeetingInstanceAction}
+              deleteInstanceAction={handleDeleteMeetingInstanceAction}
+              redirectOnDeletePath={backLink}
+              triggerButton={
+                  <Button variant="outline">
+                      <Settings className="mr-2 h-4 w-4" /> Gestionar Reunión
+                  </Button>
+              }
+          />
         </CardHeader>
         {meetingInstance.description && (
           <CardContent>

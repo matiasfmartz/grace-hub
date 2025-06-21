@@ -409,20 +409,5 @@
       "1749877175613-ls6oqv6"
     ],
     "minute": null
-  },
-  {
-    "id": "instance-1750532536087-eqtxirs-24",
-    "seriesId": "series-1750532512616-10cn1",
-    "name": "informativa (Ocasional)",
-    "date": "2025-06-22",
-    "time": "10:00",
-    "location": "Santuario Principal",
-    "description": "",
-    "attendeeUids": [
-      "7",
-      "8",
-      "1749877175613-ls6oqv6"
-    ],
-    "minute": null
   }
 ]
