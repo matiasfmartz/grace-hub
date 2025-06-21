@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo } from 'react';
@@ -8,6 +7,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { HandCoins, CalendarOff, CheckCircle2, XCircle, PieChart, Info } from 'lucide-react';
 import { format, isWithinInterval, startOfDay, endOfDay, isValid, eachMonthOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+
 
 interface MemberTitheHistoryProps {
   memberId: string;
@@ -103,26 +105,36 @@ export default function MemberTitheHistory({ memberId, allTitheRecords, startDat
               </Card>
             </div>
             <h4 className="text-sm font-semibold mb-2">Detalle Mensual (en rango):</h4>
-            <ScrollArea className="h-[150px] border rounded-md p-2">
+            <ScrollArea className="h-[150px] border rounded-md">
               {monthlyStatuses.length > 0 ? (
-                <ul className="space-y-1">
-                  {monthlyStatuses.map(({ date, tithed }) => (
-                    <li key={date.toISOString()} className="flex items-center justify-between text-sm p-1.5 rounded-md even:bg-muted/50">
-                      <span className="capitalize">{format(date, 'MMMM yyyy', { locale: es })}</span>
-                      {tithed ? (
-                        <span className="flex items-center text-green-600 font-medium">
-                            <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                            Registrado
-                        </span>
-                      ) : (
-                        <span className="flex items-center text-red-600 font-medium">
-                            <XCircle className="mr-1.5 h-4 w-4" />
-                            No Registrado
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Mes</TableHead>
+                      <TableHead className="text-right">Estado</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {monthlyStatuses.map(({ date, tithed }) => (
+                      <TableRow key={date.toISOString()}>
+                        <TableCell className="capitalize font-medium">{format(date, 'MMMM yyyy', { locale: es })}</TableCell>
+                        <TableCell className="text-right">
+                          {tithed ? (
+                            <Badge variant="default" className="bg-green-100 text-green-800 border border-green-200 hover:bg-green-200">
+                              <CheckCircle2 className="mr-1 h-3 w-3" />
+                              Registrado
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="bg-red-100 text-red-800 border border-red-200 hover:bg-red-200">
+                               <XCircle className="mr-1 h-3 w-3" />
+                              No Registrado
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                     <CalendarOff className="h-8 w-8 mb-2" />
