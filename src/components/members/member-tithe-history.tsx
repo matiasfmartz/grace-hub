@@ -47,25 +47,26 @@ export default function MemberTitheHistory({ memberId, allTitheRecords, startDat
     };
   }, [startDate, endDate, allTitheRecords, memberId]);
 
-  const tithedMonths = useMemo(() => {
-    const memberRecords = allTitheRecords.filter(r => r.memberId === memberId);
-
-    const dateFilteredRecords = (startDate && endDate && isValid(startDate) && isValid(endDate) && startDate <= endDate)
-      ? memberRecords.filter(record => {
-          try {
-            const recordDate = new Date(record.year, record.month - 1);
-            return isValid(recordDate) && isWithinInterval(recordDate, { start: startOfDay(startDate), end: endOfDay(endDate) });
-          } catch {
-            return false;
-          }
-        })
-      : memberRecords;
-
-    return dateFilteredRecords
-      .map(record => new Date(record.year, record.month - 1))
-      .filter((date): date is Date => isValid(date))
-      .sort((a, b) => b.getTime() - a.getTime());
-  }, [memberId, allTitheRecords, startDate, endDate]);
+  const monthlyStatuses = useMemo(() => {
+    if (!startDate || !endDate || !isValid(startDate) || !isValid(endDate) || startDate > endDate) {
+        return [];
+    }
+    const allMonthsInRange = eachMonthOfInterval({ start: startDate, end: endDate });
+    const memberTitheSet = new Set(
+        allTitheRecords
+            .filter(r => r.memberId === memberId)
+            .map(r => `${r.year}-${r.month}`)
+    );
+    return allMonthsInRange.map(monthDate => {
+        const year = monthDate.getFullYear();
+        const monthNum = monthDate.getMonth() + 1;
+        const monthKey = `${year}-${monthNum}`;
+        return {
+            date: monthDate,
+            tithed: memberTitheSet.has(monthKey)
+        };
+    }).sort((a, b) => b.date.getTime() - a.date.getTime()); // Sort descending
+  }, [startDate, endDate, allTitheRecords, memberId]);
 
   return (
     <Card className="shadow-sm mt-6">
@@ -75,12 +76,13 @@ export default function MemberTitheHistory({ memberId, allTitheRecords, startDat
           Historial de Diezmos
         </CardTitle>
         <CardDescription>
-          Meses en los que se registró un diezmo para este miembro.
+          Resumen de diezmos para el miembro en el período seleccionado.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {summaryStats ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
               <Card className="bg-green-500/5">
                   <CardHeader className="pb-2">
                       <CardDescription className="text-xs font-medium flex items-center"><CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />Registrados (en rango)</CardDescription>
@@ -99,31 +101,42 @@ export default function MemberTitheHistory({ memberId, allTitheRecords, startDat
                       <CardTitle className="text-2xl text-blue-700">{summaryStats.percentage.toFixed(0)}%</CardTitle>
                   </CardHeader>
               </Card>
-          </div>
+            </div>
+            <h4 className="text-sm font-semibold mb-2">Detalle Mensual (en rango):</h4>
+            <ScrollArea className="h-[150px] border rounded-md p-2">
+              {monthlyStatuses.length > 0 ? (
+                <ul className="space-y-1">
+                  {monthlyStatuses.map(({ date, tithed }) => (
+                    <li key={date.toISOString()} className="flex items-center justify-between text-sm p-1.5 rounded-md even:bg-muted/50">
+                      <span className="capitalize">{format(date, 'MMMM yyyy', { locale: es })}</span>
+                      {tithed ? (
+                        <span className="flex items-center text-green-600 font-medium">
+                            <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                            Registrado
+                        </span>
+                      ) : (
+                        <span className="flex items-center text-red-600 font-medium">
+                            <XCircle className="mr-1.5 h-4 w-4" />
+                            No Registrado
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                    <CalendarOff className="h-8 w-8 mb-2" />
+                    <p>No hay meses para mostrar en el período seleccionado.</p>
+                </div>
+              )}
+            </ScrollArea>
+          </>
         ) : (
-          <div className="flex items-center text-sm text-muted-foreground bg-muted/50 p-3 rounded-md mb-4">
+          <div className="flex items-center text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
               <Info className="mr-2 h-4 w-4 shrink-0" />
-              Seleccione un rango de fechas para ver el resumen estadístico de diezmos.
+              Seleccione un rango de fechas para ver el historial detallado de diezmos.
           </div>
         )}
-        
-        <h4 className="text-sm font-semibold mb-2">Meses con Diezmo Registrado (filtrados):</h4>
-        <ScrollArea className="h-[150px] border rounded-md p-2">
-          {tithedMonths.length > 0 ? (
-            <ul className="space-y-1">
-              {tithedMonths.map(date => (
-                <li key={date.toISOString()} className="text-sm p-1 capitalize">
-                  - {format(date, 'MMMM yyyy', { locale: es })}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-              <CalendarOff className="h-8 w-8 mb-2" />
-              <p>No se encontraron registros de diezmos para el período seleccionado.</p>
-            </div>
-          )}
-        </ScrollArea>
       </CardContent>
     </Card>
   );
