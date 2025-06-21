@@ -75,34 +75,26 @@ export async function getResolvedAttendees(
                 .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
         }
     } else if ((parentSeries.seriesType === 'gdi' || parentSeries.seriesType === 'ministryArea') && parentSeries.ownerGroupId) {
-        // For group-specific meetings, attendees are members of that group.
+        // For group-specific meetings, always dynamically resolve attendees based on current group membership.
+        // This ensures that changes to the group (like adding a member) are immediately reflected in who is expected at meetings.
         let groupMemberIds: string[] = [];
         if (parentSeries.seriesType === 'gdi') {
             const gdis = await readDbFile<GDI>(GDIS_DB_FILE, []);
             const gdi = gdis.find(g => g.id === parentSeries.ownerGroupId);
             if (gdi) {
-                groupMemberIds = [gdi.guideId, ...gdi.memberIds];
+                // Combine guide and members, ensuring no duplicates.
+                groupMemberIds = Array.from(new Set([gdi.guideId, ...gdi.memberIds]));
             }
         } else if (parentSeries.seriesType === 'ministryArea') {
             const areas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
             const area = areas.find(a => a.id === parentSeries.ownerGroupId);
             if (area) {
-                groupMemberIds = [area.leaderId, ...area.memberIds];
+                 // Combine leader and members, ensuring no duplicates.
+                groupMemberIds = Array.from(new Set([area.leaderId, ...area.memberIds]));
             }
         }
         
-        // The `meeting.attendeeUids` for group meetings should already be resolved to these group members
-        // at instance creation time. So, we can primarily rely on `meeting.attendeeUids`.
-        if (!meeting.attendeeUids || meeting.attendeeUids.length === 0) {
-             // Fallback if attendeeUids wasn't populated, try to resolve group members dynamically
-             if (groupMemberIds.length > 0) {
-                 return allMembers.filter(member => groupMemberIds.includes(member.id))
-                    .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
-             }
-             return [];
-        }
-
-        return allMembers.filter(member => meeting.attendeeUids.includes(member.id))
+        return allMembers.filter(member => groupMemberIds.includes(member.id))
             .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
     }
     
