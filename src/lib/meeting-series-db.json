@@ -145,5 +145,20 @@
     "frequency": "OneTime",
     "oneTimeDate": "2025-06-28",
     "cancelledDates": []
+  },
+  {
+    "id": "series-1750532512616-10cn1",
+    "name": "informativa",
+    "description": "",
+    "defaultTime": "10:00",
+    "defaultLocation": "Santuario Principal",
+    "seriesType": "ministryArea",
+    "ownerGroupId": "ma2",
+    "targetAttendeeGroups": [
+      "allMembers"
+    ],
+    "frequency": "OneTime",
+    "oneTimeDate": "2025-06-01",
+    "cancelledDates": []
   }
 ]

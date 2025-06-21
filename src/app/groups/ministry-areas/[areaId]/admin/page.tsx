@@ -1,3 +1,4 @@
+
 'use client';
 import { getMinistryAreaById } from '@/services/ministryAreaService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
@@ -374,6 +375,7 @@ export default function MinistryAreaAdminPage({}: MinistryAreaAdminPageProps) {
                           <AddOccasionalMeetingDialog
                               series={selectedSeriesObject}
                               addOccasionalMeetingAction={(seriesId, formData) => handleAddMeetingForCurrentAreaAction(ministryArea.id, seriesId, formData)}
+                              onSuccess={() => router.refresh()}
                           />
                           <ManageMeetingSeriesDialog
                               series={selectedSeriesObject}

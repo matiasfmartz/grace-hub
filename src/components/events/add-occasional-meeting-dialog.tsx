@@ -23,9 +23,10 @@ interface AddOccasionalMeetingDialogProps {
     seriesId: string,
     formData: AddOccasionalMeetingFormValues
   ) => Promise<{ success: boolean; message: string; newInstance?: Meeting }>;
+  onSuccess?: () => void;
 }
 
-export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetingAction }: AddOccasionalMeetingDialogProps) {
+export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetingAction, onSuccess }: AddOccasionalMeetingDialogProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -49,15 +50,20 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
   const handleSubmit = async (values: AddOccasionalMeetingFormValues) => {
     let result: { success: boolean; message: string; newInstance?: Meeting} = { success: false, message: "Error desconocido" };
     startTransition(async () => {
-      result = await addOccasionalMeetingAction(series.id, values);
-      if (result.success) {
-        toast({ title: "Éxito", description: result.message });
+      const formResult = await addOccasionalMeetingAction(series.id, values);
+      if (formResult.success) {
+        toast({ title: "Éxito", description: formResult.message });
         setOpen(false);
+        if (onSuccess) {
+            onSuccess();
+        }
       } else {
-        toast({ title: "Error", description: result.message, variant: "destructive" });
+        toast({ title: "Error", description: formResult.message, variant: "destructive" });
       }
     });
-    return result;
+    // This is passed to a form component that doesn't actually use the return value
+    // but the pattern is to return it.
+    return result; 
   };
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -85,7 +91,7 @@ export default function AddOccasionalMeetingDialog({ series, addOccasionalMeetin
             isEditing={false}
             isPending={isPending}
             onCancel={() => setOpen(false)}
-            onSuccess={() => setOpen(false)}
+            onSuccess={() => { /* Success logic is now handled in handleSubmit */ }}
           />
         </div>
       </DialogContent>

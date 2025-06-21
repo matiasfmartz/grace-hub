@@ -1,3 +1,4 @@
+
 'use client';
 import { getGdiById, getAllGdis } from '@/services/gdiService';
 import { getAllMembersNonPaginated } from '@/services/memberService';
@@ -371,6 +372,7 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
                           <AddOccasionalMeetingDialog
                               series={selectedSeriesObject}
                               addOccasionalMeetingAction={(seriesId, formData) => handleAddMeetingForCurrentGDIAction(gdi.id, seriesId, formData)}
+                              onSuccess={() => router.refresh()}
                           />
                           <ManageMeetingSeriesDialog
                               series={selectedSeriesObject}
