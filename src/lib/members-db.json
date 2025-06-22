@@ -39,7 +39,8 @@
     "assignedGDIId": null,
     "assignedAreaIds": [
       "1749880199537-cvuyxy3",
-      "1750352396551-w9poihx"
+      "1750352396551-w9poihx",
+      "ma2"
     ],
     "roles": [
       "Worker",
@@ -80,12 +81,11 @@
     "attendsLifeSchool": true,
     "attendsBibleInstitute": false,
     "fromAnotherChurch": false,
-    "assignedGDIId": "gdi2",
+    "assignedGDIId": null,
     "assignedAreaIds": [
       "1750352396551-w9poihx"
     ],
     "roles": [
-      "GeneralAttendee",
       "Worker"
     ]
   },
@@ -278,12 +278,10 @@
     "fromAnotherChurch": true,
     "status": "New",
     "avatarUrl": "https://placehold.co/100x100",
-    "assignedGDIId": "gdi2",
+    "assignedGDIId": null,
     "assignedAreaIds": [],
     "id": "1750199260231-8n65jh5",
-    "roles": [
-      "GeneralAttendee"
-    ]
+    "roles": []
   },
   {
     "firstName": "Alan",

@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { Member, GDI, MinistryArea, AddMemberFormValues, MemberRoleType, Meeting, MeetingSeries, AttendanceRecord, TitheRecord } from '@/lib/types';
@@ -17,6 +16,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import React, { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
+import { startOfYear, endOfDay } from 'date-fns';
 
 interface MemberDetailsDialogProps {
   member: Member | null;
@@ -68,8 +68,9 @@ export default function MemberDetailsDialog({
   useEffect(() => {
     if (isOpen) {
       setAttendanceSelectedSeriesId('all');
-      setAttendanceStartDate(undefined);
-      setAttendanceEndDate(undefined);
+      const now = new Date();
+      setAttendanceStartDate(startOfYear(now));
+      setAttendanceEndDate(endOfDay(now));
     }
   }, [isOpen, member]);
 
@@ -368,8 +369,9 @@ export default function MemberDetailsDialog({
                            {(attendanceStartDate || attendanceEndDate) && (
                               <Button
                                 onClick={() => {
-                                  setAttendanceStartDate(undefined);
-                                  setAttendanceEndDate(undefined);
+                                  const now = new Date();
+                                  setAttendanceStartDate(startOfYear(now));
+                                  setAttendanceEndDate(endOfDay(now));
                                 }}
                                 variant="link"
                                 size="sm"

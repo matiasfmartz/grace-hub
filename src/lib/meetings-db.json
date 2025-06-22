@@ -409,5 +409,23 @@
       "1749877175613-ls6oqv6"
     ],
     "minute": null
+  },
+  {
+    "id": "instance-1750605732546-bb3spv6-24",
+    "seriesId": "series-1750200635989-xyqu2",
+    "name": "Reunion de Lideres (18 jul)",
+    "date": "2025-07-18",
+    "time": "20:00",
+    "location": "Auditorio",
+    "description": "",
+    "attendeeUids": [
+      "7",
+      "2",
+      "5",
+      "1749880160940-30020fm",
+      "1749877175613-ls6oqv6",
+      "1750352301052-4qaeja0"
+    ],
+    "minute": null
   }
 ]
