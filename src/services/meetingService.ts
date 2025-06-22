@@ -147,7 +147,7 @@ export async function getMeetingSeriesById(id: string): Promise<MeetingSeries | 
   return seriesList.find(series => series.id === id);
 }
 
-async function resolveAttendeeUidsForGeneralSeries(
+export async function resolveAttendeeUidsForGeneralSeries(
   targetGroups: MeetingTargetRoleType[],
   allMembers: Member[],
   allGdis: GDI[],

@@ -2,6 +2,7 @@
 'use server';
 import type { AttendanceRecord, Meeting, Member, MeetingSeries, GDI, MinistryArea } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
+import { resolveAttendeeUidsForGeneralSeries } from './meetingService';
 
 const ATTENDANCE_DB_FILE = 'attendance-db.json';
 const MEMBERS_DB_FILE = 'members-db.json'; 
@@ -58,7 +59,6 @@ export async function getResolvedAttendees(
     const parentSeries = allMeetingSeries.find(s => s.id === meeting.seriesId);
 
     if (!parentSeries) {
-        // If series not found, fall back to UIDs stored in meeting if any
         if (!meeting.attendeeUids || meeting.attendeeUids.length === 0) return [];
         return allMembers.filter(member => meeting.attendeeUids.includes(member.id))
             .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
@@ -66,12 +66,13 @@ export async function getResolvedAttendees(
 
     if (parentSeries.seriesType === 'general') {
         if (parentSeries.targetAttendeeGroups.includes("allMembers")) {
-            // For 'general' series with 'allMembers' target, all members are expected.
             return [...allMembers].sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
         } else {
-            // For 'general' series with specific roles (workers, leaders), use UIDs from meeting.attendeeUids (resolved at series creation)
-            if (!meeting.attendeeUids || meeting.attendeeUids.length === 0) return [];
-            return allMembers.filter(member => meeting.attendeeUids.includes(member.id))
+            // Dynamically resolve attendees based on roles, ignoring meeting.attendeeUids for this case.
+            const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, []);
+            const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
+            const resolvedUids = await resolveAttendeeUidsForGeneralSeries(parentSeries.targetAttendeeGroups, allMembers, allGdis, allMinistryAreas);
+            return allMembers.filter(member => resolvedUids.includes(member.id))
                 .sort((a,b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
         }
     } else if ((parentSeries.seriesType === 'gdi' || parentSeries.seriesType === 'ministryArea') && parentSeries.ownerGroupId) {
