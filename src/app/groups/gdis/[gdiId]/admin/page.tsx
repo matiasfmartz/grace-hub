@@ -115,19 +115,21 @@ async function getData(
   const memberCurrentPage = Number(spMPage) || 1;
   let memberPageSize = Number(spMPSize) || 10;
   if (isNaN(memberPageSize) || memberPageSize < 1) memberPageSize = 10;
+  
+  // ---MODIFIED LOGIC FOR ROWS---
+  // The rows should be all members of THIS GDI, not a union of meeting attendees.
+  const gdiMemberIds = new Set([gdiDetails.guideId, ...gdiDetails.memberIds]);
+  const initialRowMembers = allMembersData
+    .filter(member => gdiMemberIds.has(member.id))
+    .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
 
-  const rowMemberIds = new Set<string>();
   const expectedAttendeesMap: Record<string, Set<string>> = {};
-
   for (const meeting of meetingsForChartAndTable) {
+    // This is still needed to get the checkmarks correct for each instance.
     const resolvedForThisInstance = await getResolvedAttendees(meeting, allMembersData, groupSeriesData);
     expectedAttendeesMap[meeting.id] = new Set(resolvedForThisInstance.map(m => m.id));
-    resolvedForThisInstance.forEach(member => rowMemberIds.add(member.id));
   }
-
-  const initialRowMembers = allMembersData
-    .filter(member => rowMemberIds.has(member.id))
-    .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+  // ---END MODIFIED LOGIC---
 
   return {
     gdi: gdiDetails,
@@ -202,8 +204,7 @@ export default function GdiAdminPage({}: GdiAdminPageProps) {
         params.delete('mPage'); 
         router.push(`/groups/gdis/${gdiId}/admin?${params.toString()}`);
     } else {
-        const params = new URLSearchParams(currentHookSearchParams.toString());
-        router.push(`/groups/gdis/${gdiId}/admin?${params.toString()}`);
+        router.refresh();
     }
   };
 

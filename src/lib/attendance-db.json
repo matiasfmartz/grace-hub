@@ -502,5 +502,47 @@
     "memberId": "7",
     "attended": true,
     "notes": ""
+  },
+  {
+    "id": "instance-1750607774041-jkkb03m-27-8-1750607801359",
+    "meetingId": "instance-1750607774041-jkkb03m-27",
+    "memberId": "8",
+    "attended": true,
+    "notes": ""
+  },
+  {
+    "id": "instance-1750607774041-jkkb03m-27-1749880160940-30020fm-1750607801359",
+    "meetingId": "instance-1750607774041-jkkb03m-27",
+    "memberId": "1749880160940-30020fm",
+    "attended": true,
+    "notes": ""
+  },
+  {
+    "id": "instance-1750607774041-jkkb03m-27-7-1750607801359",
+    "meetingId": "instance-1750607774041-jkkb03m-27",
+    "memberId": "7",
+    "attended": true,
+    "notes": ""
+  },
+  {
+    "id": "instance-1750607829242-xm3swmh-28-8-1750607854946",
+    "meetingId": "instance-1750607829242-xm3swmh-28",
+    "memberId": "8",
+    "attended": true,
+    "notes": ""
+  },
+  {
+    "id": "instance-1750607829242-xm3swmh-28-1749880160940-30020fm-1750607854946",
+    "meetingId": "instance-1750607829242-xm3swmh-28",
+    "memberId": "1749880160940-30020fm",
+    "attended": true,
+    "notes": ""
+  },
+  {
+    "id": "instance-1750607829242-xm3swmh-28-7-1750607854946",
+    "meetingId": "instance-1750607829242-xm3swmh-28",
+    "memberId": "7",
+    "attended": true,
+    "notes": ""
   }
 ]

@@ -117,21 +117,6 @@
     ]
   },
   {
-    "id": "series-1750354537453-pos30",
-    "name": "Jovenes",
-    "description": "",
-    "defaultTime": "10:00",
-    "defaultLocation": "Santuario Principal",
-    "seriesType": "ministryArea",
-    "ownerGroupId": "ma1",
-    "targetAttendeeGroups": [
-      "allMembers"
-    ],
-    "frequency": "OneTime",
-    "oneTimeDate": "2025-06-21",
-    "cancelledDates": []
-  },
-  {
     "id": "series-1750359636136-jbd3q",
     "name": "Organizacion Impacto",
     "description": "",
@@ -154,6 +139,36 @@
     "defaultLocation": "Santuario Principal",
     "seriesType": "ministryArea",
     "ownerGroupId": "ma2",
+    "targetAttendeeGroups": [
+      "allMembers"
+    ],
+    "frequency": "OneTime",
+    "oneTimeDate": "2025-06-01",
+    "cancelledDates": []
+  },
+  {
+    "id": "series-1750607701532-caaf9",
+    "name": "Jovenes",
+    "description": "",
+    "defaultTime": "10:00",
+    "defaultLocation": "Santuario Principal",
+    "seriesType": "ministryArea",
+    "ownerGroupId": "ma1",
+    "targetAttendeeGroups": [
+      "allMembers"
+    ],
+    "frequency": "OneTime",
+    "oneTimeDate": "2025-06-30",
+    "cancelledDates": []
+  },
+  {
+    "id": "series-1750607774034-1oohv",
+    "name": "reunion de mentoria",
+    "description": "",
+    "defaultTime": "10:00",
+    "defaultLocation": "Santuario Principal",
+    "seriesType": "ministryArea",
+    "ownerGroupId": "ma1",
     "targetAttendeeGroups": [
       "allMembers"
     ],

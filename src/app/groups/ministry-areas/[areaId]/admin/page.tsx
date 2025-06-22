@@ -115,19 +115,21 @@ async function getData(
   let memberPageSize = Number(spMPSize) || 10;
   if (isNaN(memberPageSize) || memberPageSize < 1) memberPageSize = 10;
 
-  const rowMemberIds = new Set<string>();
-  const expectedAttendeesMap: Record<string, Set<string>> = {};
+  // ---MODIFIED LOGIC FOR ROWS---
+  // The rows should be all members of THIS Area, not a union of meeting attendees.
+  const areaMemberIds = new Set([ministryAreaDetails.leaderId, ...ministryAreaDetails.memberIds]);
+  const initialRowMembers = allMembersData
+    .filter(member => areaMemberIds.has(member.id))
+    .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
 
+  const expectedAttendeesMap: Record<string, Set<string>> = {};
   for (const meeting of meetingsForChartAndTable) {
+    // This is still needed to get the checkmarks correct for each instance.
     const allSeriesForResolver = await getSeriesByIdForGroup('ministryArea', areaId, undefined); 
     const resolvedForThisInstance = await getResolvedAttendees(meeting, allMembersData, allSeriesForResolver);
     expectedAttendeesMap[meeting.id] = new Set(resolvedForThisInstance.map(m => m.id));
-    resolvedForThisInstance.forEach(member => rowMemberIds.add(member.id));
   }
-  
-  const initialRowMembers = allMembersData
-    .filter(member => rowMemberIds.has(member.id))
-    .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+  // ---END MODIFIED LOGIC---
 
   return {
     ministryArea: ministryAreaDetails,
@@ -202,8 +204,7 @@ export default function MinistryAreaAdminPage({}: MinistryAreaAdminPageProps) {
         params.delete('mPage'); 
         router.push(`/groups/ministry-areas/${areaId}/admin?${params.toString()}`);
     } else {
-        const params = new URLSearchParams(currentHookSearchParams.toString());
-        router.push(`/groups/ministry-areas/${areaId}/admin?${params.toString()}`);
+        router.refresh();
     }
   };
 

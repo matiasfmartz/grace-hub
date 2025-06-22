@@ -239,18 +239,28 @@ async function getEventsPageData(
     meetingInstancesTotalPages = result.totalPages;
   }
 
-  const rowMemberIds = new Set<string>();
-  const expectedAttendeesMap: Record<string, Set<string>> = {};
-
-  for (const meeting of meetingsForPage) {
-    const resolvedForThisInstance = await getResolvedAttendees(meeting, allMembersData, allSeriesData);
-    expectedAttendeesMap[meeting.id] = new Set(resolvedForThisInstance.map(m => m.id));
-    resolvedForThisInstance.forEach(member => rowMemberIds.add(member.id));
+  // ---MODIFIED LOGIC FOR ROWS---
+  let initialRowMembers: Member[] = [];
+  const selectedSeriesObject = actualSelectedSeriesId ? seriesPresentInFilter.find(s => s.id === actualSelectedSeriesId) : undefined;
+  
+  if (selectedSeriesObject) {
+      // Create a dummy meeting to resolve all potential attendees for the SERIES.
+      const dummyMeetingForSeries: Meeting = { 
+          id: 'dummy-series-resolver', 
+          seriesId: selectedSeriesObject.id, 
+          attendeeUids: [], // Not used for dynamic resolution
+          name: '', date: '', time: '', location: '' 
+      };
+      initialRowMembers = await getResolvedAttendees(dummyMeetingForSeries, allMembersData, allSeriesData);
   }
 
-  const initialRowMembers = allMembersData
-    .filter(member => rowMemberIds.has(member.id))
-    .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+  const expectedAttendeesMap: Record<string, Set<string>> = {};
+  for (const meeting of meetingsForPage) {
+    // This is still needed for each instance to get the checkmarks correct
+    const resolvedForThisInstance = await getResolvedAttendees(meeting, allMembersData, allSeriesData);
+    expectedAttendeesMap[meeting.id] = new Set(resolvedForThisInstance.map(m => m.id));
+  }
+  // ---END MODIFIED LOGIC---
 
   return {
     allSeries: seriesPresentInFilter,

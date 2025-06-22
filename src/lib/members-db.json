@@ -53,7 +53,7 @@
     "lastName": "White",
     "email": "carol@example.com",
     "phone": "555-0103",
-    "status": "New",
+    "status": "Active",
     "avatarUrl": "https://placehold.co/100x100",
     "birthDate": "1995-12-01",
     "churchJoinDate": "2023-07-01",
@@ -61,10 +61,14 @@
     "attendsBibleInstitute": true,
     "fromAnotherChurch": false,
     "assignedGDIId": "gdi2",
-    "assignedAreaIds": [],
+    "assignedAreaIds": [
+      "ma1"
+    ],
     "baptismDate": "",
     "roles": [
-      "GeneralAttendee"
+      "GeneralAttendee",
+      "Worker",
+      "Leader"
     ]
   },
   {
@@ -129,9 +133,12 @@
     "attendsBibleInstitute": true,
     "fromAnotherChurch": false,
     "assignedGDIId": "gdi1",
-    "assignedAreaIds": [],
+    "assignedAreaIds": [
+      "ma1"
+    ],
     "roles": [
-      "GeneralAttendee"
+      "GeneralAttendee",
+      "Worker"
     ]
   },
   {
@@ -238,14 +245,9 @@
     "status": "Active",
     "avatarUrl": "https://placehold.co/100x100",
     "assignedGDIId": null,
-    "assignedAreaIds": [
-      "ma1"
-    ],
+    "assignedAreaIds": [],
     "id": "1749880160940-30020fm",
-    "roles": [
-      "Worker",
-      "Leader"
-    ]
+    "roles": []
   },
   {
     "firstName": "Florencia",
