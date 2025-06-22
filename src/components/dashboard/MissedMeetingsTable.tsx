@@ -207,55 +207,61 @@ export default function MissedMeetingsTable({
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label htmlFor="startDateFilterAbsent" className="text-xs font-medium text-muted-foreground">Fecha Inicio (Reunión)</label>
+            <label htmlFor="startDateFilterAbsent" className="block mb-1 text-xs font-medium text-muted-foreground">Fecha Inicio (Reunión)</label>
             <DatePicker date={startDate} setDate={setStartDate} placeholder="Desde" />
           </div>
           <div>
-            <label htmlFor="endDateFilterAbsent" className="text-xs font-medium text-muted-foreground">Fecha Fin (Reunión)</label>
+            <label htmlFor="endDateFilterAbsent" className="block mb-1 text-xs font-medium text-muted-foreground">Fecha Fin (Reunión)</label>
             <DatePicker date={endDate} setDate={setEndDate} placeholder="Hasta" />
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full justify-start">
-                <Users className="mr-2 h-4 w-4" />
-                {selectedStatuses.length > 0 ? `Estado (${selectedStatuses.length})` : "Estado del Miembro"}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuLabel>Filtrar por Estado</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {availableStatusFilters.map(opt => (
-                <DropdownMenuCheckboxItem
-                  key={opt.value}
-                  checked={selectedStatuses.includes(opt.value)}
-                  onCheckedChange={() => toggleFilterItem(opt.value, selectedStatuses, setSelectedStatuses)}
-                >
-                  {opt.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full justify-start">
-                <UserCog className="mr-2 h-4 w-4" />
-                {selectedRoles.length > 0 ? `Rol (${selectedRoles.length})` : "Rol del Miembro"}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuLabel>Filtrar por Rol</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {availableRoleFilters.map(opt => (
-                <DropdownMenuCheckboxItem
-                  key={opt.value}
-                  checked={selectedRoles.includes(opt.value)}
-                  onCheckedChange={() => toggleFilterItem(opt.value, selectedRoles, setSelectedRoles)}
-                >
-                  {opt.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div>
+            <label className="block mb-1 text-xs font-medium text-muted-foreground">Estado del Miembro</label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-start">
+                  <Users className="mr-2 h-4 w-4" />
+                  {selectedStatuses.length > 0 ? `Estado (${selectedStatuses.length})` : "Estado del Miembro"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel>Filtrar por Estado</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {availableStatusFilters.map(opt => (
+                  <DropdownMenuCheckboxItem
+                    key={opt.value}
+                    checked={selectedStatuses.includes(opt.value)}
+                    onCheckedChange={() => toggleFilterItem(opt.value, selectedStatuses, setSelectedStatuses)}
+                  >
+                    {opt.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div>
+            <label className="block mb-1 text-xs font-medium text-muted-foreground">Rol del Miembro</label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-start">
+                  <UserCog className="mr-2 h-4 w-4" />
+                  {selectedRoles.length > 0 ? `Rol (${selectedRoles.length})` : "Rol del Miembro"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel>Filtrar por Rol</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {availableRoleFilters.map(opt => (
+                  <DropdownMenuCheckboxItem
+                    key={opt.value}
+                    checked={selectedRoles.includes(opt.value)}
+                    onCheckedChange={() => toggleFilterItem(opt.value, selectedRoles, setSelectedRoles)}
+                  >
+                    {opt.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
         {hasActiveFilters && (
             <Button onClick={clearAllFilters} variant="link" size="sm" className="mt-2 px-0 text-xs text-destructive hover:text-destructive/80">
