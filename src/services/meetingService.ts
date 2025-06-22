@@ -162,24 +162,24 @@ export async function resolveAttendeeUidsForGeneralSeries(
     for (const role of targetGroups) {
         if (role === 'workers') {
             allGdis.forEach(gdi => {
-                const guide = allMembers.find(m => m.id === gdi.guideId && m.status === 'Active');
+                const guide = allMembers.find(m => m.id === gdi.guideId);
                 if(guide) attendeeSet.add(gdi.guideId);
             });
             allMinistryAreas.forEach(area => {
-                const leader = allMembers.find(m => m.id === area.leaderId && m.status === 'Active');
+                const leader = allMembers.find(m => m.id === area.leaderId);
                 if(leader) attendeeSet.add(area.leaderId);
                 area.memberIds.forEach(memberId => {
-                    const member = allMembers.find(m => m.id === memberId && m.status === 'Active');
+                    const member = allMembers.find(m => m.id === memberId);
                     if (member && memberId !== area.leaderId) attendeeSet.add(memberId);
                 });
             });
         } else if (role === 'leaders') {
             allGdis.forEach(gdi => {
-                 const guide = allMembers.find(m => m.id === gdi.guideId && m.status === 'Active');
+                 const guide = allMembers.find(m => m.id === gdi.guideId);
                  if(guide) attendeeSet.add(gdi.guideId);
             });
             allMinistryAreas.forEach(area => {
-                const leader = allMembers.find(m => m.id === area.leaderId && m.status === 'Active');
+                const leader = allMembers.find(m => m.id === area.leaderId);
                 if(leader) attendeeSet.add(area.leaderId);
             });
         }
@@ -597,3 +597,4 @@ export async function deleteMeetingInstance(instanceId: string): Promise<void> {
   const attendanceRecordsLeft = allAttendanceRecords.filter(ar => ar.meetingId !== instanceId);
   await writeDbFile<AttendanceRecord>(ATTENDANCE_DB_FILE, attendanceRecordsLeft);
 }
+
