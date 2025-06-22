@@ -5,7 +5,7 @@ import type { Meeting, Member, AttendanceRecord, MeetingSeries, GDI, MemberRoleT
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { format, parseISO, isValid, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { format, parseISO, isValid, isWithinInterval, startOfDay, endOfDay, isPast, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useMemo, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -70,25 +70,28 @@ export default function MissedMeetingsTable({
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
 
   const absentMembersData = useMemo(() => {
-    let meetingsToConsider = generalMeetingsSorted;
+    let meetingsToConsider: Meeting[];
 
-    if (startDate && endDate && startDate <= endDate) {
-      meetingsToConsider = generalMeetingsSorted.filter(meeting => {
-        const meetingDateObj = parseISO(meeting.date);
-        return isValid(meetingDateObj) && isWithinInterval(meetingDateObj, { start: startOfDay(startDate), end: endOfDay(endDate) });
+    if (!startDate && !endDate) {
+      // Default behavior: find the single most recent meeting that has occurred.
+      const today = new Date();
+      const mostRecentPastOrPresentMeeting = generalMeetingsSorted.find(meeting => {
+          const meetingDateObj = parseISO(meeting.date);
+          return isValid(meetingDateObj) && (isPast(meetingDateObj) || isToday(meetingDateObj));
       });
-    } else if (startDate) {
-        meetingsToConsider = generalMeetingsSorted.filter(meeting => {
-            const meetingDateObj = parseISO(meeting.date);
-            return isValid(meetingDateObj) && meetingDateObj >= startOfDay(startDate);
-        });
-    } else if (endDate) {
-         meetingsToConsider = generalMeetingsSorted.filter(meeting => {
-            const meetingDateObj = parseISO(meeting.date);
-            return isValid(meetingDateObj) && meetingDateObj <= endOfDay(endDate);
-        });
+      meetingsToConsider = mostRecentPastOrPresentMeeting ? [mostRecentPastOrPresentMeeting] : [];
+    } else {
+      // User has applied date filters, use the specified range.
+      meetingsToConsider = generalMeetingsSorted.filter(meeting => {
+          const meetingDateObj = parseISO(meeting.date);
+          if (!isValid(meetingDateObj)) return false;
+          
+          const isAfterStart = startDate ? meetingDateObj >= startOfDay(startDate) : true;
+          const isBeforeEnd = endDate ? meetingDateObj <= endOfDay(endDate) : true;
+          
+          return isAfterStart && isBeforeEnd;
+      });
     }
-
 
     const data: AbsentMemberInfo[] = [];
     if (meetingsToConsider.length === 0) return data;
@@ -273,7 +276,7 @@ export default function MissedMeetingsTable({
       {generalMeetingsSorted.length === 0 && <p className="text-muted-foreground text-center py-4">No hay reuniones generales registradas.</p>}
       {generalMeetingsSorted.length > 0 && absentMembersData.length === 0 && (
         <p className="text-muted-foreground text-center py-4">
-          {hasActiveFilters ? "No hay miembros ausentes que coincidan con los filtros." : "¡Excelente! Todos los miembros esperados asistieron."}
+          {hasActiveFilters ? "No hay miembros ausentes que coincidan con los filtros." : "¡Excelente! Todos los miembros esperados asistieron a la última reunión."}
         </p>
       )}
       
@@ -325,7 +328,7 @@ export default function MissedMeetingsTable({
       )}
        <p className="text-xs text-muted-foreground mt-2">
          Mostrando {absentMembersData.length} miembro(s) ausente(s) según los filtros aplicados.
-         {(!startDate && !endDate && generalMeetingsSorted.length > 0) && ` Se consideran todas las ${generalMeetingsSorted.length} reuniones generales registradas.`}
+         {(!startDate && !endDate && generalMeetingsSorted.length > 0) && ` Se considera la última reunión general que ha ocurrido.`}
       </p>
     </div>
   );
