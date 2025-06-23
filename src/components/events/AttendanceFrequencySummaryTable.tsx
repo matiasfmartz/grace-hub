@@ -21,6 +21,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { useMemo } from 'react';
 
 interface AttendanceLineChartProps {
   meetingsForSeries: Meeting[];
@@ -28,6 +29,7 @@ interface AttendanceLineChartProps {
   seriesName: string;
   filterStartDate?: string;
   filterEndDate?: string;
+  expectedAttendeesMap: Record<string, Set<string>>;
 }
 
 interface ChartDataPoint {
@@ -82,31 +84,44 @@ export default function AttendanceLineChart({
   seriesName,
   filterStartDate,
   filterEndDate,
+  expectedAttendeesMap,
 }: AttendanceLineChartProps) {
+
+  const chartData = useMemo(() => {
+      if (!meetingsForSeries || meetingsForSeries.length === 0) {
+        return [];
+      }
+
+      const dateCounts = new Map<string, number>();
+      meetingsForSeries.forEach(meeting => {
+          dateCounts.set(meeting.date, (dateCounts.get(meeting.date) || 0) + 1);
+      });
+
+      // Sort meetings by date ascending for correct line chart progression
+      const sortedMeetings = [...meetingsForSeries].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+
+      const data: ChartDataPoint[] = sortedMeetings.map(meeting => {
+        const expectedUids = expectedAttendeesMap[meeting.id] || new Set();
+        
+        const attendedRecords = allAttendanceRecords.filter(
+          record => 
+            record.meetingId === meeting.id && 
+            record.attended &&
+            expectedUids.has(record.memberId) // Only count if they were expected
+        );
+        const isDuplicateDate = (dateCounts.get(meeting.date) || 0) > 1;
+        return {
+          meetingDisplay: formatMeetingDisplay(meeting.date, meeting.time, meeting.name, isDuplicateDate),
+          attendedCount: attendedRecords.length,
+          expectedCount: expectedUids.size, // Use the size of the expected set
+        };
+      });
+      return data;
+  }, [meetingsForSeries, allAttendanceRecords, expectedAttendeesMap]);
 
   if (!meetingsForSeries || meetingsForSeries.length === 0) {
     return null;
   }
-
-  const dateCounts = new Map<string, number>();
-  meetingsForSeries.forEach(meeting => {
-      dateCounts.set(meeting.date, (dateCounts.get(meeting.date) || 0) + 1);
-  });
-
-  // Sort meetings by date ascending for correct line chart progression
-  const sortedMeetings = [...meetingsForSeries].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
-
-  const chartData: ChartDataPoint[] = sortedMeetings.map(meeting => {
-    const attendedRecords = allAttendanceRecords.filter(
-      record => record.meetingId === meeting.id && record.attended
-    );
-    const isDuplicateDate = (dateCounts.get(meeting.date) || 0) > 1;
-    return {
-      meetingDisplay: formatMeetingDisplay(meeting.date, meeting.time, meeting.name, isDuplicateDate),
-      attendedCount: attendedRecords.length,
-      expectedCount: meeting.attendeeUids?.length || 0,
-    };
-  });
 
   const captionDateRangeText = formatDateRangeText(filterStartDate, filterEndDate);
 

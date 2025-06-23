@@ -478,6 +478,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                   seriesName={selectedSeriesObject.name}
                   filterStartDate={appliedStartDate}
                   filterEndDate={appliedEndDate}
+                  expectedAttendeesMap={expectedAttendeesMap}
                 />
               )}
 
