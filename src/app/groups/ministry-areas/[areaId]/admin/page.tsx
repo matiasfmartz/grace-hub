@@ -116,7 +116,7 @@ async function getData(
   if (isNaN(memberPageSize) || memberPageSize < 1) memberPageSize = 10;
 
   // ---MODIFIED LOGIC FOR ROWS---
-  // The rows should be all members of THIS Area, not a union of meeting attendees.
+  // The rows should be all current members of THIS Area.
   const areaMemberIds = new Set([ministryAreaDetails.leaderId, ...ministryAreaDetails.memberIds]);
   const initialRowMembers = allMembersData
     .filter(member => areaMemberIds.has(member.id))
@@ -124,10 +124,8 @@ async function getData(
 
   const expectedAttendeesMap: Record<string, Set<string>> = {};
   for (const meeting of meetingsForChartAndTable) {
-    // This is still needed to get the checkmarks correct for each instance.
-    const allSeriesForResolver = await getSeriesByIdForGroup('ministryArea', areaId, undefined); 
-    const resolvedForThisInstance = await getResolvedAttendees(meeting, allMembersData, allSeriesForResolver);
-    expectedAttendeesMap[meeting.id] = new Set(resolvedForThisInstance.map(m => m.id));
+    // Use the historical snapshot of attendees stored in the meeting instance
+    expectedAttendeesMap[meeting.id] = new Set(meeting.attendeeUids || []);
   }
   // ---END MODIFIED LOGIC---
 

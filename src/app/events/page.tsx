@@ -244,7 +244,7 @@ async function getEventsPageData(
   const selectedSeriesObject = actualSelectedSeriesId ? seriesPresentInFilter.find(s => s.id === actualSelectedSeriesId) : undefined;
   
   if (selectedSeriesObject) {
-      // Create a dummy meeting to resolve all potential attendees for the SERIES.
+      // Create a dummy meeting to resolve all potential attendees for the SERIES based on CURRENT roles.
       const dummyMeetingForSeries: Meeting = { 
           id: 'dummy-series-resolver', 
           seriesId: selectedSeriesObject.id, 
@@ -256,9 +256,8 @@ async function getEventsPageData(
 
   const expectedAttendeesMap: Record<string, Set<string>> = {};
   for (const meeting of meetingsForPage) {
-    // This is still needed for each instance to get the checkmarks correct
-    const resolvedForThisInstance = await getResolvedAttendees(meeting, allMembersData, allSeriesData);
-    expectedAttendeesMap[meeting.id] = new Set(resolvedForThisInstance.map(m => m.id));
+    // Use the historical snapshot of attendees stored in the meeting instance
+    expectedAttendeesMap[meeting.id] = new Set(meeting.attendeeUids || []);
   }
   // ---END MODIFIED LOGIC---
 

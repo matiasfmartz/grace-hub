@@ -117,7 +117,7 @@ async function getData(
   if (isNaN(memberPageSize) || memberPageSize < 1) memberPageSize = 10;
   
   // ---MODIFIED LOGIC FOR ROWS---
-  // The rows should be all members of THIS GDI, not a union of meeting attendees.
+  // The rows should be all current members of THIS GDI.
   const gdiMemberIds = new Set([gdiDetails.guideId, ...gdiDetails.memberIds]);
   const initialRowMembers = allMembersData
     .filter(member => gdiMemberIds.has(member.id))
@@ -125,9 +125,8 @@ async function getData(
 
   const expectedAttendeesMap: Record<string, Set<string>> = {};
   for (const meeting of meetingsForChartAndTable) {
-    // This is still needed to get the checkmarks correct for each instance.
-    const resolvedForThisInstance = await getResolvedAttendees(meeting, allMembersData, groupSeriesData);
-    expectedAttendeesMap[meeting.id] = new Set(resolvedForThisInstance.map(m => m.id));
+    // Use the historical snapshot of attendees stored in the meeting instance
+    expectedAttendeesMap[meeting.id] = new Set(meeting.attendeeUids || []);
   }
   // ---END MODIFIED LOGIC---
 

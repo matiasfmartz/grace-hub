@@ -34,74 +34,12 @@ export async function getAllMembers(
   const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs); 
   const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
 
+  // Since filtering by role/group now happens on the frontend for the table,
+  // we primarily filter by search term and status on the backend.
   const workingFilteredMembers = allMembersFromFile.filter(member => {
     let statusMatch = true;
     if (memberStatusFiltersParam && memberStatusFiltersParam.length > 0) {
       statusMatch = member.status && memberStatusFiltersParam.includes(member.status);
-    }
-
-    let roleMatch = true;
-    const hasNoRoleFilter = roleFilterParams?.includes(NO_ROLE_FILTER_VALUE);
-    const actualRoleFilters = roleFilterParams?.filter(r => r !== NO_ROLE_FILTER_VALUE) || [];
-    if (roleFilterParams && roleFilterParams.length > 0) {
-      const memberHasActualRole = actualRoleFilters.length > 0 && member.roles && member.roles.some(role => actualRoleFilters.includes(role));
-      const memberHasNoRole = !member.roles || member.roles.length === 0;
-
-      if (hasNoRoleFilter && actualRoleFilters.length > 0) {
-        roleMatch = memberHasActualRole || memberHasNoRole;
-      } else if (hasNoRoleFilter) {
-        roleMatch = memberHasNoRole;
-      } else if (actualRoleFilters.length > 0) {
-        roleMatch = memberHasActualRole;
-      }
-    }
-
-    let guideMatch = true;
-    const hasNoGdiFilter = guideIdFilterParams?.includes(NO_GDI_FILTER_VALUE);
-    const actualGuideIdFilters = guideIdFilterParams?.filter(id => id !== NO_GDI_FILTER_VALUE) || [];
-    if (guideIdFilterParams && guideIdFilterParams.length > 0) {
-      const memberHasNoGdi = !member.assignedGDIId;
-      let memberMatchesActualGuide = false;
-
-      if (actualGuideIdFilters.length > 0) {
-        const membersToIncludeFromActualGuides = new Set<string>();
-        actualGuideIdFilters.forEach(guideId => {
-          membersToIncludeFromActualGuides.add(guideId); 
-          const gdisLedByThisGuide = allGdis.filter(gdi => gdi.guideId === guideId);
-          gdisLedByThisGuide.forEach(gdi => {
-            if (gdi.memberIds) gdi.memberIds.forEach(memberId => membersToIncludeFromActualGuides.add(memberId));
-          });
-        });
-        memberMatchesActualGuide = membersToIncludeFromActualGuides.has(member.id);
-      }
-
-      if (hasNoGdiFilter && actualGuideIdFilters.length > 0) {
-        guideMatch = memberHasNoGdi || memberMatchesActualGuide;
-      } else if (hasNoGdiFilter) {
-        guideMatch = memberHasNoGdi;
-      } else if (actualGuideIdFilters.length > 0) {
-        guideMatch = memberMatchesActualGuide;
-      }
-    }
-
-    let areaMatch = true;
-    const hasNoAreaFilter = areaIdFilterParams?.includes(NO_AREA_FILTER_VALUE);
-    const actualAreaIdFilters = areaIdFilterParams?.filter(id => id !== NO_AREA_FILTER_VALUE) || [];
-    if (areaIdFilterParams && areaIdFilterParams.length > 0) {
-        const memberHasNoArea = !member.assignedAreaIds || member.assignedAreaIds.length === 0;
-        let memberMatchesActualArea = false;
-
-        if (actualAreaIdFilters.length > 0) {
-            memberMatchesActualArea = member.assignedAreaIds && member.assignedAreaIds.some(areaId => actualAreaIdFilters.includes(areaId));
-        }
-        
-        if (hasNoAreaFilter && actualAreaIdFilters.length > 0) {
-            areaMatch = memberHasNoArea || memberMatchesActualArea;
-        } else if (hasNoAreaFilter) {
-            areaMatch = memberHasNoArea;
-        } else if (actualAreaIdFilters.length > 0) {
-            areaMatch = memberMatchesActualArea;
-        }
     }
     
     let searchTermMatch = true;
@@ -119,7 +57,7 @@ export async function getAllMembers(
         }
     }
 
-    return statusMatch && roleMatch && guideMatch && areaMatch && searchTermMatch;
+    return statusMatch && searchTermMatch;
   });
 
   const totalMembers = workingFilteredMembers.length;
