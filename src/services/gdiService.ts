@@ -2,7 +2,6 @@
 'use server';
 import type { GDI, GdiWriteData, Member, MeetingSeries } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
-import { placeholderGDIs, placeholderMembers } from '@/lib/placeholder-data';
 import { deleteMeetingSeries } from './meetingService'; // Import for cascading delete
 
 const GDIS_DB_FILE = 'gdis-db.json';
@@ -10,7 +9,7 @@ const MEMBERS_DB_FILE = 'members-db.json';
 const MEETING_SERIES_DB_FILE = 'meeting-series-db.json';
 
 export async function getAllGdis(): Promise<GDI[]> {
-  return readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
+  return readDbFile<GDI>(GDIS_DB_FILE, []);
 }
 
 export async function getGdiById(id: string): Promise<GDI | undefined> {
@@ -20,7 +19,7 @@ export async function getGdiById(id: string): Promise<GDI | undefined> {
 
 export async function addGdi(gdiData: GdiWriteData): Promise<GDI> {
   const gdis = await getAllGdis();
-  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
+  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, []);
   const guideMemberIndex = allMembers.findIndex(m => m.id === gdiData.guideId);
   
   const newGdiId = `${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -35,7 +34,7 @@ export async function addGdi(gdiData: GdiWriteData): Promise<GDI> {
     }
     const otherGdiIdx = gdis.findIndex(g => g.guideId === gdiData.guideId);
     if (otherGdiIdx !== -1) {
-      gdis[otherGdiIdx].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${gdis[otherGdiIdx].id}`; 
+      gdis[otherGdiIdx].guideId = allMembers[0]?.id || `NEEDS_GUIDE_${gdis[otherGdiIdx].id}`; 
       gdis[otherGdiIdx].memberIds = gdis[otherGdiIdx].memberIds.filter(id => id !== gdiData.guideId);
     }
     allMembers[guideMemberIndex].assignedGDIId = newGdiId; 
@@ -76,7 +75,7 @@ export async function updateGdiAndSyncMembers(
   updatedGdiData: Partial<Pick<GDI, 'name' | 'guideId' | 'memberIds'>>
 ): Promise<{ updatedGdi: GDI; affectedMemberIds: string[] }> {
   let allGdis = await getAllGdis();
-  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
+  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, []);
   let affectedMemberIds = new Set<string>();
 
   const gdiIndexToUpdate = allGdis.findIndex(gdi => gdi.id === gdiIdToUpdate);
@@ -105,9 +104,9 @@ export async function updateGdiAndSyncMembers(
       const previousGDIIdOfNewGuide = allMembers[newGuideMemberIndex].assignedGDIId;
       const otherGdiIdx = allGdis.findIndex(g => g.guideId === newGuideId && g.id !== gdiIdToUpdate);
       if (otherGdiIdx !== -1) {
-        allGdis[otherGdiIdx].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${allGdis[otherGdiIdx].id}`;
+        allGdis[otherGdiIdx].guideId = allMembers[0]?.id || `NEEDS_GUIDE_${allGdis[otherGdiIdx].id}`;
         allGdis[otherGdiIdx].memberIds = allGdis[otherGdiIdx].memberIds.filter(id => id !== newGuideId);
-        if(allGdis[otherGdiIdx].guideId !== placeholderMembers[0]?.id) affectedMemberIds.add(allGdis[otherGdiIdx].guideId); 
+        if(allGdis[otherGdiIdx].guideId !== allMembers[0]?.id) affectedMemberIds.add(allGdis[otherGdiIdx].guideId); 
       }
       if (previousGDIIdOfNewGuide && previousGDIIdOfNewGuide !== gdiIdToUpdate) {
          const prevGdiIdx = allGdis.findIndex(g => g.id === previousGDIIdOfNewGuide);
@@ -136,9 +135,9 @@ export async function updateGdiAndSyncMembers(
       const previousGDIIdOfMember = allMembers[memberIdx].assignedGDIId;
       const otherGdiIdx = allGdis.findIndex(g => g.guideId === memberId && g.id !== gdiIdToUpdate);
       if (otherGdiIdx !== -1) {
-          allGdis[otherGdiIdx].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${allGdis[otherGdiIdx].id}`;
+          allGdis[otherGdiIdx].guideId = allMembers[0]?.id || `NEEDS_GUIDE_${allGdis[otherGdiIdx].id}`;
           allGdis[otherGdiIdx].memberIds = allGdis[otherGdiIdx].memberIds.filter(id => id !== memberId);
-          if(allGdis[otherGdiIdx].guideId !== placeholderMembers[0]?.id) affectedMemberIds.add(allGdis[otherGdiIdx].guideId);
+          if(allGdis[otherGdiIdx].guideId !== allMembers[0]?.id) affectedMemberIds.add(allGdis[otherGdiIdx].guideId);
       }
       if (previousGDIIdOfMember && previousGDIIdOfMember !== gdiIdToUpdate) {
            const prevGdiIdx = allGdis.findIndex(g => g.id === previousGDIIdOfMember);
@@ -183,7 +182,7 @@ export async function deleteGdi(gdiId: string): Promise<string[]> {
   const remainingGdis = allGdis.filter(gdi => gdi.id !== gdiId);
   await writeDbFile<GDI>(GDIS_DB_FILE, remainingGdis);
 
-  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
+  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, []);
   const affectedMemberIds = new Set<string>();
 
   // Add guide and all members of the deleted GDI to affectedMemberIds

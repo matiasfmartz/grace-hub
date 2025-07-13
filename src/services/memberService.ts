@@ -3,7 +3,6 @@
 import type { Member, MemberWriteData, GDI, MinistryArea, MemberRoleType } from '@/lib/types';
 import { NO_ROLE_FILTER_VALUE, NO_GDI_FILTER_VALUE, NO_AREA_FILTER_VALUE } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
-import { placeholderMembers, placeholderGDIs, placeholderMinistryAreas } from '@/lib/placeholder-data';
 import { calculateMemberRoles } from '@/lib/roleUtils';
 
 const MEMBERS_DB_FILE = 'members-db.json';
@@ -30,9 +29,9 @@ export async function getAllMembers(
   guideIdFilterParams?: string[],
   areaIdFilterParams?: string[] 
 ): Promise<{ members: Member[], totalMembers: number, totalPages: number }> {
-  const allMembersFromFile = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs); 
-  const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
+  const allMembersFromFile = await readDbFile<Member>(MEMBERS_DB_FILE, []);
+  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, []); 
+  const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
 
   // Since filtering by role/group now happens on the frontend for the table,
   // we primarily filter by search term and status on the backend.
@@ -71,19 +70,19 @@ export async function getAllMembers(
 
 
 export async function getAllMembersNonPaginated(): Promise<Member[]> {
-  return readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
+  return readDbFile<Member>(MEMBERS_DB_FILE, []);
 }
 
 
 export async function getMemberById(id: string): Promise<Member | undefined> {
-  const members = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
+  const members = await readDbFile<Member>(MEMBERS_DB_FILE, []);
   return members.find(member => member.id === id);
 }
 
 export async function addMember(memberData: MemberWriteData): Promise<Member> {
-  const members = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
-  const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
+  const members = await readDbFile<Member>(MEMBERS_DB_FILE, []);
+  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, []);
+  const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
 
   const tempMemberForRoleCalc: Pick<Member, 'id' | 'assignedGDIId' | 'assignedAreaIds'> = {
       id: '', 
@@ -111,9 +110,9 @@ export async function addMember(memberData: MemberWriteData): Promise<Member> {
 }
 
 export async function updateMember(memberId: string, updates: Partial<Omit<Member, 'id'>>): Promise<Member> {
-  let members = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
-  const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
+  let members = await readDbFile<Member>(MEMBERS_DB_FILE, []);
+  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, []);
+  const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
 
   const memberIndex = members.findIndex(m => m.id === memberId);
   if (memberIndex === -1) {
@@ -154,7 +153,7 @@ export async function updateMemberAssignments(
 
   
   if (oldAssignedGDIId !== newAssignedGDIId) {
-    let allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
+    let allGdis = await readDbFile<GDI>(GDIS_DB_FILE, []);
     let gdisDbChanged = false;
 
     
@@ -163,7 +162,7 @@ export async function updateMemberAssignments(
       if (oldGdiIndex !== -1) {
         
         if (allGdis[oldGdiIndex].guideId === memberId) {
-           allGdis[oldGdiIndex].guideId = placeholderMembers[0]?.id || `NEEDS_GUIDE_${oldAssignedGDIId}`; 
+           allGdis[oldGdiIndex].guideId = (await readDbFile<Member>(MEMBERS_DB_FILE, []))[0]?.id || `NEEDS_GUIDE_${oldAssignedGDIId}`; 
            affectedMemberIdsForRoleRecalculation.add(allGdis[oldGdiIndex].guideId); 
         }
         
@@ -201,7 +200,7 @@ export async function updateMemberAssignments(
   const areasRemovedFrom = Array.from(originalAreaIdsSet).filter(id => !updatedAreaIdsSet.has(id));
 
   if (areasAddedTo.length > 0 || areasRemovedFrom.length > 0) {
-    let allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
+    let allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
     let ministryAreasDbChanged = false;
 
     areasAddedTo.forEach(areaId => {
@@ -220,7 +219,7 @@ export async function updateMemberAssignments(
       if (areaIndex !== -1) {
         
         if (allMinistryAreas[areaIndex].leaderId === memberId) {
-          allMinistryAreas[areaIndex].leaderId = placeholderMembers[0]?.id || `NEEDS_LEADER_${areaId}`; 
+          allMinistryAreas[areaIndex].leaderId = (await readDbFile<Member>(MEMBERS_DB_FILE, []))[0]?.id || `NEEDS_LEADER_${areaId}`; 
           affectedMemberIdsForRoleRecalculation.add(allMinistryAreas[areaIndex].leaderId);
         }
         
@@ -244,7 +243,7 @@ export async function addMemberToAssignments(
   
 
   if (newMember.assignedGDIId) {
-    let allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
+    let allGdis = await readDbFile<GDI>(GDIS_DB_FILE, []);
     const gdiIndex = allGdis.findIndex(gdi => gdi.id === newMember.assignedGDIId);
     if (gdiIndex !== -1) {
       
@@ -257,7 +256,7 @@ export async function addMemberToAssignments(
 
   const assignedAreaIds = newMember.assignedAreaIds || [];
   if (assignedAreaIds.length > 0) {
-    let allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
+    let allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
     let ministryAreasDbChanged = false;
     assignedAreaIds.forEach(areaId => {
       const areaIndex = allMinistryAreas.findIndex(area => area.id === areaId);
@@ -281,9 +280,9 @@ export async function bulkRecalculateAndUpdateRoles(memberIdsToUpdate: string[])
     return;
   }
 
-  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
-  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, placeholderGDIs);
-  const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
+  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, []);
+  const allGdis = await readDbFile<GDI>(GDIS_DB_FILE, []);
+  const allMinistryAreas = await readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
 
   let membersDbChanged = false;
 
@@ -314,4 +313,3 @@ export async function bulkRecalculateAndUpdateRoles(memberIdsToUpdate: string[])
     await writeDbFile<Member>(MEMBERS_DB_FILE, allMembers);
   }
 }
-

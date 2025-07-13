@@ -2,7 +2,6 @@
 'use server';
 import type { MinistryArea, MinistryAreaWriteData, Member, MeetingSeries } from '@/lib/types';
 import { readDbFile, writeDbFile } from '@/lib/db-utils';
-import { placeholderMinistryAreas, placeholderMembers } from '@/lib/placeholder-data';
 import { deleteMeetingSeries } from './meetingService'; // Import for cascading delete
 
 const MINISTRY_AREAS_DB_FILE = 'ministry-areas-db.json';
@@ -11,7 +10,7 @@ const MEETING_SERIES_DB_FILE = 'meeting-series-db.json';
 
 
 export async function getAllMinistryAreas(): Promise<MinistryArea[]> {
-  return readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, placeholderMinistryAreas);
+  return readDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, []);
 }
 
 export async function getMinistryAreaById(id: string): Promise<MinistryArea | undefined> {
@@ -21,7 +20,7 @@ export async function getMinistryAreaById(id: string): Promise<MinistryArea | un
 
 export async function addMinistryArea(areaData: MinistryAreaWriteData): Promise<MinistryArea> {
   const areas = await getAllMinistryAreas();
-  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
+  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, []);
   const newAreaId = `${Date.now().toString()}-${Math.random().toString(36).substring(2, 9)}`;
 
   const leaderMemberIndex = allMembers.findIndex(m => m.id === areaData.leaderId);
@@ -67,7 +66,7 @@ export async function updateMinistryAreaAndSyncMembers(
   updatedAreaData: Partial<Pick<MinistryArea, 'leaderId' | 'memberIds' | 'name' | 'description'>>
 ): Promise<{ updatedArea: MinistryArea; affectedMemberIds: string[] }> {
   let allCurrentAreas = await getAllMinistryAreas();
-  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
+  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, []);
   let affectedMemberIds = new Set<string>();
 
   const areaIndex = allCurrentAreas.findIndex(area => area.id === areaId);
@@ -152,7 +151,7 @@ export async function deleteMinistryArea(areaId: string): Promise<string[]> {
   const remainingAreas = allMinistryAreas.filter(area => area.id !== areaId);
   await writeDbFile<MinistryArea>(MINISTRY_AREAS_DB_FILE, remainingAreas);
 
-  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, placeholderMembers);
+  let allMembers = await readDbFile<Member>(MEMBERS_DB_FILE, []);
   const affectedMemberIds = new Set<string>();
 
   // Add leader and all members of the deleted area to affectedMemberIds
